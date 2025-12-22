@@ -37,6 +37,12 @@ export class PretDataService {
       taux_nominal: (payload as any)?.taux_nominal ?? null,
       type_garantie: (payload as any)?.type_garantie ?? null,
       apport_personnel: (payload as any)?.apport_personnel ?? null,
+      // Nouveaux champs d'extraction
+      date_debut: (payload as any)?.date_debut ?? null,
+      date_fin: (payload as any)?.date_fin ?? null,
+      date_debut_effective: (payload as any)?.date_debut_effective ?? null,
+      duree_restante_mois: (payload as any)?.duree_restante_mois ?? null,
+      capital_restant_du: (payload as any)?.capital_restant_du ?? null,
     }
 
     if (existing) {

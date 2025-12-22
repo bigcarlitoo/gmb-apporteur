@@ -38,7 +38,7 @@ export default function DossierCard({
   }, [isIntersecting, isRead, dossierId, onMarkAsRead, isResponsive, markAsRead])
 
   // Cloner les enfants et ajouter les props optimistes
-  const childrenWithOptimisticProps = React.cloneElement(children as React.ReactElement, {
+  const childrenWithOptimisticProps = React.cloneElement(children as React.ReactElement<any>, {
     'data-is-read': isRead,
     'data-has-pending': hasPendingUpdate,
     'data-original-is-read': initialIsRead

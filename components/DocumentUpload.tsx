@@ -83,9 +83,14 @@ export default function DocumentUpload({
 
   // Validation des fichiers
   const validateFile = (file: File, documentKey: string): string | null => {
-    // Taille maximum : 10MB
-    if (file.size > 10 * 1024 * 1024) {
-      return 'Le fichier ne peut pas dépasser 10MB';
+    // Taille maximum : 50MB (configurable via env)
+    const maxSize = process.env.NEXT_PUBLIC_MAX_FILE_SIZE ? 
+      parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE) : 
+      50 * 1024 * 1024; // 50MB par défaut
+    
+    if (file.size > maxSize) {
+      const maxSizeMB = Math.round(maxSize / (1024 * 1024));
+      return `Le fichier ne peut pas dépasser ${maxSizeMB}MB`;
     }
 
     // Types de fichiers acceptés

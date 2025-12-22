@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+// Vérifier si on est en dev
+const isDev = process.env.NODE_ENV === 'development';
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
@@ -13,6 +16,8 @@ export default function OnboardingPage() {
   const [isInitialized, setIsInitialized] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const forceShow = isDev && searchParams.get('force') === 'true';
 
   useEffect(() => {
     // Initialiser le mode sombre
@@ -44,7 +49,8 @@ export default function OnboardingPage() {
         .eq('user_id', user.id)
         .single();
 
-      if (profile?.cgu_accepted_at) {
+      // Rediriger si déjà accepté (sauf si force=true en dev)
+      if (profile?.cgu_accepted_at && !forceShow) {
         router.push('/');
       }
     };

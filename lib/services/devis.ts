@@ -17,7 +17,7 @@ export class DevisService {
         dossiers!inner (
           id,
           numero_dossier,
-          statut,
+          statut:statut_canon,
           type_dossier,
           client_infos (
             client_nom,
@@ -98,49 +98,6 @@ export class DevisService {
     }
 
     return data
-  }
-
-  /**
-   * Crée un devis à partir d'un objet mock local pour un dossier donné
-   */
-  static async createDevisFromMock(mock: any, dossierId: string) {
-    // Générer un numero_devis si absent
-    let numero: string
-    try {
-      numero = await this.generateNumeroDevis()
-    } catch {
-      numero = `MOCK-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`
-    }
-
-    const record: DevisInsert = {
-      dossier_id: dossierId,
-      numero_devis: mock?.numero_devis || numero,
-      statut: (mock?.statut && ['en_attente','envoye','lu','accepte','refuse','expire'].includes(mock?.statut)) ? mock?.statut : 'en_attente',
-      donnees_devis: {
-        compagnie: mock?.compagnie,
-        produit: mock?.produit,
-        mensualite: mock?.cout_mensuel,
-        primeTotale: mock?.cout_total,
-        economie_estimee: mock?.economie_estimee,
-        garanties: (mock?.formalites_medicales || []).map((x: any) => ({ libelle: String(x) })),
-        couverture: mock?.couverture,
-        exclusions: mock?.exclusions,
-        avantages: mock?.avantages,
-        id_simulation: mock?.id_simulation,
-        reference: mock?.id_tarif,
-        cout_total_tarif: mock?.cout_total_tarif,
-        frais_adhesion: mock?.frais_adhesion,
-        frais_frac: mock?.frais_frac,
-        detail_pret: mock?.detail_pret,
-        formalites_detaillees: mock?.formalites_detaillees,
-        erreurs: mock?.erreurs,
-      } as any,
-      date_generation: new Date().toISOString(),
-      date_expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    }
-
-    const created = await this.createDevis(record)
-    return created
   }
 
   /**
@@ -394,5 +351,227 @@ export class DevisService {
     }
 
     return data
+  }
+
+  /**
+   * Met à jour un devis unique avec de nouvelles données Exade
+   * Utilisé pour le recalcul ciblé d'un seul devis
+   */
+  static async updateSingleDevis(
+    devisId: string,
+    tarifData: {
+      cout_total: number;
+      cout_mensuel: number;
+      frais_adhesion?: number;
+      frais_adhesion_apporteur?: number;
+      frais_frac?: number;
+      frais_courtier?: number;
+      commission_exade_code?: string;
+      taux_capital_assure?: number;
+      compatible_lemoine?: boolean;
+      formalites_medicales?: string[];
+      type_tarif?: string;
+      erreurs?: string[];
+    },
+    coutAssuranceBanque?: number
+  ) {
+    try {
+      // Calculer l'économie estimée si on a le coût de l'assurance banque
+      const economieEstimee = coutAssuranceBanque 
+        ? coutAssuranceBanque - tarifData.cout_total 
+        : null;
+
+      // Récupérer les données existantes pour les fusionner
+      const { data: existingDevis, error: fetchError } = await supabase
+        .from('devis')
+        .select('donnees_devis')
+        .eq('id', devisId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      // Fusionner les anciennes et nouvelles données
+      const existingData = existingDevis?.donnees_devis || {}
+      const newDonneesDevis = {
+        ...existingData,
+        ...tarifData,
+        updated_at: new Date().toISOString()
+      }
+
+      // Mettre à jour le devis
+      const { data, error } = await supabase
+        .from('devis')
+        .update({
+          cout_total: tarifData.cout_total,
+          cout_mensuel: tarifData.cout_mensuel,
+          economie_estimee: economieEstimee,
+          donnees_devis: newDonneesDevis,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', devisId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      console.log('[DevisService.updateSingleDevis] Devis mis à jour:', devisId)
+      return data
+    } catch (error) {
+      console.error('[DevisService.updateSingleDevis] Erreur:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Met à jour les paramètres financiers d'un devis (frais et commission)
+   */
+  static async updateDevisFinancials(
+    devisId: string,
+    fraisCourtierCentimes: number,
+    commissionExadeCode: string | null
+  ) {
+    try {
+      // Récupérer les données existantes
+      const { data: existingDevis, error: fetchError } = await supabase
+        .from('devis')
+        .select('donnees_devis')
+        .eq('id', devisId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      // Mettre à jour donnees_devis avec les nouveaux paramètres
+      const existingData = (existingDevis?.donnees_devis || {}) as Record<string, unknown>
+      const newDonneesDevis = {
+        ...existingData,
+        frais_courtier: fraisCourtierCentimes,
+        frais_adhesion_apporteur: fraisCourtierCentimes / 100,
+        commission_exade_code: commissionExadeCode,
+        financials_updated_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('devis')
+        .update({
+          donnees_devis: newDonneesDevis,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', devisId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      console.log('[DevisService.updateDevisFinancials] Paramètres mis à jour:', { devisId, fraisCourtierCentimes, commissionExadeCode })
+      return data
+    } catch (error) {
+      console.error('[DevisService.updateDevisFinancials] Erreur:', error)
+      throw error
+    }
+  }
+
+  /**
+   * ✅ STATISTIQUES PAGE - Analyse par compagnie d'assurance
+   */
+  static async getAnalyseCompagnies(startDate: string, endDate: string, brokerId?: string) {
+    try {
+      // Construire la requête avec jointure sur dossiers pour broker_id et frais
+      let query = supabase
+        .from('devis')
+        .select(`
+          id, 
+          compagnie, 
+          statut, 
+          created_at, 
+          date_generation,
+          frais_courtier,
+          dossiers!inner (
+            broker_id,
+            statut_canon,
+            frais_courtage
+          )
+        `)
+        .not('compagnie', 'is', null)
+
+      // ✅ Filtrer par broker_id si fourni
+      if (brokerId) {
+        query = query.eq('dossiers.broker_id', brokerId)
+      }
+
+      const { data: devis, error } = await query
+
+      if (error) {
+        console.error('[DevisService.getAnalyseCompagnies] Erreur:', error)
+        throw error
+      }
+
+      // Filtrer par date (utilise date_generation ou fallback sur created_at)
+      const start = new Date(startDate).getTime()
+      const end = new Date(endDate).getTime()
+      const devisFiltres = devis.filter((d: any) => {
+        const date = new Date(d.date_generation || d.created_at).getTime()
+        return date >= start && date <= end
+      })
+
+      // Grouper par compagnie
+      const parCompagnie: Record<string, { envoyes: number; acceptes: number; ca: number }> = {}
+
+      devisFiltres.forEach((d: any) => {
+        const compagnie = d.compagnie
+        if (!parCompagnie[compagnie]) {
+          parCompagnie[compagnie] = { envoyes: 0, acceptes: 0, ca: 0 }
+        }
+
+        // Compter les devis envoyés (statut envoye, accepte ou refuse)
+        if (['envoye', 'accepte', 'refuse'].includes(d.statut)) {
+          parCompagnie[compagnie].envoyes++
+        }
+
+        // Compter les devis acceptés et calculer le CA pour les dossiers finalisés
+        if (d.statut === 'accepte') {
+          parCompagnie[compagnie].acceptes++
+          
+          // ✅ Ajouter le CA si le dossier est finalisé
+          if (d.dossiers?.statut_canon === 'finalise') {
+            const fraisDossier = d.dossiers?.frais_courtage
+            const fraisDevis = d.frais_courtier
+
+            if (fraisDossier && Number(fraisDossier) > 0) {
+              parCompagnie[compagnie].ca += Number(fraisDossier)
+            } else if (fraisDevis && Number(fraisDevis) > 0) {
+              parCompagnie[compagnie].ca += Number(fraisDevis) / 100 // centimes → euros
+            }
+          }
+        }
+      })
+
+      // Calculer le CA total pour les pourcentages
+      const caTotal = Object.values(parCompagnie).reduce((sum, c) => sum + c.ca, 0)
+
+      // Convertir en tableau et calculer taux d'acceptation
+      return Object.entries(parCompagnie)
+        .map(([nom_compagnie, stats]) => {
+          const taux_acceptation = stats.envoyes > 0
+            ? Math.round((stats.acceptes / stats.envoyes) * 100 * 10) / 10
+            : 0
+
+          const ca_pourcentage = caTotal > 0
+            ? Math.round((stats.ca / caTotal) * 100 * 10) / 10
+            : 0
+
+          return {
+            nom_compagnie,
+            ca_pourcentage,
+            ca_montant: Math.round(stats.ca * 100) / 100,
+            nb_devis_envoyes: stats.envoyes,
+            nb_devis_acceptes: stats.acceptes,
+            taux_acceptation
+          }
+        })
+        .sort((a, b) => b.ca_montant - a.ca_montant) // Trier par CA décroissant
+    } catch (error) {
+      console.error('[DevisService.getAnalyseCompagnies] Erreur:', error)
+      return []
+    }
   }
 }

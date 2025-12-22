@@ -8,9 +8,11 @@ import { useRouter, usePathname } from 'next/navigation';
 const AuthContext = createContext<{
   user: any;
   loading: boolean;
+  userType: 'courtier' | 'apporteur' | null;
 }>({
   user: null,
   loading: true,
+  userType: null,
 });
 
 export const useAuth = () => {
@@ -24,36 +26,121 @@ export const useAuth = () => {
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [userType, setUserType] = useState<'courtier' | 'apporteur' | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  const publicRoutes = ['/connexion', '/onboarding', '/reset-password'];
+  // Public routes that don't require auth
+  const publicRoutes = ['/connexion', '/reset-password'];
+  // Routes that are public but have special handling
+  const specialRoutes = ['/onboarding', '/admin/onboarding'];
+  // Routes that start with /invite are always public
+  const isInviteRoute = pathname?.startsWith('/invite/');
+  // Dev routes are always public (only exist in development)
+  const isDevRoute = pathname?.startsWith('/dev/');
 
   useEffect(() => {
-    // TEMPORAIRE : AUTHENTIFICATION DÉSACTIVÉE
-    // Pour réactiver l'authentification avec Supabase, décommentez le code ci-dessous
-    // et commentez les lignes "TEMPORAIRE" marquées
-    
-    // ===== DÉBUT DU CODE D'AUTHENTIFICATION À RÉACTIVER =====
-    /*
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Vérifier si l'utilisateur a accepté les CGU
-        const { data: profile } = await supabase
-          .from('apporteur_profiles')
-          .select('cgu_accepted_at')
+        // 1. Check if user is a broker_user (courtier)
+        const { data: brokerUser } = await supabase
+          .from('broker_users')
+          .select('id, broker_id, role')
           .eq('user_id', user.id)
           .single();
 
-        if (!profile?.cgu_accepted_at && pathname !== '/onboarding') {
-          router.push('/onboarding');
-        } else if (profile?.cgu_accepted_at && (pathname === '/connexion' || pathname === '/onboarding')) {
-          router.push('/');
+        if (brokerUser) {
+          // User is a courtier
+          setUserType('courtier');
+          
+          // Check broker onboarding status
+          const { data: broker } = await supabase
+            .from('brokers')
+            .select('onboarding_status')
+            .eq('id', brokerUser.broker_id)
+            .single();
+
+          // Skip redirects for dev routes
+          if (isDevRoute) {
+            // Stay on dev page
+          }
+          // If on connexion page, redirect appropriately
+          else if (pathname === '/connexion') {
+            if (broker?.onboarding_status !== 'ready') {
+              router.push('/admin/onboarding');
+            } else {
+              router.push('/admin');
+            }
+          }
+          // If on apporteur routes, redirect to admin
+          else if (pathname === '/' || pathname === '/onboarding' || pathname === '/mes-dossiers' || pathname === '/nouveau-dossier' || pathname === '/activites') {
+            router.push('/admin');
+          }
+        } else {
+          // 2. Check if user is an apporteur
+          const { data: profile } = await supabase
+            .from('apporteur_profiles')
+            .select('id, cgu_accepted_at')
+            .eq('user_id', user.id)
+            .single();
+
+          if (profile) {
+            setUserType('apporteur');
+            
+            // Check if linked to any broker
+            const { data: brokerLink } = await supabase
+              .from('broker_apporteurs')
+              .select('id')
+              .eq('apporteur_profile_id', profile.id)
+              .limit(1)
+              .single();
+
+            // Apporteur without broker link - unusual state, let them use invite link
+            if (!brokerLink && !isInviteRoute && pathname !== '/connexion') {
+              // They need to accept an invite
+              setUser(user);
+              setLoading(false);
+              return;
+            }
+
+            // Skip redirects for dev routes
+            if (isDevRoute) {
+              // Stay on dev page
+            }
+            // Si CGU non acceptées, rediriger vers onboarding
+            else if (!profile.cgu_accepted_at && pathname !== '/onboarding') {
+              router.push('/onboarding');
+            } 
+            // Si CGU acceptées et sur page connexion/onboarding, aller à l'accueil
+            else if (profile.cgu_accepted_at && (pathname === '/connexion' || pathname === '/onboarding')) {
+              router.push('/');
+            }
+            // Si sur admin routes, rediriger vers apporteur
+            else if (pathname?.startsWith('/admin')) {
+              router.push('/');
+            }
+          } else {
+            // User has no profile at all - edge case (shouldn't happen normally)
+            setUserType(null);
+            if (pathname === '/connexion') {
+              // Stay on connexion, they might need to complete signup
+            }
+          }
         }
-      } else if (!publicRoutes.includes(pathname)) {
-        router.push('/connexion');
+      } else {
+        // Not authenticated
+        setUserType(null);
+        
+        // Allow invite routes and dev routes without auth
+        if (isInviteRoute || isDevRoute) {
+          // OK, stay on page
+        }
+        // Redirect to connexion if on protected route
+        else if (!publicRoutes.includes(pathname || '') && !specialRoutes.includes(pathname || '')) {
+          router.push('/connexion');
+        }
       }
 
       setUser(user);
@@ -67,54 +154,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
-        if (event === 'SIGNED_IN' && currentUser) {
-          // Vérifier les CGU après connexion
-          const { data: profile } = await supabase
-            .from('apporteur_profiles')
-            .select('cgu_accepted_at')
-            .eq('user_id', currentUser.id)
-            .single();
-
-          if (!profile?.cgu_accepted_at) {
-            router.push('/onboarding');
-          } else {
-            router.push('/');
-          }
-        } else if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT') {
+          setUserType(null);
           router.push('/connexion');
         }
+        // Note: SIGNED_IN is handled by the individual signup handlers in /connexion
+        // to properly route based on user type
       }
     );
 
     return () => subscription.unsubscribe();
-    */
-    // ===== FIN DU CODE D'AUTHENTIFICATION À RÉACTIVER =====
-
-    // TEMPORAIRE : Mode développement sans authentification
-    // Simuler un utilisateur connecté qui a accepté les CGU
-    const mockUser = {
-      id: 'mock-user-id',
-      email: 'test@example.com',
-      // Ajoutez d'autres propriétés utilisateur si nécessaire
-    };
-    
-    setUser(mockUser);
-    setLoading(false);
-
-    // INSTRUCTIONS POUR RÉACTIVER L'AUTHENTIFICATION :
-    // 1. Commentez les lignes "TEMPORAIRE" ci-dessus (lignes mockUser, setUser, setLoading)
-    // 2. Décommentez tout le bloc "DÉBUT DU CODE D'AUTHENTIFICATION À RÉACTIVER"
-    // 3. Assurez-vous que la table 'apporteur_profiles' existe avec les colonnes :
-    //    - user_id (uuid, référence vers auth.users)
-    //    - cgu_accepted_at (timestamp, nullable)
-    //    - nom, prenom, email, telephone, siret, statut
-    // 4. Configurez les RLS (Row Level Security) sur la table apporteur_profiles
-    // 5. Testez le flux : inscription -> onboarding -> accueil
-
-  }, [pathname]);
+  }, [pathname, router]);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, userType }}>
       {children}
     </AuthContext.Provider>
   );

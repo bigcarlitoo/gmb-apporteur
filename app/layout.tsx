@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Pacifico } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "../components/AuthProvider";
+import { BrokerContextProvider } from "@/components/features/broker/BrokerContextProvider";
 
 const pacifico = Pacifico({
   weight: '400',
@@ -35,7 +36,9 @@ export default function RootLayout({
     <html lang="fr">
       <body className={`${geistSans.variable} ${geistMono.variable} ${pacifico.variable} font-sans`}>
         <AuthProvider>
-          {children}
+          <BrokerContextProvider>
+            {children}
+          </BrokerContextProvider>
         </AuthProvider>
       </body>
     </html>

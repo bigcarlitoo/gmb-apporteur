@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ApporteurHeader from '../../components/ApporteurHeader';
 import { DossiersService } from '@/lib/services/dossiers';
-import { ApporteursService } from '@/lib/services/apporteurs';
+import { getStatutBadgeConfig, mapStatutForDisplay } from '@/lib/utils/statut-mapping';
+import { formatDate } from '@/lib/utils/formatters';
+import { useTheme } from '@/lib/hooks/useTheme';
+import { useAuth } from '@/components/AuthProvider';
+import { api } from '@/services/api';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // Interfaces et types
 interface DossierClient {
@@ -70,6 +75,7 @@ const DOSSIERS_PER_PAGE = 6; // Nombre de dossiers par page
 
 export default function MesDossiersPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState<FilterStatut>('tous');
   const [sortField, setSortField] = useState<SortField>('updated_at');
@@ -77,49 +83,50 @@ export default function MesDossiersPage() {
   const [selectedDossiers, setSelectedDossiers] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // ✅ Utilisation du hook centralisé pour le dark mode
+  const { darkMode, isInitialized, toggleDarkMode } = useTheme();
   
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
 
   // Données utilisateur et dossiers
   const [userData, setUserData] = useState({
-    id: '1',
-    firstName: 'Marie',
-    lastName: 'Dubois',
-    initials: 'MD',
-    role: 'Apporteur Premium'
+    id: '',
+    firstName: '',
+    lastName: '',
+    initials: '',
+    role: 'Apporteur'
   });
 
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
 
-  // Fonction pour récupérer tous les dossiers de l'utilisateur depuis Supabase
+  // Fonction pour récupérer tous les dossiers de l'utilisateur connecté
   const fetchDossiers = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Récupérer les données utilisateur (premier apporteur pour la démo)
-      const apporteursData = await ApporteursService.getAllApporteurs();
-      if (apporteursData && apporteursData.length > 0) {
-        const apporteur = apporteursData[0];
+      // Récupérer le profil apporteur de l'utilisateur connecté
+      const apporteur = await api.getCurrentApporteurProfile();
+      if (apporteur) {
         setUserData({
           id: apporteur.id,
           firstName: apporteur.prenom,
           lastName: apporteur.nom,
           initials: `${apporteur.prenom.charAt(0)}${apporteur.nom.charAt(0)}`,
-          role: 'Apporteur Premium'
+          role: 'Apporteur'
         });
         
         // Récupérer les dossiers de cet apporteur
         const dossiersData = await DossiersService.getDossiersByApporteur(apporteur.id);
-        // filtrer/normaliser statut depuis DB directement
         const normalized = (dossiersData || []).map((d: any) => ({
           ...d,
-          statut: d.statut, // alias déjà canonique via service
+          statut: d.statut,
         }));
         setDossiers(normalized);
+      } else {
+        setError('Profil apporteur non trouvé');
       }
     } catch (error) {
       console.error('Erreur lors du chargement des dossiers:', error);
@@ -129,17 +136,23 @@ export default function MesDossiersPage() {
     }
   };
 
+  // Chargement initial quand l'auth est prête
+  useEffect(() => {
+    if (isInitialized && !authLoading && user) {
+      fetchDossiers();
+    }
+  }, [isInitialized, authLoading, user]);
+
   // Rafraîchir les dossiers quand la fenêtre reprend le focus
   useEffect(() => {
     const onFocus = () => {
-      // Ne refetch que si déjà initialisé
-      if (isInitialized) {
+      if (isInitialized && !authLoading && user) {
         fetchDossiers();
       }
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [isInitialized]);
+  }, [isInitialized, authLoading, user]);
 
   // Utiliser le computed_statut fourni par la vue côté DB (via service)
   const withComputedStatut = useMemo(() => {
@@ -318,148 +331,14 @@ export default function MesDossiersPage() {
     }
   };
 
-  // Formatage des dates
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // ✅ MIGRATION COMPLÈTE - Utilisation des utilitaires centralisés
 
-  // Configuration des statuts (normalisée)
-  const getStatutConfig = (statut: string) => {
-    const key = (statut || '')
-      .toString()
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove diacritics
-      .replace(/\s+/g, '_');
-
-    switch (key) {
-      // Dossier envoyé (en_attente/nouveau)
-      case 'en_attente':
-      case 'nouveau':
-      case 'dossier_envoye':
-        return {
-          label: 'Dossier envoyé',
-          icon: 'ri-send-plane-line',
-          bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-          textColor: 'text-blue-700 dark:text-blue-400',
-          borderColor: 'border-blue-200 dark:border-blue-700'
-        };
-
-      // Devis disponible (devis_genere / devis_pret)
-      case 'devis_genere':
-      case 'devis_disponible':
-      case 'devis_pret':
-        return {
-          label: 'Devis disponible',
-          icon: 'ri-file-text-line',
-          bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
-          textColor: 'text-indigo-700 dark:text-indigo-400',
-          borderColor: 'border-indigo-200 dark:border-indigo-700'
-        };
-
-      // Devis envoyé / accepté
-      case 'devis_envoye':
-        return {
-          label: 'Devis envoyé',
-          icon: 'ri-mail-line',
-          bgColor: 'bg-orange-100 dark:bg-orange-900/30',
-          textColor: 'text-orange-700 dark:text-orange-400',
-          borderColor: 'border-orange-200 dark:border-orange-700'
-        };
-      case 'devis_accepte':
-      case 'valide':
-        return {
-          label: 'Devis accepté',
-          icon: 'ri-check-line',
-          bgColor: 'bg-green-100 dark:bg-green-900/30',
-          textColor: 'text-green-700 dark:text-green-400',
-          borderColor: 'border-green-200 dark:border-green-700'
-        };
-
-      // Finalisé
-      case 'finalise':
-      case 'finalisee':
-      case 'finalises':
-      case 'finalisees':
-      case 'finalise_':
-      case 'finalise__':
-      case 'finalise___':
-      case 'finalise____':
-      case 'finalise_____':
-      case 'finalise______':
-      case 'finalise________':
-      case 'finalise_________':
-      case 'finalise__________':
-      case 'finalise___________':
-        return {
-          label: 'Finalisé',
-          icon: 'ri-check-double-line',
-          bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-          textColor: 'text-purple-700 dark:text-purple-400',
-          borderColor: 'border-purple-200 dark:border-purple-700'
-        };
-
-      // Refusé
-      case 'refuse':
-      case 'refusee':
-      case 'refuses':
-      case 'refusees':
-      case 'refuse_':
-      case 'refuse__':
-        return {
-          label: 'Refusé',
-          icon: 'ri-close-line',
-          bgColor: 'bg-red-100 dark:bg-red-900/30',
-          textColor: 'text-red-700 dark:text-red-400',
-          borderColor: 'border-red-200 dark:border-red-700'
-        };
-
-      default:
-        return {
-          label: 'Inconnu',
-          icon: 'ri-question-line',
-          bgColor: 'bg-gray-100 dark:bg-gray-700',
-          textColor: 'text-gray-700 dark:text-gray-300',
-          borderColor: 'border-gray-200 dark:border-gray-600'
-        };
-    }
-  };
-
-  // Initialisation du mode sombre
+  // Charger les dossiers après initialisation du dark mode
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-      setDarkMode(savedDarkMode);
-      if (savedDarkMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      setIsInitialized(true);
-      
-      // Charger les dossiers après l'initialisation
+    if (isInitialized) {
       fetchDossiers();
     }
-  }, []);
-
-  // Gestionnaire du mode sombre
-  const handleDarkModeToggle = (newDarkMode: boolean) => {
-    setDarkMode(newDarkMode);
-    if (typeof window !== 'undefined') {
-      if (newDarkMode) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('darkMode', 'true');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('darkMode', 'false');
-      }
-    }
-  };
+  }, [isInitialized]);
 
   if (isLoading && !isInitialized) {
     return (
@@ -495,7 +374,7 @@ export default function MesDossiersPage() {
       {/* Header Général */}
       <ApporteurHeader 
         darkMode={darkMode} 
-        setDarkMode={handleDarkModeToggle}
+        setDarkMode={toggleDarkMode}
         userData={userData}
       />
 
@@ -703,29 +582,39 @@ export default function MesDossiersPage() {
 
         {/* Liste des Dossiers */}
         {filteredAndSortedDossiers.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 text-center">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className="ri-file-search-line text-gray-400 dark:text-gray-500 text-2xl"></i>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Aucun dossier trouvé
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              {searchTerm || filterStatut !== 'tous' 
-                ? 'Aucun dossier ne correspond à vos critères de recherche.'
-                : "Vous n'avez pas encore créé de dossier."
-              }
-            </p>
-            <Link href="/nouveau-dossier" className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-6 py-3 rounded-xl font-medium transition-colors cursor-pointer inline-flex items-center space-x-2">
-              <i className="ri-add-line"></i>
-              <span>Créer mon premier dossier</span>
-            </Link>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+            {searchTerm || filterStatut !== 'tous' ? (
+              <EmptyState
+                icon="ri-search-line"
+                title="Aucun résultat"
+                description="Aucun dossier ne correspond à vos critères de recherche. Essayez de modifier vos filtres ou votre recherche."
+                secondaryAction={{
+                  label: "Réinitialiser les filtres",
+                  onClick: () => {
+                    setSearchTerm('');
+                    setFilterStatut('tous');
+                  }
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon="ri-folder-add-line"
+                title="Commencez votre premier dossier"
+                description="Vous n'avez pas encore de dossier. Créez-en un pour démarrer et suivre vos demandes d'assurance."
+                action={{
+                  label: "Créer mon premier dossier",
+                  href: "/nouveau-dossier"
+                }}
+              />
+            )}
           </div>
         ) : (
           <>
             <div className="space-y-4">
               {currentDossiers.map((dossier) => {
-                const statutConfig = getStatutConfig((dossier as any).computed_statut || dossier.statut || '');
+                // ✅ Utilisation de la source de vérité unique
+                const statutCanonique = (dossier as any).computed_statut || dossier.statut || 'en_attente';
+                const statutConfig = getStatutBadgeConfig(statutCanonique);
                 const clientInfo = dossier.client_infos && dossier.client_infos.length > 0 ? dossier.client_infos[0] : null;
                 const pretInfo = dossier.pret_data && dossier.pret_data.length > 0 ? dossier.pret_data[0] : null;
                 
@@ -736,35 +625,34 @@ export default function MesDossiersPage() {
                         {/* Informations principales */}
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                            <div className="flex items-center space-x-3">
-                              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                                {dossier.numero_dossier}
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                              <h3 className="text-2xl font-medium text-gray-900 dark:text-white">
+                                {clientInfo ? `${clientInfo.client_prenom} ${clientInfo.client_nom}` : 'Client inconnu'}
                               </h3>
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${statutConfig.bgColor} ${statutConfig.textColor} ${statutConfig.borderColor}`}>
-                                <i className={`${statutConfig.icon} mr-1`}></i>
-                                {statutConfig.label}
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {dossier.numero_dossier}
                               </span>
-                              {dossier.type_dossier === 'couple' && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#335FAD]/10 dark:bg-[#335FAD]/30 text-[#335FAD] dark:text-[#335FAD] border border-[#335FAD]/20 dark:border-[#335FAD]/70">
-                                  <i className="ri-heart-line mr-1"></i>
-                                  Couple
-                                </span>
-                              )}
                             </div>
                             
                             <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Modifié le {dossier.updated_at ? formatDate(dossier.updated_at) : 'N/A'}
+                              Modifié le {dossier.updated_at ? formatDate(dossier.updated_at, true) : 'N/A'}
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Client :</span>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {clientInfo ? `${clientInfo.client_prenom} ${clientInfo.client_nom}` : 'N/A'}
-                              </p>
-                            </div>
-                            
+                          <div className="flex flex-wrap items-center gap-2 mb-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statutConfig?.color || 'bg-gray-100 text-gray-800'}`}>
+                              <i className={`${statutConfig?.icon || 'ri-question-line'} mr-1`}></i>
+                              {statutConfig?.text || 'Inconnu'}
+                            </span>
+                            {dossier.type_dossier === 'couple' && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#335FAD]/10 dark:bg-[#335FAD]/30 text-[#335FAD] dark:text-[#335FAD] border border-[#335FAD]/20 dark:border-[#335FAD]/70">
+                                <i className="ri-heart-line mr-1"></i>
+                                Couple
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                             <div>
                               <span className="text-gray-500 dark:text-gray-400">Email :</span>
                               <p className="font-medium text-gray-900 dark:text-white truncate">

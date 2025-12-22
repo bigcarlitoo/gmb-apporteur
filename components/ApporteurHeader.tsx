@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { ActivitiesService } from '@/lib/services/activities';
+import { ActivityReadStatusCache } from '@/lib/services/activity-read-status-cache';
 
 // Interface pour les données utilisateur
 interface UserData {
@@ -24,6 +26,7 @@ interface Notification {
   amount?: string;
   time: string;
   isRead: boolean;
+  dossierId?: string;
 }
 
 interface ApporteurHeaderProps {
@@ -39,6 +42,7 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -53,58 +57,133 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // TODO: SUPABASE - Remplacer par les vraies notifications depuis la base de données
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'success',
-      title: 'Dossier validé ✅',
-      description: 'Client: Jean Dupont - Auto',
-      amount: 'Commission: €180',
-      time: 'Il y a 1h',
-      isRead: false
-    },
-    {
-      id: '2',
-      type: 'info',
-      title: 'Nouveau classement 📊',
-      description: 'Vous êtes 3ème ce mois-ci',
-      time: 'Il y a 2 heures',
-      isRead: false
-    }
-  ]);
+  // Fonction pour valider un UUID
+  const isValidUUID = (id: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return id && uuidRegex.test(id);
+  };
 
-  // TODO: SUPABASE INTEGRATION FUNCTIONS
-  // Fonction pour récupérer les notifications
+  // Charger les notifications filtrées depuis la DB
+  useEffect(() => {
+    // Ne pas charger si l'ID n'est pas un UUID valide
+    if (!isValidUUID(userData.id)) {
+      return;
+    }
+    
+    fetchNotifications();
+    
+    // Actualisation automatique toutes les 30 secondes
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+    
+    // Écouter les changements du cache pour rafraîchir l'UI
+    const unsubscribe = ActivityReadStatusCache.onSync(() => {
+      // Recalculer le compteur basé sur le cache local
+      setNotifications(prev => prev.map(n => {
+        const cachedStatus = ActivityReadStatusCache.getReadStatus(n.id);
+        return cachedStatus !== null ? { ...n, isRead: cachedStatus } : n;
+      }));
+    });
+    
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
+  }, [userData.id]);
+
+  // Fonction pour récupérer les notifications filtrées (actions de l'admin uniquement)
   const fetchNotifications = async () => {
     try {
-      // const { data, error } = await supabase
-      //   .from('notifications')
-      //   .select('*')
-      //   .eq('user_id', userData.id)
-      //   .order('created_at', { ascending: false })
-      //   .limit(10);
-      // 
-      // if (error) throw error;
-      // setNotifications(data);
+      const data = await ActivitiesService.getNotificationsForApporteur(userData.id, 10);
+      
+      // Formater les activités en notifications et fusionner avec cache
+      const formatted = data?.map((activity: any) => {
+        const activityData = activity.activity_data || {};
+        let type: 'success' | 'info' | 'warning' = 'info';
+        let amount = '';
+        
+        switch (activity.activity_type) {
+          case 'dossier_attribue':
+            type = 'info';
+            break;
+          case 'dossier_supprime':
+            type = 'warning';
+            break;
+          case 'classement_updated':
+            type = 'success';
+            amount = activityData.nouveau_classement ? `Classement: ${activityData.nouveau_classement}` : '';
+            break;
+          case 'dossier_created':
+            type = 'success';
+            break;
+          case 'dossier_finalise':
+            type = 'success';
+            amount = activityData.commission_amount ? `Commission: ${activityData.commission_amount}€` : '';
+            break;
+          case 'devis_envoye':
+            type = 'info';
+            break;
+          case 'commission_paid':
+            type = 'success';
+            amount = activityData.amount ? `+${activityData.amount}€` : '';
+            break;
+        }
+        
+        // Fusionner avec le cache local
+        const cachedStatus = ActivityReadStatusCache.getReadStatus(activity.id);
+        const finalIsRead = cachedStatus !== null ? cachedStatus : (activity.is_read || false);
+        
+        return {
+          id: activity.id,
+          type,
+          title: activity.activity_title,
+          description: activity.activity_description,
+          amount,
+          time: formatTimeAgo(activity.created_at),
+          isRead: finalIsRead,
+          dossierId: activity.dossier_id
+        };
+      }) || [];
+      
+      setNotifications(formatted);
     } catch (error) {
       console.error('Erreur lors du chargement des notifications:', error);
     }
   };
 
-  // Fonction pour marquer une notification comme lue
-  const markAsRead = async (notificationId: string) => {
-    try {
-      // const { error } = await supabase
-      //   .from('notifications')
-      //   .update({ is_read: true })
-      //   .eq('id', notificationId);
-      // 
-      // if (error) throw error;
-      // fetchNotifications(); // Recharger les notifications
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour de la notification:', error);
+  // Fonction pour gérer le clic sur une notification
+  const handleNotificationClick = async (notification: Notification) => {
+    // Marquer comme lu
+    await markAsRead(notification.id);
+    // Fermer le panneau
+    setShowNotifications(false);
+    // Naviguer vers le dossier si disponible
+    if (notification.dossierId) {
+      window.location.href = `/dossier/${notification.dossierId}`;
     }
+  };
+
+  // Fonction pour marquer une notification comme lue (optimiste)
+  const markAsRead = (notificationId: string) => {
+    // Mise à jour optimiste immédiate
+    setNotifications(prev => prev.map(n => 
+      n.id === notificationId ? { ...n, isRead: true } : n
+    ));
+    
+    // Ajouter au cache pour synchronisation en arrière-plan
+    ActivityReadStatusCache.markAsReadOptimistic(notificationId);
+  };
+
+  // Fonction pour formater le temps écoulé
+  const formatTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    if (diff < 60) return `Il y a ${diff}min`;
+    if (diff < 1440) return `Il y a ${Math.floor(diff / 60)}h`;
+    if (diff < 2880) return 'Hier';
+    return `${Math.floor(diff / 1440)} jours`;
   };
 
   // Fonction pour déterminer si un lien est actif
@@ -125,13 +204,13 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
         <nav className="flex items-center justify-between h-16 lg:h-20">
           <Link href="/" className="flex items-center space-x-2 cursor-pointer transition-transform hover:scale-105">
             <Image
-              className="h-10 w-auto drop-shadow-sm"
+              className="h-10 w-auto drop-shadow-sm transition-all"
               src="/assets/svgs/gmb-courtagegrand.svg"
               alt="GMB Courtage logo"
               width={175}
               height={34}
               style={{ 
-                filter: 'brightness(0) saturate(100%) invert(8%) sepia(40%) saturate(6266%) hue-rotate(223deg) brightness(95%) contrast(98%)'
+                filter: darkMode ? 'brightness(0) invert(1)' : 'brightness(0) saturate(100%) invert(8%) sepia(40%) saturate(6266%) hue-rotate(223deg) brightness(95%) contrast(98%)'
               }}
             />
             <div className="hidden sm:block">
@@ -139,20 +218,20 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
             </div>
           </Link>
 
-          {/* Navigation Desktop */}
-          <div className="hidden lg:flex items-center space-x-4">
+          {/* Navigation Desktop - visible uniquement sur xl+ */}
+          <div className="hidden xl:flex items-center space-x-4">
             <Link 
               href="/" 
-              className={`relative px-5 py-2.5 text-sm lg:text-base font-medium transition-colors rounded-lg hover:bg-gray-200 ${
-                isActiveLink('/') ? 'text-[#335FAD] bg-gray-100' : 'text-gray-600 hover:text-black'
+              className={`relative px-5 py-2.5 text-sm lg:text-base font-medium transition-colors rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 ${
+                isActiveLink('/') ? 'text-[#335FAD] dark:text-white bg-gray-100 dark:bg-gray-700' : 'text-gray-600 dark:text-white hover:text-black dark:hover:text-white'
               }`}
             >
               Accueil
             </Link>
             <Link 
               href="/mes-dossiers" 
-              className={`relative px-5 py-2.5 text-sm lg:text-base font-medium transition-colors rounded-lg hover:bg-gray-200 ${
-                isActiveLink('/mes-dossiers') ? 'text-[#335FAD] bg-gray-100' : 'text-gray-600 hover:text-black'
+              className={`relative px-5 py-2.5 text-sm lg:text-base font-medium transition-colors rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 ${
+                isActiveLink('/mes-dossiers') ? 'text-[#335FAD] dark:text-white bg-gray-100 dark:bg-gray-700' : 'text-gray-600 dark:text-white hover:text-black dark:hover:text-white'
               }`}
             >
               Mes Dossiers
@@ -187,7 +266,12 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
                   {/* TODO: SUPABASE - Remplacer par les vraies notifications apporteur */}
                   <div className="py-2">
                     {notifications.map((notification) => (
-                      <div key={notification.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                      <div 
+                        key={notification.id} 
+                        onClick={() => handleNotificationClick(notification)}
+                        onMouseEnter={() => !notification.isRead && markAsRead(notification.id)}
+                        className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                      >
                         <div className="flex items-start space-x-3">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                             notification.type === 'success' 
@@ -265,18 +349,18 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
               </div>
             </div>
 
-            {/* Toggle dark mode (à droite comme Admin) */}
+            {/* Toggle dark mode (desktop only) */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="hidden md:flex w-10 h-10 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg items-center justify-center transition-colors cursor-pointer"
+              className="w-10 h-10 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg items-center justify-center transition-colors cursor-pointer flex"
               title={darkMode ? 'Mode clair' : 'Mode sombre'}
             >
               <i className={`${darkMode ? 'ri-sun-line' : 'ri-moon-line'} text-gray-700 dark:text-gray-300`}></i>
             </button>
           </div>
 
-          {/* Menu Mobile */}
-          <div className="lg:hidden flex items-center space-x-2">
+          {/* Menu Mobile - visible jusqu'à xl (inclut tablette) */}
+          <div className="xl:hidden flex items-center space-x-2">
             {/* Bouton Notifications Mobile */}
             <div className="relative" ref={notificationsRef}>
               <button 
@@ -384,7 +468,12 @@ export default function ApporteurHeader({ darkMode, setDarkMode, userData }: App
                     
                     <div className="py-2 max-h-64 overflow-y-auto">
                       {notifications.map((notification) => (
-                        <div key={notification.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                        <div 
+                          key={notification.id} 
+                          onClick={() => handleNotificationClick(notification)}
+                          onMouseEnter={() => !notification.isRead && markAsRead(notification.id)}
+                          className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                        >
                           <div className="flex items-start space-x-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                               notification.type === 'success' 

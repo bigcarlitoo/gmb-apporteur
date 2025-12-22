@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { AnalyticsService } from '@/lib/services/analytics'
 
 type DevisAction = 'validate' | 'refuse'
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       await supabaseClient
         .from('dossiers')
         .update({
-          statut_canon: 'valide',
+          statut_canon: 'devis_accepte',
           updated_at: new Date().toISOString()
         })
         .eq('id', dossierId)
@@ -108,15 +109,29 @@ export async function POST(req: NextRequest) {
           })
       }
 
-      await supabaseClient
-        .from('notifications')
-        .insert({
-          type: 'devis_accepte',
-          dossier_id: dossierId,
-          user_id: user.id,
-          title: 'Devis accepté',
-          message: 'Le devis a été accepté'
-        })
+      // Notifier l'apporteur (pas l'utilisateur qui a accepté)
+      if (dossierInfo?.apporteur_id) {
+        await supabaseClient
+          .from('notifications')
+          .insert({
+            type: 'devis_accepte',
+            dossier_id: dossierId,
+            user_id: dossierInfo.apporteur_id,
+            title: 'Devis accepté',
+            message: 'Le devis a été accepté'
+          })
+      }
+
+      // Tracking analytics
+      try {
+        await AnalyticsService.trackDevisAccepted(
+          devisId,
+          dossierId,
+          dossierInfo?.apporteur_id
+        );
+      } catch (analyticsError) {
+        console.warn('[API] Erreur non critique analytics:', analyticsError);
+      }
 
       return NextResponse.json({ success: true, action, message: 'Devis validé avec succès' })
     }
@@ -209,6 +224,18 @@ export async function POST(req: NextRequest) {
           message: 'Le devis a été refusé',
           details: { reason }
         })
+
+      // Tracking analytics
+      try {
+        await AnalyticsService.trackDevisRefused(
+          devisId,
+          dossierId,
+          dossierInfo?.apporteur_id,
+          reason
+        );
+      } catch (analyticsError) {
+        console.warn('[API] Erreur non critique analytics:', analyticsError);
+      }
 
       return NextResponse.json({ success: true, action, message: 'Devis refusé' })
     }

@@ -4,29 +4,62 @@
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
+import { CATEGORY_OPTIONS } from '@/lib/constants/exade';
 
 type DossierType = 'seul' | 'couple';
 
+// Options pour les questions métier Exade
+const DEPLACEMENT_PRO_OPTIONS = [
+  { value: '1', label: 'Moins de 20 000 km/an' },
+  { value: '2', label: '20 000 km/an ou plus' }
+];
+
+const TRAVAUX_MANUELS_OPTIONS = [
+  { value: '0', label: 'Aucun ou occasionnel' },
+  { value: '1', label: 'Travail manuel léger (sans outillage lourd, sans échafaudage)' },
+  { value: '2', label: 'Travail manuel moyen/important (outillage lourd, échafaudage, explosifs)' }
+];
+
 interface ClientInfo {
-  // Client principal
+  // Client principal - Identité
+  civilite: string;
   nom: string;
   prenom: string;
+  nom_naissance: string;
   dateNaissance: string;
-  profession: string;
-  revenus: string;
-  fumeur: boolean;
+  lieu_naissance: string;  // OBLIGATOIRE pour API Exade
+  
+  // Adresse séparée (obligatoire Exade)
+  adresse: string;
+  complement_adresse: string;
+  code_postal: string;
+  ville: string;
+  
+  // Contact
   email: string;
   telephone: string;
-  adresse: string;
+  
+  // Professionnel
+  categorie_professionnelle: number;
+  revenus: string;
+  
+  // Santé / Risques (obligatoire pour Generali, SwissLife, MNCAP)
+  fumeur: boolean;
+  deplacement_pro: number;  // 1 = moins de 20000km, 2 = 20000km+
+  travaux_manuels: number;  // 0 = aucun, 1 = léger, 2 = moyen/important
   
   // Client conjoint (si couple)
   conjoint?: {
+    civilite: string;
     nom: string;
     prenom: string;
+    nom_naissance: string;
     dateNaissance: string;
-    profession: string;
-    revenus: string;
+    lieu_naissance: string;
+    categorie_professionnelle: number;
     fumeur: boolean;
+    deplacement_pro: number;
+    travaux_manuels: number;
   };
 }
 
@@ -39,23 +72,35 @@ interface ClientInfoFormProps {
 
 export default function ClientInfoForm({ dossierType, initialData, onSubmit, onBack }: ClientInfoFormProps) {
   const [formData, setFormData] = useState<ClientInfo>({
+    civilite: '',
     nom: '',
     prenom: '',
+    nom_naissance: '',
     dateNaissance: '',
-    profession: '',
-    revenus: '',
-    fumeur: false,
+    lieu_naissance: '',
+    adresse: '',
+    complement_adresse: '',
+    code_postal: '',
+    ville: '',
     email: '',
     telephone: '',
-    adresse: '',
+    categorie_professionnelle: 0,
+    revenus: '',
+    fumeur: false,
+    deplacement_pro: 1,  // Par défaut: moins de 20000km
+    travaux_manuels: 0,  // Par défaut: aucun
     ...(dossierType === 'couple' && {
       conjoint: {
+        civilite: '',
         nom: '',
         prenom: '',
+        nom_naissance: '',
         dateNaissance: '',
-        profession: '',
-        revenus: '',
-        fumeur: false
+        lieu_naissance: '',
+        categorie_professionnelle: 0,
+        fumeur: false,
+        deplacement_pro: 1,
+        travaux_manuels: 0
       }
     })
   });
@@ -74,26 +119,46 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validation client principal
+    // Validation client principal - Identité
+    if (!formData.civilite) newErrors.civilite = 'La civilité est obligatoire';
     if (!formData.nom.trim()) newErrors.nom = 'Le nom est obligatoire';
     if (!formData.prenom.trim()) newErrors.prenom = 'Le prénom est obligatoire';
+    if (!formData.nom_naissance.trim()) newErrors.nom_naissance = 'Le nom de naissance est obligatoire';
     if (!formData.dateNaissance) newErrors.dateNaissance = 'La date de naissance est obligatoire';
-    if (!formData.profession.trim()) newErrors.profession = 'La profession est obligatoire';
-    if (!formData.revenus.trim()) newErrors.revenus = 'Les revenus sont obligatoires';
+    if (!formData.lieu_naissance.trim()) newErrors.lieu_naissance = 'Le lieu de naissance est obligatoire';
+    
+    // Adresse
+    if (!formData.adresse.trim()) newErrors.adresse = 'L\'adresse est obligatoire';
+    if (!formData.code_postal.trim()) newErrors.code_postal = 'Le code postal est obligatoire';
+    else if (!/^\d{5}$/.test(formData.code_postal.trim())) {
+      newErrors.code_postal = 'Code postal invalide (5 chiffres)';
+    }
+    if (!formData.ville.trim()) newErrors.ville = 'La ville est obligatoire';
+    
+    // Contact
     if (!formData.email.trim()) newErrors.email = 'L\'email est obligatoire';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Format d\'email invalide';
     }
     if (!formData.telephone.trim()) newErrors.telephone = 'Le téléphone est obligatoire';
-    if (!formData.adresse.trim()) newErrors.adresse = 'L\'adresse est obligatoire';
+    
+    // Professionnel
+    if (!formData.categorie_professionnelle || formData.categorie_professionnelle === 0) {
+      newErrors.categorie_professionnelle = 'La catégorie professionnelle est obligatoire';
+    }
+    if (!formData.revenus.trim()) newErrors.revenus = 'Les revenus sont obligatoires';
 
     // Validation conjoint si couple
     if (dossierType === 'couple' && formData.conjoint) {
-      if (!formData.conjoint.nom.trim()) newErrors['conjoint.nom'] = 'Le nom du conjoint est obligatoire';
-      if (!formData.conjoint.prenom.trim()) newErrors['conjoint.prenom'] = 'Le prénom du conjoint est obligatoire';
-      if (!formData.conjoint.dateNaissance) newErrors['conjoint.dateNaissance'] = 'La date de naissance du conjoint est obligatoire';
-      if (!formData.conjoint.profession.trim()) newErrors['conjoint.profession'] = 'La profession du conjoint est obligatoire';
-      if (!formData.conjoint.revenus.trim()) newErrors['conjoint.revenus'] = 'Les revenus du conjoint sont obligatoires';
+      if (!formData.conjoint.civilite) newErrors['conjoint.civilite'] = 'La civilité est obligatoire';
+      if (!formData.conjoint.nom.trim()) newErrors['conjoint.nom'] = 'Le nom est obligatoire';
+      if (!formData.conjoint.prenom.trim()) newErrors['conjoint.prenom'] = 'Le prénom est obligatoire';
+      if (!formData.conjoint.nom_naissance.trim()) newErrors['conjoint.nom_naissance'] = 'Le nom de naissance est obligatoire';
+      if (!formData.conjoint.dateNaissance) newErrors['conjoint.dateNaissance'] = 'La date de naissance est obligatoire';
+      if (!formData.conjoint.lieu_naissance.trim()) newErrors['conjoint.lieu_naissance'] = 'Le lieu de naissance est obligatoire';
+      if (!formData.conjoint.categorie_professionnelle || formData.conjoint.categorie_professionnelle === 0) {
+        newErrors['conjoint.categorie_professionnelle'] = 'La catégorie professionnelle est obligatoire';
+      }
     }
 
     setErrors(newErrors);
@@ -102,19 +167,27 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
 
   // Mise à jour des champs
   const updateField = (field: string, value: any) => {
+    let processedValue = value;
+    
+    // Convertir en number pour les champs numériques
+    if (['categorie_professionnelle', 'deplacement_pro', 'travaux_manuels',
+         'conjoint.categorie_professionnelle', 'conjoint.deplacement_pro', 'conjoint.travaux_manuels'].includes(field)) {
+      processedValue = value ? parseInt(value, 10) : 0;
+    }
+    
     if (field.startsWith('conjoint.')) {
       const conjointField = field.replace('conjoint.', '');
       setFormData(prev => ({
         ...prev,
         conjoint: {
           ...prev.conjoint!,
-          [conjointField]: value
+          [conjointField]: processedValue
         }
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        [field]: value
+        [field]: processedValue
       }));
     }
 
@@ -139,7 +212,6 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     setIsSubmitting(true);
     
     try {
-      // Simuler le traitement
       await new Promise(resolve => setTimeout(resolve, 500));
       onSubmit(formData);
     } catch (error) {
@@ -149,7 +221,7 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     }
   };
 
-  // Composant champ de saisie - Défini en dehors du rendu principal
+  // Composant champ de saisie
   const renderInputField = (
     label: string,
     name: string,
@@ -157,7 +229,8 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     value: any,
     required: boolean = true,
     placeholder?: string,
-    options?: { value: string; label: string }[]
+    options?: { value: string; label: string }[],
+    helpText?: string
   ) => (
     <div className="space-y-2" key={name}>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -166,7 +239,7 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
       
       {type === 'select' ? (
         <Select
-          value={value}
+          value={String(value)}
           onValueChange={(v) => updateField(name, v)}
         >
           <SelectTrigger className={`w-full ${
@@ -184,18 +257,6 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
             ))}
           </SelectContent>
         </Select>
-      ) : type === 'textarea' ? (
-        <textarea
-          value={value}
-          onChange={(e) => updateField(name, e.target.value)}
-          placeholder={placeholder}
-          rows={3}
-          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] transition-colors text-sm resize-none ${
-            errors[name] 
-              ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20' 
-              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-          } text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500`}
-        />
       ) : type === 'date' ? (
         <DatePicker
           value={value}
@@ -211,7 +272,7 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
         <input
           type={type}
           value={value}
-          onChange={(e) => updateField(name, type === 'checkbox' ? e.target.checked : e.target.value)}
+          onChange={(e) => updateField(name, e.target.value)}
           placeholder={placeholder}
           className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] transition-colors text-sm ${
             errors[name] 
@@ -219,6 +280,12 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
               : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
           } text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500`}
         />
+      )}
+      
+      {helpText && !errors[name] && (
+        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+          {helpText}
+        </p>
       )}
       
       {errors[name] && (
@@ -229,6 +296,45 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
       )}
     </div>
   );
+
+  // Composant radio button pour fumeur
+  const renderFumeurField = (prefix: string = '') => {
+    const fieldName = prefix ? `${prefix}.fumeur` : 'fumeur';
+    const value = prefix ? formData.conjoint?.fumeur : formData.fumeur;
+    
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Statut fumeur <span className="text-red-500">*</span>
+        </label>
+        <div className="flex items-center space-x-6 pt-2">
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="radio"
+              name={fieldName}
+              checked={!value}
+              onChange={() => updateField(fieldName, false)}
+              className="mr-2 text-[#335FAD] focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Non-fumeur</span>
+          </label>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="radio"
+              name={fieldName}
+              checked={value}
+              onChange={() => updateField(fieldName, true)}
+              className="mr-2 text-[#335FAD] focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Fumeur</span>
+          </label>
+        </div>
+        <p className="text-gray-500 dark:text-gray-400 text-xs">
+          Inclut cigarettes, cigares, pipe, vape avec nicotine
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -243,51 +349,88 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Client Principal */}
+        {/* Client Principal - Identité */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-gray-100 dark:border-gray-700">
           <div className="flex items-center mb-6">
             <div className="w-10 h-10 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 rounded-xl flex items-center justify-center mr-4">
               <i className="ri-user-line text-[#335FAD] dark:text-indigo-400"></i>
             </div>
             <h3 className="text-xl font-medium text-gray-900 dark:text-white">
-              {dossierType === 'couple' ? 'Emprunteur principal' : 'Informations personnelles'}
+              {dossierType === 'couple' ? 'Emprunteur principal - Identité' : 'Identité'}
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {renderInputField("Civilité", "civilite", "select", formData.civilite, true, "Sélectionnez", [
+              { value: 'M', label: 'M.' },
+              { value: 'Mme', label: 'Mme' },
+              { value: 'Mlle', label: 'Mlle' }
+            ])}
+            
+            {renderInputField("Nom", "nom", "text", formData.nom, true, "Nom de famille actuel")}
+            {renderInputField("Prénom", "prenom", "text", formData.prenom, true, "Prénom")}
+            {renderInputField("Nom de naissance", "nom_naissance", "text", formData.nom_naissance, true, "Nom de jeune fille si différent")}
+            {renderInputField("Date de naissance", "dateNaissance", "date", formData.dateNaissance, true)}
+            {renderInputField("Lieu de naissance", "lieu_naissance", "text", formData.lieu_naissance, true, "Ville ou pays de naissance")}
+          </div>
+        </div>
+
+        {/* Client Principal - Adresse */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-gray-100 dark:border-gray-700">
+          <div className="flex items-center mb-6">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mr-4">
+              <i className="ri-home-4-line text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 dark:text-white">
+              Adresse
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {renderInputField("Adresse", "adresse", "text", formData.adresse, true, "Numéro et nom de rue")}
+            {renderInputField("Complément d'adresse", "complement_adresse", "text", formData.complement_adresse, false, "Bâtiment, étage, etc.")}
+            {renderInputField("Code postal", "code_postal", "text", formData.code_postal, true, "Ex: 75001")}
+            {renderInputField("Ville", "ville", "text", formData.ville, true, "Ville")}
+          </div>
+        </div>
+
+        {/* Client Principal - Contact */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-gray-100 dark:border-gray-700">
+          <div className="flex items-center mb-6">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mr-4">
+              <i className="ri-phone-line text-green-600 dark:text-green-400"></i>
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 dark:text-white">
+              Contact
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {renderInputField("Email", "email", "email", formData.email, true, "adresse@email.com")}
+            {renderInputField("Téléphone portable", "telephone", "tel", formData.telephone, true, "06 12 34 56 78")}
+          </div>
+        </div>
+
+        {/* Client Principal - Profil professionnel & risques */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-gray-100 dark:border-gray-700">
+          <div className="flex items-center mb-6">
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mr-4">
+              <i className="ri-briefcase-line text-purple-600 dark:text-purple-400"></i>
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 dark:text-white">
+              Profil professionnel & santé
             </h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {renderInputField(
-              "Nom",
-              "nom",
-              "text",
-              formData.nom,
+              "Catégorie professionnelle",
+              "categorie_professionnelle",
+              "select",
+              String(formData.categorie_professionnelle),
               true,
-              "Nom de famille"
-            )}
-            
-            {renderInputField(
-              "Prénom",
-              "prenom",
-              "text",
-              formData.prenom,
-              true,
-              "Prénom"
-            )}
-            
-            {renderInputField(
-              "Date de naissance",
-              "dateNaissance",
-              "date",
-              formData.dateNaissance,
-              true
-            )}
-            
-            {renderInputField(
-              "Profession",
-              "profession",
-              "text",
-              formData.profession,
-              true,
-              "Profession actuelle"
+              "Sélectionnez votre catégorie",
+              CATEGORY_OPTIONS
             )}
             
             {renderInputField(
@@ -299,153 +442,107 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
               "Montant en euros"
             )}
             
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Statut fumeur
-              </label>
-              <div className="flex items-center space-x-6 pt-2">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="fumeur"
-                    checked={!formData.fumeur}
-                    onChange={() => updateField('fumeur', false)}
-                    className="mr-2 text-[#335FAD] focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Non-fumeur</span>
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="fumeur"
-                    checked={formData.fumeur}
-                    onChange={() => updateField('fumeur', true)}
-                    className="mr-2 text-[#335FAD] focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Fumeur</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            {renderFumeurField()}
+            
             {renderInputField(
-              "Email",
-              "email",
-              "email",
-              formData.email,
+              "Déplacements professionnels",
+              "deplacement_pro",
+              "select",
+              String(formData.deplacement_pro),
               true,
-              "adresse@email.com"
+              "Sélectionnez",
+              DEPLACEMENT_PRO_OPTIONS,
+              "Kilométrage annuel en véhicule pour le travail"
             )}
             
             {renderInputField(
-              "Téléphone",
-              "telephone",
-              "tel",
-              formData.telephone,
+              "Travaux manuels",
+              "travaux_manuels",
+              "select",
+              String(formData.travaux_manuels),
               true,
-              "06 12 34 56 78"
-            )}
-          </div>
-
-          <div className="mt-6">
-            {renderInputField(
-              "Adresse complète",
-              "adresse",
-              "textarea",
-              formData.adresse,
-              true,
-              "Adresse, code postal, ville"
+              "Sélectionnez",
+              TRAVAUX_MANUELS_OPTIONS,
+              "Type de travaux manuels dans votre activité"
             )}
           </div>
         </div>
 
         {/* Conjoint si couple */}
         {dossierType === 'couple' && formData.conjoint && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-gray-100 dark:border-gray-700">
-            <div className="flex items-center mb-6">
-              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center mr-4">
-                <i className="ri-user-heart-line text-emerald-600 dark:text-emerald-400"></i>
+          <>
+            {/* Conjoint - Identité */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center mr-4">
+                  <i className="ri-user-heart-line text-emerald-600 dark:text-emerald-400"></i>
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 dark:text-white">
+                  Co-emprunteur - Identité
+                </h3>
               </div>
-              <h3 className="text-xl font-medium text-gray-900 dark:text-white">
-                Co-emprunteur / Conjoint
-              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {renderInputField("Civilité", "conjoint.civilite", "select", formData.conjoint.civilite, true, "Sélectionnez", [
+                  { value: 'M', label: 'M.' },
+                  { value: 'Mme', label: 'Mme' },
+                  { value: 'Mlle', label: 'Mlle' }
+                ])}
+                
+                {renderInputField("Nom", "conjoint.nom", "text", formData.conjoint.nom, true, "Nom de famille actuel")}
+                {renderInputField("Prénom", "conjoint.prenom", "text", formData.conjoint.prenom, true, "Prénom")}
+                {renderInputField("Nom de naissance", "conjoint.nom_naissance", "text", formData.conjoint.nom_naissance, true, "Nom de jeune fille si différent")}
+                {renderInputField("Date de naissance", "conjoint.dateNaissance", "date", formData.conjoint.dateNaissance, true)}
+                {renderInputField("Lieu de naissance", "conjoint.lieu_naissance", "text", formData.conjoint.lieu_naissance, true, "Ville ou pays de naissance")}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {renderInputField(
-                "Nom",
-                "conjoint.nom",
-                "text",
-                formData.conjoint.nom,
-                true,
-                "Nom de famille"
-              )}
-              
-              {renderInputField(
-                "Prénom",
-                "conjoint.prenom",
-                "text",
-                formData.conjoint.prenom,
-                true,
-                "Prénom"
-              )}
-              
-              {renderInputField(
-                "Date de naissance",
-                "conjoint.dateNaissance",
-                "date",
-                formData.conjoint.dateNaissance,
-                true
-              )}
-              
-              {renderInputField(
-                "Profession",
-                "conjoint.profession",
-                "text",
-                formData.conjoint.profession,
-                true,
-                "Profession actuelle"
-              )}
-              
-              {renderInputField(
-                "Revenus mensuels nets",
-                "conjoint.revenus",
-                "number",
-                formData.conjoint.revenus,
-                true,
-                "Montant en euros"
-              )}
-              
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Statut fumeur
-                </label>
-                <div className="flex items-center space-x-6 pt-2">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="conjoint.fumeur"
-                      checked={!formData.conjoint.fumeur}
-                      onChange={() => updateField('conjoint.fumeur', false)}
-                      className="mr-2 text-[#335FAD] focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Non-fumeur</span>
-                  </label>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="conjoint.fumeur"
-                      checked={formData.conjoint.fumeur}
-                      onChange={() => updateField('conjoint.fumeur', true)}
-                      className="mr-2 text-[#335FAD] focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Fumeur</span>
-                  </label>
+            {/* Conjoint - Profil professionnel & risques */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-2 border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center mr-4">
+                  <i className="ri-briefcase-line text-emerald-600 dark:text-emerald-400"></i>
                 </div>
+                <h3 className="text-xl font-medium text-gray-900 dark:text-white">
+                  Co-emprunteur - Profil professionnel & santé
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {renderInputField(
+                  "Catégorie professionnelle",
+                  "conjoint.categorie_professionnelle",
+                  "select",
+                  String(formData.conjoint.categorie_professionnelle),
+                  true,
+                  "Sélectionnez la catégorie",
+                  CATEGORY_OPTIONS
+                )}
+                
+                {renderFumeurField('conjoint')}
+                
+                {renderInputField(
+                  "Déplacements professionnels",
+                  "conjoint.deplacement_pro",
+                  "select",
+                  String(formData.conjoint.deplacement_pro),
+                  true,
+                  "Sélectionnez",
+                  DEPLACEMENT_PRO_OPTIONS
+                )}
+                
+                {renderInputField(
+                  "Travaux manuels",
+                  "conjoint.travaux_manuels",
+                  "select",
+                  String(formData.conjoint.travaux_manuels),
+                  true,
+                  "Sélectionnez",
+                  TRAVAUX_MANUELS_OPTIONS
+                )}
               </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Actions */}

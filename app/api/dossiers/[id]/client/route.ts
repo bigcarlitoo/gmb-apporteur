@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-export async function PUT(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: dossierId } = await params;
+    
     const supabaseClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -22,8 +24,6 @@ export async function PUT(_req: NextRequest, { params }: { params: { id: string 
     if (profileError || profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Accès non autorisé - Admin seulement' }, { status: 403 })
     }
-
-    const dossierId = params.id
     const body = await _req.json()
     const clientData = body?.clientData || {}
 

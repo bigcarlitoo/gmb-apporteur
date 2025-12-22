@@ -4,10 +4,20 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { ActivityReadStatusCache } from '@/lib/services/activity-read-status-cache';
+import { getActivityConfig as getCentralizedActivityConfig } from '@/lib/utils/activity-config';
+import { EmptyState } from '@/components/ui/empty-state';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ActivityItem {
   id: string;
-  type: 'nouveau_dossier' | 'validation_devis' | 'refus_devis' | 'finalisation' | 'nouveau_apporteur' | 'modification_dossier' | 'devis_envoye' | 'document_uploaded';
+  type: 'nouveau_dossier' | 'validation_devis' | 'finalisation' | 'devis_envoye' | 'devis_refuse' | 'modification_dossier';
   apporteurNom: string;
   apporteurPrenom: string;
   clientNom?: string;
@@ -16,13 +26,14 @@ interface ActivityItem {
   date: string;
   statut?: string;
   montant?: number;
+  isRead?: boolean;
 }
 
 interface AdminActivityProps {
   limit?: number;
 }
 
-export default function AdminActivityConnected({ limit = 10 }: AdminActivityProps) {
+export default function AdminActivityConnected({ limit = 6 }: AdminActivityProps) {
   const router = useRouter();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +70,7 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
         throw error;
       }
 
-      // Transformer les données de la DB en format ActivityItem
+      // Transformer les données de la DB en format ActivityItem et fusionner avec cache
       const transformedActivities: ActivityItem[] = (activitiesData || []).map((activity: any) => {
         // Mapper les types d'activités de la DB vers les types du composant
         let type: ActivityItem['type'] = 'modification_dossier';
@@ -68,33 +79,31 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
           case 'dossier_created':
             type = 'nouveau_dossier';
             break;
+          case 'devis_envoye':
+            type = 'devis_envoye';
+            break;
           case 'devis_accepte':
             type = 'validation_devis';
             break;
           case 'devis_refuse':
-            type = 'refus_devis';
+            type = 'devis_refuse';
             break;
           case 'dossier_finalise':
             type = 'finalisation';
             break;
-          case 'devis_envoye':
-            type = 'devis_envoye';
-            break;
-          case 'devis_sent':
-            type = 'devis_envoye';
-            break;
-          case 'devis_accepted':
-            type = 'validation_devis';
-            break;
-          case 'document_uploaded':
-            type = 'document_uploaded';
-            break;
+          // Types non affichés pour l'admin mais gérés pour éviter les erreurs
+          case 'dossier_attribue':
+          case 'dossier_supprime':
           case 'classement_updated':
             type = 'modification_dossier';
             break;
           default:
             type = 'modification_dossier';
         }
+
+        // Fusionner avec le cache local
+        const cachedStatus = ActivityReadStatusCache.getReadStatus(activity.id);
+        const finalIsRead = cachedStatus !== null ? cachedStatus : (activity.is_read || false);
 
         return {
           id: activity.id,
@@ -106,7 +115,8 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
           numeroDossier: activity.numero_dossier,
           date: activity.created_at,
           statut: activity.dossier_statut,
-          montant: activity.economie_generee || activity.montant_capital
+          montant: activity.economie_generee || activity.montant_capital,
+          isRead: finalIsRead
         };
       });
 
@@ -145,14 +155,21 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
           bgColor: 'bg-[#335FAD]/10 dark:bg-[#335FAD]/30',
           label: 'Nouveau dossier'
         };
+      case 'devis_envoye':
+        return {
+          icon: 'ri-send-plane-line',
+          color: 'text-orange-600 dark:text-orange-400',
+          bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+          label: 'Devis envoyé'
+        };
       case 'validation_devis':
         return {
           icon: 'ri-checkbox-circle-line',
           color: 'text-green-600 dark:text-green-400',
           bgColor: 'bg-green-100 dark:bg-green-900/30',
-          label: 'Devis validé'
+          label: 'Devis accepté'
         };
-      case 'refus_devis':
+      case 'devis_refuse':
         return {
           icon: 'ri-close-circle-line',
           color: 'text-red-600 dark:text-red-400',
@@ -166,27 +183,6 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
           bgColor: 'bg-purple-100 dark:bg-purple-900/30',
           label: 'Dossier finalisé'
         };
-      case 'nouveau_apporteur':
-        return {
-          icon: 'ri-user-add-line',
-          color: 'text-blue-600 dark:text-blue-400',
-          bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-          label: 'Nouvel apporteur'
-        };
-      case 'devis_envoye':
-        return {
-          icon: 'ri-send-plane-line',
-          color: 'text-orange-600 dark:text-orange-400',
-          bgColor: 'bg-orange-100 dark:bg-orange-900/30',
-          label: 'Devis envoyé'
-        };
-      case 'document_uploaded':
-        return {
-          icon: 'ri-file-upload-line',
-          color: 'text-indigo-600 dark:text-indigo-400',
-          bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
-          label: 'Document uploadé'
-        };
       default:
         return {
           icon: 'ri-edit-line',
@@ -197,7 +193,8 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
     }
   };
 
-  const formatDate = (dateString: string) => {
+  // Formatage de date relative (spécifique aux activités)
+  const formatRelativeDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
@@ -222,7 +219,19 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
     }).format(montant);
   };
 
-  const handleActivityClick = (activity: ActivityItem) => {
+  // Fonction pour marquer une activité comme lue (optimiste)
+  const markActivityAsRead = (activityId: string) => {
+    // Mise à jour optimiste immédiate
+    setActivities(prev => prev.map(activity => 
+      activity.id === activityId ? { ...activity, isRead: true } : activity
+    ));
+    
+    // Ajouter au cache pour synchronisation en arrière-plan
+    ActivityReadStatusCache.markAsReadOptimistic(activityId);
+  };
+
+  const handleActivityClick = async (activity: ActivityItem) => {
+    // Naviguer vers le dossier
     if (activity.numeroDossier) {
       router.push(`/admin/dossiers/${activity.numeroDossier}`);
     }
@@ -258,32 +267,33 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
           Activité récente
         </h3>
         <div className="flex space-x-2">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="tous">Tous</option>
-            <option value="nouveau_dossier">Nouveaux dossiers</option>
-            <option value="devis_envoye">Devis envoyés</option>
-            <option value="document_uploaded">Documents uploadés</option>
-            <option value="validation_devis">Devis validés</option>
-            <option value="refus_devis">Devis refusés</option>
-            <option value="finalisation">Finalisations</option>
-            <option value="modification_dossier">Modifications</option>
-          </select>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="text-sm w-[180px]">
+              <SelectValue placeholder="Filtrer" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tous">Tous</SelectItem>
+              <SelectItem value="nouveau_dossier">Nouveaux dossiers</SelectItem>
+              <SelectItem value="devis_envoye">Devis envoyés</SelectItem>
+              <SelectItem value="validation_devis">Devis acceptés</SelectItem>
+              <SelectItem value="devis_refuse">Devis refusés</SelectItem>
+              <SelectItem value="finalisation">Finalisations</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {filteredActivities.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="text-gray-400 dark:text-gray-500 mb-2">
-            <i className="ri-inbox-line text-4xl"></i>
-          </div>
-          <p className="text-gray-500 dark:text-gray-400">
-            Aucune activité récente
-          </p>
-        </div>
+        <EmptyState
+          icon={filter !== 'tous' ? 'ri-filter-off-line' : 'ri-history-line'}
+          title={filter !== 'tous' ? 'Aucun résultat' : 'Pas encore d\'activité'}
+          description={
+            filter !== 'tous'
+              ? 'Aucune activité ne correspond à ce filtre.'
+              : 'Les actions de vos apporteurs apparaîtront ici.'
+          }
+          variant="compact"
+        />
       ) : (
         <div className="space-y-4">
           {filteredActivities.map((activity) => {
@@ -292,6 +302,7 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
               <div
                 key={activity.id}
                 onClick={() => handleActivityClick(activity)}
+                onMouseEnter={() => !activity.isRead && markActivityAsRead(activity.id)}
                 className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
               >
                 <div className={`flex-shrink-0 w-10 h-10 rounded-full ${config.bgColor} flex items-center justify-center`}>
@@ -303,7 +314,7 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
                       {config.label}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDate(activity.date)}
+                      {formatRelativeDate(activity.date)}
                     </p>
                   </div>
                   <div className="mt-1">
@@ -323,11 +334,6 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
                     {activity.numeroDossier && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Dossier {activity.numeroDossier}
-                        {activity.statut && (
-                          <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">
-                            {activity.statut}
-                          </span>
-                        )}
                       </p>
                     )}
                     {activity.montant && (
@@ -343,16 +349,14 @@ export default function AdminActivityConnected({ limit = 10 }: AdminActivityProp
         </div>
       )}
 
-      {activities.length > limit && (
-        <div className="mt-4 text-center">
-          <Link
-            href="/admin/activites"
-            className="text-sm text-[#335FAD] hover:text-[#2a4d8a] dark:text-[#335FAD] dark:hover:text-[#2a4d8a] font-medium"
-          >
-            Voir toutes les activités
-          </Link>
-        </div>
-      )}
+      <div className="mt-4 text-center">
+        <Link
+          href="/admin/activites"
+          className="text-sm text-[#335FAD] hover:text-[#2a4d8a] dark:text-[#335FAD] dark:hover:text-[#2a4d8a] font-medium"
+        >
+          Tout voir
+        </Link>
+      </div>
     </div>
   );
 }

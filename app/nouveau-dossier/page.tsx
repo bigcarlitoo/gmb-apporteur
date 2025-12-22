@@ -8,30 +8,52 @@ import DossierTypeSelection from '../../components/DossierTypeSelection';
 import ClientInfoForm from '../../components/ClientInfoForm';
 import DocumentUpload from '../../components/DocumentUpload';
 import DossierProgress from '../../components/DossierProgress';
+import { ClientLockService, ClientLockResult } from '@/lib/services/client-lock';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
 
 // Types pour le dossier
 export type DossierType = 'seul' | 'couple';
 
 export interface ClientInfo {
-  // Client principal
+  // Client principal - Identité
+  civilite: string;
   nom: string;
   prenom: string;
+  nom_naissance: string;
   dateNaissance: string;
-  profession: string;
-  revenus: string;
-  fumeur: boolean;
+  lieu_naissance: string;  // OBLIGATOIRE pour Exade
+  
+  // Adresse séparée (obligatoire Exade)
+  adresse: string;
+  complement_adresse: string;
+  code_postal: string;
+  ville: string;
+  
+  // Contact
   email: string;
   telephone: string;
-  adresse: string;
+  
+  // Professionnel
+  categorie_professionnelle: number;
+  revenus: string;
+  
+  // Santé / Risques (obligatoire pour Generali, SwissLife, MNCAP)
+  fumeur: boolean;
+  deplacement_pro: number;  // 1 = moins de 20000km, 2 = 20000km+
+  travaux_manuels: number;  // 0 = aucun, 1 = léger, 2 = moyen/important
   
   // Client conjoint (si couple)
   conjoint?: {
+    civilite: string;
     nom: string;
     prenom: string;
+    nom_naissance: string;
     dateNaissance: string;
-    profession: string;
-    revenus: string;
+    lieu_naissance: string;
+    categorie_professionnelle: number;
     fumeur: boolean;
+    deplacement_pro: number;
+    travaux_manuels: number;
   };
 }
 
@@ -55,9 +77,16 @@ export interface DossierData {
 function NouveauDossierContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentBrokerId } = useBrokerContext();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
+  
+  // États pour la vérification du client lock (anti-contournement)
+  const [showClientLockModal, setShowClientLockModal] = useState(false);
+  const [clientLockResult, setClientLockResult] = useState<ClientLockResult | null>(null);
+  const [isCheckingClientLock, setIsCheckingClientLock] = useState(false);
+  const [pendingClientInfo, setPendingClientInfo] = useState<ClientInfo | null>(null);
   
   const [dossierData, setDossierData] = useState<DossierData>({
     type: 'seul',
@@ -116,13 +145,50 @@ function NouveauDossierContent() {
     nextStep();
   };
 
-  // Mise à jour des informations client
-  const handleClientInfoUpdate = (clientInfo: ClientInfo) => {
+  // Mise à jour des informations client avec vérification anti-contournement
+  const handleClientInfoUpdate = async (clientInfo: ClientInfo) => {
+    // Vérifier si le client est déjà verrouillé (anti-contournement)
+    if (currentBrokerId && clientInfo.nom && clientInfo.prenom && clientInfo.dateNaissance) {
+      setIsCheckingClientLock(true);
+      setPendingClientInfo(clientInfo);
+      
+      try {
+        const lockResult = await ClientLockService.checkClientLock(
+          currentBrokerId,
+          clientInfo.nom,
+          clientInfo.prenom,
+          clientInfo.dateNaissance
+        );
+        
+        if (lockResult.is_locked && lockResult.dossier_id) {
+          // Client déjà verrouillé - afficher la modale avec redirection
+          setClientLockResult(lockResult);
+          setShowClientLockModal(true);
+          setIsCheckingClientLock(false);
+          return; // Ne pas continuer vers l'étape suivante
+        }
+      } catch (error) {
+        console.error('Erreur vérification client lock:', error);
+        // En cas d'erreur, on continue (fail-open pour UX)
+      } finally {
+        setIsCheckingClientLock(false);
+      }
+    }
+    
+    // Pas de lock ou erreur - continuer normalement
     setDossierData(prev => ({
       ...prev,
       clientInfo
     }));
     nextStep();
+  };
+
+  // Rediriger vers le dossier existant
+  const handleRedirectToExistingDossier = () => {
+    if (clientLockResult?.dossier_id) {
+      router.push(`/dossier/${clientLockResult.dossier_id}`);
+    }
+    setShowClientLockModal(false);
   };
 
   // Mise à jour des documents
@@ -147,22 +213,32 @@ function NouveauDossierContent() {
     if (!dossierData.clientInfo) return false;
     
     const clientInfo = dossierData.clientInfo;
-    const requiredClientFields = ['nom', 'prenom', 'dateNaissance', 'profession', 'email', 'telephone'];
+    const requiredClientFields = ['civilite', 'nom', 'prenom', 'nom_naissance', 'dateNaissance', 'email', 'telephone'];
     
     for (const field of requiredClientFields) {
       if (!clientInfo[field as keyof ClientInfo] || String(clientInfo[field as keyof ClientInfo]).trim() === '') {
         return false;
       }
     }
+    
+    // Vérifier categorie_professionnelle séparément (c'est un number)
+    if (!clientInfo.categorie_professionnelle || clientInfo.categorie_professionnelle === 0) {
+      return false;
+    }
 
     // Vérifier les informations conjoint si couple
     if (dossierData.type === 'couple' && clientInfo.conjoint) {
-      const requiredConjointFields = ['nom', 'prenom', 'dateNaissance', 'profession'];
+      const requiredConjointFields = ['civilite', 'nom', 'prenom', 'nom_naissance', 'dateNaissance'];
       for (const field of requiredConjointFields) {
         if (!clientInfo.conjoint[field as keyof typeof clientInfo.conjoint] || 
             String(clientInfo.conjoint[field as keyof typeof clientInfo.conjoint]).trim() === '') {
           return false;
         }
+      }
+      
+      // Vérifier categorie_professionnelle du conjoint
+      if (!clientInfo.conjoint.categorie_professionnelle || clientInfo.conjoint.categorie_professionnelle === 0) {
+        return false;
       }
     }
 
@@ -191,10 +267,11 @@ function NouveauDossierContent() {
     } else {
       const clientInfo = dossierData.clientInfo;
       const requiredClientFields = [
+        { key: 'civilite', label: 'Civilité' },
         { key: 'nom', label: 'Nom' },
         { key: 'prenom', label: 'Prénom' },
+        { key: 'nom_naissance', label: 'Nom de naissance' },
         { key: 'dateNaissance', label: 'Date de naissance' },
-        { key: 'profession', label: 'Profession' },
         { key: 'email', label: 'Email' },
         { key: 'telephone', label: 'Téléphone' }
       ];
@@ -204,6 +281,11 @@ function NouveauDossierContent() {
           missing.push(field.label);
         }
       }
+      
+      // Vérifier catégorie professionnelle
+      if (!clientInfo.categorie_professionnelle || clientInfo.categorie_professionnelle === 0) {
+        missing.push('Catégorie professionnelle');
+      }
 
       // Vérifier les informations conjoint si couple
       if (dossierData.type === 'couple') {
@@ -211,16 +293,22 @@ function NouveauDossierContent() {
           missing.push('Informations conjoint');
         } else {
           const requiredConjointFields = [
+            { key: 'civilite', label: 'Civilité conjoint' },
             { key: 'nom', label: 'Nom conjoint' },
             { key: 'prenom', label: 'Prénom conjoint' },
-            { key: 'dateNaissance', label: 'Date de naissance conjoint' },
-            { key: 'profession', label: 'Profession conjoint' }
+            { key: 'nom_naissance', label: 'Nom de naissance conjoint' },
+            { key: 'dateNaissance', label: 'Date de naissance conjoint' }
           ];
           for (const field of requiredConjointFields) {
             const value = clientInfo.conjoint[field.key as keyof typeof clientInfo.conjoint];
             if (!value || String(value).trim() === '') {
               missing.push(field.label);
             }
+          }
+          
+          // Vérifier catégorie professionnelle du conjoint
+          if (!clientInfo.conjoint.categorie_professionnelle || clientInfo.conjoint.categorie_professionnelle === 0) {
+            missing.push('Catégorie professionnelle conjoint');
           }
         }
       }
@@ -323,7 +411,7 @@ function NouveauDossierContent() {
       
     } catch (error) {
       console.error('Erreur lors de la création du dossier:', error);
-      alert(`Erreur lors de la création du dossier: ${error.message}`);
+      alert(`Erreur lors de la création du dossier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -471,6 +559,76 @@ function NouveauDossierContent() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Client déjà référencé (anti-contournement) */}
+      {showClientLockModal && clientLockResult && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowClientLockModal(false)}></div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-lg w-full p-6 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mr-3">
+                    <i className="ri-alert-line text-amber-600 dark:text-amber-400 text-xl"></i>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Client déjà référencé
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowClientLockModal(false)}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                >
+                  <i className="ri-close-line text-xl"></i>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    Ce client est déjà associé à un dossier existant.
+                  </p>
+                  {clientLockResult.locked_at && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                      Dossier créé le {new Date(clientLockResult.locked_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <p>Un dossier existe déjà pour ce client. Vous pouvez consulter le dossier existant pour suivre son avancement.</p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+                  <button
+                    onClick={() => setShowClientLockModal(false)}
+                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleRedirectToExistingDossier}
+                    className="bg-[#335FAD] hover:bg-[#2a4e8f] text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center"
+                  >
+                    <i className="ri-folder-line mr-2"></i>
+                    Voir le dossier existant
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Indicateur de chargement pour la vérification du client lock */}
+      {isCheckingClientLock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl flex items-center gap-3">
+            <i className="ri-loader-4-line animate-spin text-[#335FAD] text-xl"></i>
+            <span className="text-gray-700 dark:text-gray-300">Vérification en cours...</span>
           </div>
         </div>
       )}

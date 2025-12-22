@@ -3,6 +3,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { ApporteursService } from '@/lib/services/apporteurs';
+import { mapStatutForDisplay, getStatutBadgeConfig } from '@/lib/utils/statut-mapping';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { getApporteurBadgeConfig } from '@/lib/utils/apporteur-badges';
+import { supabase } from '@/lib/supabase';
 
 // ============================================================================
 // INTERFACES POUR L'INTÉGRATION SUPABASE
@@ -16,29 +21,15 @@ interface ApporteurProfile {
   prenom: string;
   email: string;
   telephone: string;
-  date_naissance: string;
-  adresse: string;
-  code_postal: string;
-  ville: string;
-  // Informations professionnelles
-  entreprise: string;
-  siret: string;
-  forme_juridique: string;
-  secteur_activite: string;
-  specialites: string[];
-  zone_geographique: string[];
   // Inscription et statut
   date_inscription: string;
-  statut: 'en_attente' | 'approuve' | 'suspendu' | 'refuse';
-  commentaire_motivation: string;
-  // Données calculées (via des requêtes SQL)
+  statut: 'actif' | 'inactif' | 'suspendu' | 'en_attente' | 'refuse';
+  // Données calculées
   nb_dossiers_traites: number;
   nb_dossiers_en_cours: number;
   nb_dossiers_valides: number;
   economies_generees: number;
-  ca_total_gmb: number;
   taux_conversion: number;
-  position_classement: number;
   // Métadonnées
   created_at: string;
   updated_at: string;
@@ -61,11 +52,6 @@ interface ApporteurStatistics {
     nombre: number;
     pourcentage: number;
   }[];
-  // Évolution du classement
-  evolution_classement: {
-    periode: string;
-    position: number;
-  }[];
   // Clients récents
   clients_recents: {
     id: string;
@@ -74,6 +60,8 @@ interface ApporteurStatistics {
     date_soumission: string;
     statut: string;
     economie: number;
+    montant_capital: number;
+    is_couple: boolean;
   }[];
 }
 
@@ -89,6 +77,7 @@ interface DossierMensuel {
   economie_generee: number;
   ca_gmb: number;
   type_assurance: string;
+  is_couple: boolean;
 }
 
 interface ApporteurDetailContentProps {
@@ -116,42 +105,17 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
   const [monthlyDossiers, setMonthlyDossiers] = useState<DossierMensuel[]>([]);
   const [loadingMonthlyData, setLoadingMonthlyData] = useState(false);
 
-  // Données mock pour les statistiques étendues
-  const mockPerformanceDataExtended = useMemo(() => [
-    { month: 'Jan 2024', dossiers_traites: 3, dossiers_valides: 3, economies_generees: 8400, ca_gmb: 1800 },
-    { month: 'Déc 2023', dossiers_traites: 4, dossiers_valides: 3, economies_generees: 12200, ca_gmb: 2100 },
-    { month: 'Nov 2023', dossiers_traites: 2, dossiers_valides: 2, economies_generees: 6800, ca_gmb: 1200 },
-    { month: 'Oct 2023', dossiers_traites: 3, dossiers_valides: 3, economies_generees: 9600, ca_gmb: 1900 },
-    { month: 'Sep 2023', dossiers_traites: 5, dossiers_valides: 4, economies_generees: 15200, ca_gmb: 2800 },
-    { month: 'Aoû 2023', dossiers_traites: 4, dossiers_valides: 4, economies_generees: 11400, ca_gmb: 2400 },
-    { month: 'Jul 2023', dossiers_traites: 2, dossiers_valides: 1, economies_generees: 4200, ca_gmb: 600 },
-    { month: 'Jun 2023', dossiers_traites: 6, dossiers_valides: 5, economies_generees: 18500, ca_gmb: 3200 },
-    { month: 'Mai 2023', dossiers_traites: 3, dossiers_valides: 2, economies_generees: 7800, ca_gmb: 1400 },
-    { month: 'Avr 2023', dossiers_traites: 4, dossiers_valides: 4, economies_generees: 12600, ca_gmb: 2300 },
-    { month: 'Mar 2023', dossiers_traites: 5, dossiers_valides: 3, economies_generees: 11100, ca_gmb: 1800 },
-    { month: 'Fév 2023', dossiers_traites: 2, dossiers_valides: 2, economies_generees: 6200, ca_gmb: 1100 },
-    { month: 'Jan 2023', dossiers_traites: 3, dossiers_valides: 2, economies_generees: 7400, ca_gmb: 1300 },
-    { month: 'Déc 2022', dossiers_traites: 4, dossiers_valides: 3, economies_generees: 10800, ca_gmb: 1900 },
-    { month: 'Nov 2022', dossiers_traites: 1, dossiers_valides: 1, economies_generees: 3200, ca_gmb: 600 },
-    { month: 'Oct 2022', dossiers_traites: 3, dossiers_valides: 2, economies_generees: 8100, ca_gmb: 1400 },
-    { month: 'Sep 2022', dossiers_traites: 2, dossiers_valides: 2, economies_generees: 6900, ca_gmb: 1200 },
-    { month: 'Aoû 2022', dossiers_traites: 1, dossiers_valides: 0, economies_generees: 0, ca_gmb: 0 },
-    { month: 'Jul 2022', dossiers_traites: 2, dossiers_valides: 1, economies_generees: 4800, ca_gmb: 800 },
-    { month: 'Jun 2022', dossiers_traites: 3, dossiers_valides: 2, economies_generees: 7200, ca_gmb: 1300 },
-    { month: 'Mai 2022', dossiers_traites: 2, dossiers_valides: 2, economies_generees: 6500, ca_gmb: 1100 },
-    { month: 'Avr 2022', dossiers_traites: 1, dossiers_valides: 1, economies_generees: 3800, ca_gmb: 700 },
-    { month: 'Mar 2022', dossiers_traites: 2, dossiers_valides: 1, economies_generees: 4100, ca_gmb: 600 },
-    { month: 'Fév 2022', dossiers_traites: 1, dossiers_valides: 1, economies_generees: 2900, ca_gmb: 500 }
-  ], []);
+  // États pour la commission personnalisée
+  const [commissionType, setCommissionType] = useState<'percentage' | 'fixed'>('percentage');
+  const [customSharePct, setCustomSharePct] = useState<number | null>(null);
+  const [customFixedAmount, setCustomFixedAmount] = useState<number | null>(null); // en euros
+  const [useCustomShare, setUseCustomShare] = useState(false);
+  const [isSavingCommission, setIsSavingCommission] = useState(false);
+  const [defaultSharePct, setDefaultSharePct] = useState<number>(80);
+  const [defaultFixedAmount, setDefaultFixedAmount] = useState<number | null>(null); // en euros
+  const [defaultCommissionType, setDefaultCommissionType] = useState<'percentage' | 'fixed'>('percentage');
+  const [commissionSaveSuccess, setCommissionSaveSuccess] = useState(false);
 
-  const mockRankingData = useMemo(() => [
-    { period: 'Jan 2024', position: 3, evolution: 'up' as const },
-    { period: 'Déc 2023', position: 4, evolution: 'up' as const },
-    { period: 'Nov 2023', position: 5, evolution: 'down' as const },
-    { period: 'Oct 2023', position: 4, evolution: 'up' as const },
-    { period: 'Sep 2023', position: 6, evolution: 'down' as const },
-    { period: 'Aoû 2023', position: 5, evolution: 'stable' as const }
-  ], []);
 
   // ============================================================================
   // SUPABASE INTEGRATION - RÉCUPÉRATION DES DONNÉES APPORTEUR
@@ -189,206 +153,209 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
     try {
       setIsLoading(true);
       
-      // SIMULATION - À remplacer par l'appel Supabase réel
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 1. Récupérer les données de base de l'apporteur
+      const apporteurData = await ApporteursService.getApporteurById(apporteurId);
       
-      // SUPABASE: Récupération des données apporteur
-      /*
-      const { data: apporteurData, error: apporteurError } = await supabase
-        .rpc('get_apporteur_complet', { p_user_id: apporteurId });
-
-      if (apporteurError) throw apporteurError;
-
-      const { data: statsData, error: statsError } = await supabase
-        .rpc('get_apporteur_statistics', { p_user_id: apporteurId });
-
-      if (statsError) throw statsError;
-
-      setApporteur(apporteurData);
-      setStatistics(statsData);
-      */
-
-      // Données mock pour la démonstration
-      const mockApporteur: ApporteurProfile = {
-        id: apporteurId,
-        user_id: apporteurId,
-        nom: apporteurId === '1' ? 'Dubois' : apporteurId === '2' ? 'Lambert' : apporteurId === '3' ? 'Martin' : 'Moreau',
-        prenom: apporteurId === '1' ? 'Marie' : apporteurId === '2' ? 'Thomas' : apporteurId === '3' ? 'Sophie' : 'Jean',
-        email: apporteurId === '1' ? 'marie.dubois@email.com' : 
-               apporteurId === '2' ? 'thomas.lambert@email.com' : 
-               apporteurId === '3' ? 'sophie.martin@email.com' : 'jean.moreau@email.com',
-        telephone: apporteurId === '1' ? '06 12 34 56 78' : 
-                   apporteurId === '2' ? '06 23 45 67 89' : 
-                   apporteurId === '3' ? '06 34 56 78 90' : '06 45 67 89 01',
-        date_naissance: apporteurId === '1' ? '1982-05-15' : 
-                        apporteurId === '2' ? '1979-11-23' : 
-                        apporteurId === '3' ? '1985-03-08' : '1978-09-12',
-        adresse: apporteurId === '1' ? '25 rue de la Liberté' : 
-                 apporteurId === '2' ? '18 avenue Victor Hugo' : 
-                 apporteurId === '3' ? '42 boulevard Saint-Michel' : '8 place de la République',
-        code_postal: apporteurId === '1' ? '69001' : 
-                     apporteurId === '2' ? '75016' : 
-                     apporteurId === '3' ? '33000' : '13001',
-        ville: apporteurId === '1' ? 'Lyon' : 
-               apporteurId === '2' ? 'Paris' : 
-               apporteurId === '3' ? 'Bordeaux' : 'Marseille',
-        entreprise: apporteurId === '1' ? 'Conseil Patrimoine Plus' : 
-                    apporteurId === '2' ? 'Lambert Courtage' : 
-                    apporteurId === '3' ? 'Martin Assurance Conseil' : 'Moreau Finance',
-        siret: apporteurId === '1' ? '12345678901234' : 
-               apporteurId === '2' ? '23456789012345' : 
-               apporteurId === '3' ? '34567890123456' : '45678901234567',
-        forme_juridique: apporteurId === '1' ? 'EURL' : 
-                         apporteurId === '2' ? 'SARL' : 
-                         apporteurId === '3' ? 'Auto-entrepreneur' : 'SAS',
-        secteur_activite: 'Courtage en assurance',
-        specialites: apporteurId === '1' ? ['Assurance emprunteur', 'Assurance vie'] : 
-                     apporteurId === '2' ? ['Prêt immobilier', 'Assurance emprunteur', 'Rachat de crédit'] : 
-                     apporteurId === '3' ? ['Assurance emprunteur', 'Prévoyance'] : ['Assurance auto', 'Assurance habitation'],
-        zone_geographique: apporteurId === '1' ? ['Rhône-Alpes', 'Auvergne'] : 
-                          apporteurId === '2' ? ['Île-de-France', 'Normandie'] : 
-                          apporteurId === '3' ? ['Nouvelle-Aquitaine'] : ['PACA', 'Occitanie'],
-        date_inscription: apporteurId === '1' ? '2023-03-15T10:30:00Z' : 
-                         apporteurId === '2' ? '2022-11-08T14:20:00Z' : 
-                         apporteurId === '3' ? '2023-07-22T09:45:00Z' : '2023-01-10T11:15:00Z',
-        statut: apporteurId === '1' || apporteurId === '2' || apporteurId === '3' ? 'approuve' : 'suspendu',
-        commentaire_motivation: apporteurId === '1' ? 'Experte en assurance emprunteur avec 12 ans d\'expérience. Souhaite développer son portefeuille client avec des solutions compétitives.' : 
-                               apporteurId === '2' ? 'Courtier expérimenté spécialisé dans l\'immobilier. Portfolio de plus de 500 clients. Recherche des partenariats de qualité.' : 
-                               apporteurId === '3' ? 'Conseillère indépendante passionnée par l\'accompagnement personnalisé des familles dans leurs projets d\'assurance.' : 'Courtier multi-spécialiste avec réseau étendu.',
-        // Statistiques calculées - Ces données viennent de requêtes SQL sur les dossiers
-        nb_dossiers_traites: apporteurId === '1' ? 24 : 
-                             apporteurId === '2' ? 32 : 
-                             apporteurId === '3' ? 18 : 8,
-        nb_dossiers_en_cours: apporteurId === '1' ? 3 : 
-                              apporteurId === '2' ? 5 : 
-                              apporteurId === '3' ? 2 : 1,
-        nb_dossiers_valides: apporteurId === '1' ? 21 : 
-                             apporteurId === '2' ? 28 : 
-                             apporteurId === '3' ? 15 : 6,
-        economies_generees: apporteurId === '1' ? 67200 : 
-                           apporteurId === '2' ? 85600 : 
-                           apporteurId === '3' ? 45800 : 18900,
-        ca_total_gmb: apporteurId === '1' ? 15400 : 
-                      apporteurId === '2' ? 21200 : 
-                      apporteurId === '3' ? 12800 : 5600,
-        taux_conversion: apporteurId === '1' ? 87.5 : 
-                        apporteurId === '2' ? 87.5 : 
-                        apporteurId === '3' ? 83.3 : 75.0,
-        position_classement: apporteurId === '1' ? 3 : 
-                            apporteurId === '2' ? 1 : 
-                            apporteurId === '3' ? 5 : 12,
-        created_at: '2023-03-15T10:30:00Z',
-        updated_at: '2024-01-20T16:45:00Z',
-        last_login: '2024-01-20T09:15:00Z'
+      // 2. Récupérer les statistiques calculées (méthode centralisée)
+      const stats = await ApporteursService.getApporteurStats(apporteurId);
+      
+      // 3. Récupérer la performance mensuelle (24 mois)
+      const monthlyPerformance = await ApporteursService.getMonthlyPerformance(apporteurId, 24);
+      
+      // Mapper les données pour correspondre à l'interface ApporteurProfile
+      const mappedApporteur: ApporteurProfile = {
+        id: apporteurData.id,
+        user_id: apporteurData.user_id || apporteurData.id,
+        nom: apporteurData.nom,
+        prenom: apporteurData.prenom,
+        email: apporteurData.email,
+        telephone: apporteurData.telephone || 'Non renseigné',
+        date_inscription: apporteurData.created_at,
+        statut: apporteurData.statut,
+        nb_dossiers_traites: stats.totalDossiers,
+        nb_dossiers_en_cours: stats.totalDossiers - stats.dossiersValides,
+        nb_dossiers_valides: stats.dossiersValides,
+        economies_generees: stats.economiesGenerees,
+        taux_conversion: stats.tauxConversion,
+        created_at: apporteurData.created_at,
+        updated_at: apporteurData.updated_at,
+        last_login: apporteurData.last_login_at || apporteurData.updated_at
       };
 
-      const mockStatistics: ApporteurStatistics = {
-        performance_mensuelle: [
-          { mois: '2024-01', dossiers_traites: 3, dossiers_valides: 3, economies_generees: 8400, ca_gmb: 1800 },
-          { mois: '2023-12', dossiers_traites: 4, dossiers_valides: 3, economies_generees: 12200, ca_gmb: 2100 },
-          { mois: '2023-11', dossiers_traites: 2, dossiers_valides: 2, economies_generees: 6800, ca_gmb: 1200 },
-          { mois: '2023-10', dossiers_traites: 3, dossiers_valides: 3, economies_generees: 9600, ca_gmb: 1900 },
-          { mois: '2023-09', dossiers_traites: 5, dossiers_valides: 4, economies_generees: 15200, ca_gmb: 2800 },
-          { mois: '2023-08', dossiers_traites: 4, dossiers_valides: 4, economies_generees: 11400, ca_gmb: 2400 }
-        ],
-        repartition_types: [
-          { type: 'Prêt immobilier', nombre: 18, pourcentage: 75 },
-          { type: 'Rachat de crédit', nombre: 4, pourcentage: 16.7 },
-          { type: 'Prêt travaux', nombre: 2, pourcentage: 8.3 }
-        ],
-        evolution_classement: [
-          { periode: '2024-01', position: 3 },
-          { periode: '2023-12', position: 4 },
-          { periode: '2023-11', position: 5 },
-          { periode: '2023-10', position: 6 },
-          { periode: '2023-09', position: 4 },
-          { periode: '2023-08', position: 7 }
-        ],
-        clients_recents: [
-          { id: '1', nom: 'Martin', prenom: 'Pierre', date_soumission: '2024-01-15T10:30:00Z', statut: 'nouveau', economie: 3200 },
-          { id: '2', nom: 'Durand', prenom: 'Sophie', date_soumission: '2024-01-12T14:20:00Z', statut: 'valide', economie: 2800 },
-          { id: '3', nom: 'Moreau', prenom: 'Jean', date_soumission: '2024-01-08T09:45:00Z', statut: 'devis_envoye', economie: 4100 },
-          { id: '4', nom: 'Petit', prenom: 'Marie', date_soumission: '2024-01-05T16:30:00Z', statut: 'valide', economie: 2400 },
-          { id: '5', nom: 'Robert', prenom: 'Paul', date_soumission: '2024-01-02T11:15:00Z', statut: 'finalise', economie: 3600 }
-        ]
+      // Extraire les dossiers récents depuis apporteurData.dossiers
+      const dossiers = apporteurData.dossiers || [];
+      const dossiersRecents = dossiers
+        .sort((a: any, b: any) => new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime())
+        .slice(0, 5) // Garder les 5 plus récents
+        .map((d: any) => ({
+          id: d.id,
+          nom: d.client_infos?.[0]?.client_nom || 'N/A',
+          prenom: d.client_infos?.[0]?.client_prenom || 'N/A',
+          date_soumission: d.date_creation,
+          statut: d.statut || 'en_attente',
+          economie: Number(d.economie_generee || 0),
+          montant_capital: Number(d.pret_data?.[0]?.montant_capital || 0),
+          is_couple: d.is_couple || false
+        }));
+
+      // Mapper les statistiques
+      const mappedStatistics: ApporteurStatistics = {
+        performance_mensuelle: monthlyPerformance.map((m: any) => ({
+          mois: m.month,
+          dossiers_traites: m.dossiers_traites,
+          dossiers_valides: m.dossiers_valides,
+          economies_generees: m.economies_generees,
+          ca_gmb: 0 // TODO: À calculer une fois système commission implémenté
+        })),
+        repartition_types: [], // TODO: À implémenter si nécessaire
+        clients_recents: dossiersRecents
       };
 
-      setApporteur(mockApporteur);
-      setStatistics(mockStatistics);
+      setApporteur(mappedApporteur);
+      setStatistics(mappedStatistics);
+
+      // Charger la commission personnalisée
+      await fetchCommissionSettings();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors du chargement des données apporteur:', error);
+      alert(`Erreur: ${error.message || 'Impossible de charger les données de l\'apporteur'}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fonction pour récupérer les dossiers d'un mois spécifique
-  const fetchMonthlyDossiers = async (month: string) => {
-    setLoadingMonthlyData(true);
+  // Fonction pour récupérer les paramètres de commission de l'apporteur
+  const fetchCommissionSettings = async () => {
     try {
-      // SUPABASE: Récupération des dossiers du mois
-      /*
-      const { data: monthlyData, error } = await supabase
-        .from('dossiers')
-        .select(`
-          id, numero, client_nom, client_prenom, date_soumission,
-          status, montant_capital, economie_generee, ca_gmb, type_assurance
-        `)
-        .eq('apporteur_id', apporteurId)
-        .gte('date_soumission', `${month}-01`)
-        .lt('date_soumission', `${getNextMonth(month)}-01`)
-        .order('date_soumission', { ascending: false });
+      // Récupérer le broker_id depuis broker_apporteurs
+      const { data: baData, error: baError } = await supabase
+        .from('broker_apporteurs')
+        .select('broker_id, custom_share_pct, custom_fixed_amount')
+        .eq('apporteur_profile_id', apporteurId)
+        .single();
+
+      if (baError) {
+        console.error('Erreur récupération broker_apporteurs:', baError);
+        return;
+      }
+
+      // Récupérer les paramètres par défaut du broker
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('broker_commission_settings')
+        .select('default_apporteur_share_pct, default_apporteur_fixed_amount')
+        .eq('broker_id', baData.broker_id)
+        .single();
+
+      if (!settingsError && settingsData) {
+        if (settingsData.default_apporteur_fixed_amount !== null) {
+          setDefaultCommissionType('fixed');
+          setDefaultFixedAmount(settingsData.default_apporteur_fixed_amount / 100);
+          setDefaultSharePct(settingsData.default_apporteur_share_pct || 80);
+        } else {
+          setDefaultCommissionType('percentage');
+          setDefaultSharePct(settingsData.default_apporteur_share_pct || 80);
+        }
+      }
+
+      // Définir la commission personnalisée si elle existe
+      if (baData.custom_fixed_amount !== null) {
+        setCommissionType('fixed');
+        setCustomFixedAmount(baData.custom_fixed_amount / 100);
+        setUseCustomShare(true);
+      } else if (baData.custom_share_pct !== null) {
+        setCommissionType('percentage');
+        setCustomSharePct(baData.custom_share_pct);
+        setUseCustomShare(true);
+      } else {
+        setCustomSharePct(null);
+        setCustomFixedAmount(null);
+        setUseCustomShare(false);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des paramètres de commission:', error);
+    }
+  };
+
+  // Fonction pour sauvegarder la commission personnalisée
+  const handleSaveCommission = async () => {
+    setIsSavingCommission(true);
+    setCommissionSaveSuccess(false);
+
+    try {
+      // Préparer les valeurs à sauvegarder
+      let updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (!useCustomShare) {
+        // Pas de commission personnalisée - utiliser les défauts
+        updateData.custom_share_pct = null;
+        updateData.custom_fixed_amount = null;
+      } else if (commissionType === 'percentage') {
+        updateData.custom_share_pct = customSharePct;
+        updateData.custom_fixed_amount = null;
+      } else {
+        updateData.custom_share_pct = null;
+        updateData.custom_fixed_amount = customFixedAmount !== null ? Math.round(customFixedAmount * 100) : null;
+      }
+
+      const { error } = await supabase
+        .from('broker_apporteurs')
+        .update(updateData)
+        .eq('apporteur_profile_id', apporteurId);
 
       if (error) throw error;
-      setMonthlyDossiers(monthlyData);
-      */
 
-      // Simulation de données mensuelles
-      await new Promise(resolve => setTimeout(resolve, 500));
+      setCommissionSaveSuccess(true);
+      setTimeout(() => setCommissionSaveSuccess(false), 3000);
+    } catch (error: any) {
+      console.error('Erreur lors de la sauvegarde de la commission:', error);
+      alert(`Erreur: ${error.message || 'Impossible de sauvegarder la commission'}`);
+    } finally {
+      setIsSavingCommission(false);
+    }
+  };
+
+  // Fonction pour récupérer les dossiers d'un mois spécifique
+  const fetchMonthlyDossiers = async (monthStr: string) => {
+    setLoadingMonthlyData(true);
+    try {
+      // Si pas d'apporteur chargé, return
+      if (!apporteur) {
+        setMonthlyDossiers([]);
+        return;
+      }
+
+      // Récupérer les dossiers du mois depuis les données déjà fetch dans apporteurData
+      const apporteurData = await ApporteursService.getApporteurById(apporteurId);
+      const allDossiers = apporteurData.dossiers || [];
       
-      const mockMonthlyDossiers: DossierMensuel[] = [
-        {
-          id: '1',
-          numero: 'DSS-2024-001',
-          client_nom: 'Martin',
-          client_prenom: 'Pierre',
-          date_soumission: '2024-01-15T10:30:00Z',
-          statut: 'valide',
-          montant_capital: 350000,
-          economie_generee: 4200,
-          ca_gmb: 800,
-          type_assurance: 'Prêt Immobilier'
-        },
-        {
-          id: '2',
-          numero: 'DSS-2024-002',
-          client_nom: 'Durand',
-          client_prenom: 'Sophie',
-          date_soumission: '2024-01-12T14:20:00Z',
-          statut: 'finalise',
-          montant_capital: 280000,
-          economie_generee: 2800,
-          ca_gmb: 600,
-          type_assurance: 'Prêt Immobilier'
-        },
-        {
-          id: '3',
-          numero: 'DSS-2024-003',
-          client_nom: 'Moreau',
-          client_prenom: 'Jean',
-          date_soumission: '2024-01-08T09:45:00Z',
-          statut: 'devis_envoye',
-          montant_capital: 420000,
-          economie_generee: 1400,
-          ca_gmb: 400,
-          type_assurance: 'Prêt Immobilier'
-        }
-      ];
+      const filtered = allDossiers.filter((d: any) => {
+        const dossierDate = new Date(d.date_creation);
+        const dossierMonth = dossierDate.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+        return dossierMonth === monthStr;
+      });
 
-      setMonthlyDossiers(mockMonthlyDossiers);
+      // Mapper vers DossierMensuel
+      const mapped: DossierMensuel[] = filtered.map((d: any) => ({
+        id: d.id,
+        numero: d.numero_dossier || 'N/A',
+        client_nom: d.client_infos?.[0]?.client_nom || 'N/A',
+        client_prenom: d.client_infos?.[0]?.client_prenom || 'N/A',
+        date_soumission: d.date_creation,
+        statut: d.statut || 'nouveau' as any,
+        montant_capital: Number(d.pret_data?.[0]?.montant_capital || 0),
+        economie_generee: Number(d.economie_generee || 0),
+        ca_gmb: 0, // TODO: À calculer une fois système commission implémenté
+        type_assurance: d.pret_data?.[0]?.type_pret || d.type_dossier || 'N/A',
+        is_couple: d.is_couple || false
+      }));
+
+      setMonthlyDossiers(mapped);
     } catch (error) {
       console.error('Erreur lors du chargement des dossiers mensuels:', error);
+      setMonthlyDossiers([]);
     } finally {
       setLoadingMonthlyData(false);
     }
@@ -414,14 +381,16 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
 
   // Filtre les données de performance selon la période sélectionnée
   const getFilteredPerformanceData = () => {
+    if (!statistics?.performance_mensuelle) return [];
+    
     const dataCount = {
       '6mois': 6,
       '12mois': 12,
       '24mois': 24,
-      'tout': mockPerformanceDataExtended.length
+      'tout': statistics.performance_mensuelle.length
     };
     
-    return mockPerformanceDataExtended.slice(0, dataCount[performancePeriod]);
+    return statistics.performance_mensuelle.slice(0, dataCount[performancePeriod]);
   };
 
   useEffect(() => {
@@ -430,43 +399,24 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
     }
   }, [apporteurId]);
 
+  // Empêcher le scroll du background quand la modale est ouverte
+  useEffect(() => {
+    if (showMonthModal || showContactModal || showSuspendModal || showReactivateModal || showDeleteModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup au démontage du composant
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showMonthModal, showContactModal, showSuspendModal, showReactivateModal, showDeleteModal]);
+
   // ============================================================================
   // SUPABASE INTEGRATION - ACTIONS ADMINISTRATEUR
   // ============================================================================
 
-  /**
-   * FONCTION DE CONTACT D'UN APPORTEUR
-   * 
-   * Envoie un email à l'apporteur via le système de notifications
-   */
-  const handleContactApporteur = async () => {
-    try {
-      console.log('Envoi de message à l\'apporteur:', apporteur?.email, contactSubject, contactMessage);
-      
-      // SUPABASE: Envoi d'email via Edge Function
-      /*
-      const { error } = await supabase.functions.invoke('send-admin-message', {
-        body: {
-          to_email: apporteur.email,
-          to_name: `${apporteur.prenom} ${apporteur.nom}`,
-          subject: contactSubject || 'Message de l\'administration GMB Courtage',
-          message: contactMessage,
-          admin_name: 'Administration GMB'
-        }
-      });
-
-      if (error) throw error;
-      */
-      
-      setShowContactModal(false);
-      setContactMessage('');
-      setContactSubject(''); // Réinitialiser l'objet
-      alert('Message envoyé avec succès !');
-    } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-      alert('Erreur lors de l\'envoi du message');
-    }
-  };
 
   /**
    * FONCTION DE SUSPENSION D'UN APPORTEUR
@@ -474,196 +424,131 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
    * Met à jour le statut de l'apporteur et l'empêche de soumettre de nouveaux dossiers
    */
   const handleSuspendApporteur = async () => {
+    if (!suspendReason.trim()) {
+      alert('La raison de la suspension est obligatoire.');
+      return;
+    }
+    
     try {
-      console.log('Suspension de l\'apporteur:', apporteur?.id, suspendReason);
+      await ApporteursService.suspendApporteur(apporteurId, suspendReason.trim());
       
-      // SUPABASE: Mise à jour du statut
-      /*
-      const { error } = await supabase
-        .from('apporteur_profiles')
-        .update({ 
-          statut: 'suspendu',
-          raison_suspension: suspendReason,
-          date_suspension: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', apporteurId);
-
-      if (error) throw error;
-
-      // Créer une notification pour l'apporteur
-      await supabase
-        .from('notifications')
-        .insert({
-          type: 'compte_suspendu',
-          user_id: apporteurId,
-          title: 'Compte suspendu',
-          message: `Votre compte a été suspendu. Raison: ${suspendReason}`,
-          created_at: new Date().toISOString()
-        });
-
-      // Envoyer un email de notification
-      await supabase.functions.invoke('send-suspension-email', {
-        body: {
-          to_email: apporteur.email,
-          to_name: `${apporteur.prenom} ${apporteur.nom}`,
-          reason: suspendReason
-        }
-      });
-      */
-      
-      if (apporteur) {
-        setApporteur({ ...apporteur, statut: 'suspendu' });
-      }
+      // Rafraîchir les données
+      await fetchApporteurComplet();
       
       setShowSuspendModal(false);
       setSuspendReason('');
-      alert('Apporteur suspendu avec succès !');
-    } catch (error) {
+      alert('Apporteur suspendu avec succès.');
+    } catch (error: any) {
       console.error('Erreur lors de la suspension:', error);
-      alert('Erreur lors de la suspension');
+      alert(`Erreur: ${error.message || 'Impossible de suspendre l\'apporteur'}`);
     }
   };
 
-  /**
-   * FONCTION DE RÉACTIVATION D'UN APPORTEUR
-   * 
-   * Réactive un compte suspendu en remettant le statut à 'approuve'
-   */
   const handleReactivateApporteur = async () => {
     try {
-      console.log('Réactivation de l\'apporteur:', apporteur?.id);
+      await ApporteursService.reactivateApporteur(apporteurId);
       
-      // SUPABASE: Mise à jour du statut
+      // Rafraîchir les données
+      await fetchApporteurComplet();
+      
+      setShowReactivateModal(false);
+      alert('Apporteur réactivé avec succès.');
+    } catch (error: any) {
+      console.error('Erreur lors de la réactivation:', error);
+      alert(`Erreur: ${error.message || 'Impossible de réactiver l\'apporteur'}`);
+    }
+  };
+
+  const handleDeleteApporteur = async () => {
+    try {
+      await ApporteursService.deleteApporteur(apporteurId);
+      
+      setShowDeleteModal(false);
+      alert('Apporteur supprimé avec succès. Redirection...');
+      
+      // Rediriger vers la liste des apporteurs
+      router.push('/admin/apporteurs');
+    } catch (error: any) {
+      console.error('Erreur lors de la suppression:', error);
+      alert(`Erreur: ${error.message || 'Impossible de supprimer l\'apporteur'}`);
+    }
+  };
+
+  const handleContactApporteur = async () => {
+    if (!contactMessage.trim()) {
+      alert('Le message ne peut pas être vide.');
+      return;
+    }
+    
+    try {
+      console.log('⚠️ Fonctionnalité non implémentée: Envoi d\'email via Resend');
+      console.log('À:', apporteur?.email);
+      console.log('Objet:', contactSubject || 'Message de l\'administration GMB Courtage');
+      console.log('Message:', contactMessage);
+      
+      // TODO: Implémenter l'envoi via Resend une fois intégré
       /*
-      const { error } = await supabase
-        .from('apporteur_profiles')
-        .update({ 
-          statut: 'approuve',
-          date_reactivation: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', apporteurId);
-
-      if (error) throw error;
-
-      // Créer une notification pour l'apporteur
-      await supabase
-        .from('notifications')
-        .insert({
-          type: 'compte_reactive',
-          user_id: apporteurId,
-          title: 'Compte réactivé',
-          message: 'Votre compte a été réactivé avec succès. Vous pouvez maintenant soumettre de nouveaux dossiers.',
-          created_at: new Date().toISOString()
-        });
-
-      // Envoyer un email de notification
-      await supabase.functions.invoke('send-reactivation-email', {
+      await supabase.functions.invoke('send-admin-message', {
         body: {
           to_email: apporteur.email,
-          to_name: `${apporteur.prenom} ${apporteur.nom}`
+          to_name: `${apporteur.prenom} ${apporteur.nom}`,
+          subject: contactSubject || 'Message de l\'administration GMB Courtage',
+          message: contactMessage
         }
       });
       */
       
-      if (apporteur) {
-        setApporteur({ ...apporteur, statut: 'approuve' });
-      }
-      
-      setShowReactivateModal(false);
-      alert('Apporteur réactivé avec succès !');
-    } catch (error) {
-      console.error('Erreur lors de la réactivation:', error);
-      alert('Erreur lors de la réactivation');
+      setShowContactModal(false);
+      setContactMessage('');
+      setContactSubject('');
+      alert('Pour l\'instant, cette fonctionnalité affiche juste une alerte. L\'intégration avec Resend sera faite plus tard.');
+    } catch (error: any) {
+      console.error('Erreur lors de l\'envoi du message:', error);
+      alert(`Erreur: ${error.message || 'Impossible d\'envoyer le message'}`);
     }
   };
 
-  /**
-   * FONCTION DE SUPPRESSION D'UN APPORTEUR
-   * 
-   * Supprime définitivement le compte apporteur (action irréversible)
-   */
-  const handleDeleteApporteur = async () => {
-    try {
-      console.log('Suppression de l\'apporteur:', apporteur?.id);
-      
-      // SUPABASE: Suppression en cascade
-      /*
-      // 1. Archiver les dossiers existants
-      await supabase
-        .from('dossiers')
-        .update({ 
-          apporteur_id: null,
-          archived: true 
-        })
-        .eq('apporteur_id', apporteurId);
 
-      // 2. Supprimer le profil apporteur
-      await supabase
-        .from('apporteur_profiles')
-        .delete()
-        .eq('user_id', apporteurId);
 
-      // 3. Supprimer l'utilisateur de l'authentification
-      await supabase.auth.admin.deleteUser(apporteurId);
-      */
-      
-      setShowDeleteModal(false);
-      alert('Apporteur supprimé avec succès !');
-      router.push('/admin/apporteurs');
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      alert('Erreur lors de la suppression');
-    }
-  };
-
-  // Fonctions utilitaires
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
+  // ✅ Utilisation des badges centralisés depuis lib/utils/apporteur-badges.ts
   const getStatutBadge = (statut: string) => {
-    const config = {
-      approuve: { color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: 'Approuvé', icon: 'ri-check-line' },
-      en_attente: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400', text: 'En attente', icon: 'ri-time-line' },
-      suspendu: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', text: 'Suspendu', icon: 'ri-pause-line' },
-      refuse: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400', text: 'Refusé', icon: 'ri-close-line' }
-    };
+    const config = getApporteurBadgeConfig(statut);
     
-    const { color, text, icon } = config[statut as keyof typeof config] || config.refuse;
+    if (!config) {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+          Inconnu
+        </span>
+      );
+    }
+    
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${color}`}>
-        <i className={`${icon} mr-2`}></i>
-        {text}
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
+        <i className={`${config.icon} mr-2`}></i>
+        {config.text}
       </span>
     );
   };
 
-  const getDossierStatutBadge = (statut: string) => {
-    const config = {
-      nouveau: { color: 'bg-[#335FAD]/10 text-[#335FAD] dark:bg-[#335FAD]/30 dark:text-[#335FAD]', text: 'Nouveau', icon: 'ri-file-add-line' },
-      devis_envoye: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400', text: 'Devis envoyé', icon: 'ri-send-plane-line' },
-      valide: { color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: 'Validé', icon: 'ri-check-line' },
-      refuse: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', text: 'Refusé', icon: 'ri-close-line' },
-      finalise: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400', text: 'Finalisé', icon: 'ri-checkbox-circle-line' }
-    };
+  /**
+   * 🎯 Badge de statut - Utilise la source de vérité unique
+   * @param statutCanonique - Statut canonique depuis la DB (via statut_canon)
+   */
+  const getDossierStatutBadge = (statutCanonique: string) => {
+    // ✅ Utilise l'utilitaire centralisé pour garantir la cohérence
+    const config = getStatutBadgeConfig(statutCanonique);
     
-    const { color, text, icon } = config[statut as keyof typeof config] || config.nouveau;
+    if (!config) {
+      // Fallback si statut inconnu
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+          <i className="ri-question-line mr-1"></i>
+          Inconnu
+        </span>
+      );
+    }
+    
+    const { color, text, icon } = config;
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${color}`}>
         <i className={`${icon} mr-1`}></i>
@@ -729,16 +614,8 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4 text-sm text-gray-600 dark:text-gray-400">
                 <span className="flex items-center">
-                  <i className="ri-building-line mr-1"></i>
-                  {apporteur.entreprise}
-                </span>
-                <span className="flex items-center">
                   <i className="ri-mail-line mr-1"></i>
                   {apporteur.email}
-                </span>
-                <span className="flex items-center">
-                  <i className="ri-map-pin-line mr-1"></i>
-                  {apporteur.ville}
                 </span>
               </div>
             </div>
@@ -748,15 +625,15 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <button
               onClick={() => setShowContactModal(true)}
-              className="flex-1 sm:flex-none bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
+              className="flex-1 sm:flex-none bg-[#335FAD]/80 hover:bg-[#335FAD]/90 dark:bg-[#335FAD]/70 dark:hover:bg-[#335FAD]/80 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
             >
               <i className="ri-mail-send-line mr-2"></i>
               Contacter
             </button>
-            {apporteur.statut === 'approuve' && (
+            {apporteur.statut === 'actif' && (
               <button
                 onClick={() => setShowSuspendModal(true)}
-                className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bgorange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
+                className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 dark:bg-orange-400 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
               >
                 <i className="ri-pause-line mr-2"></i>
                 Suspendre
@@ -765,7 +642,7 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
             {apporteur.statut === 'suspendu' && (
               <button
                 onClick={() => setShowReactivateModal(true)}
-                className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
+                className="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 dark:bg-green-400 dark:hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
               >
                 <i className="ri-play-line mr-2"></i>
                 Réactiver
@@ -773,7 +650,7 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
             )}
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
+              className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 dark:bg-red-400 dark:hover:bg-red-500 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center"
             >
               <i className="ri-delete-bin-line mr-2"></i>
               Supprimer
@@ -815,57 +692,48 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
             {/* Statistiques principales */}
             <div className="lg:col-span-2 space-y-6">
               {/* KPIs principaux */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Dossiers traités</p>
-                      <p className="text-2xl font-light text-gray-900 dark:text-white">{apporteur.nb_dossiers_traites}</p>
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Dossiers traités</p>
+                      <p className="text-xl sm:text-2xl font-light text-gray-900 dark:text-white">{apporteur.nb_dossiers_traites || 0}</p>
                     </div>
-                    <div className="w-12 h-12 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 rounded-full flex items-center justify-center">
-                      <i className="ri-file-text-line text-[#335FAD] dark:text-[#335FAD] text-xl"></i>
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <i className="ri-file-text-line text-[#335FAD] dark:text-[#335FAD] text-lg sm:text-xl"></i>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Taux de conversion</p>
-                      <p className="text-2xl font-light text-gray-900 dark:text-white">{apporteur.taux_conversion}%</p>
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Taux de conversion</p>
+                      <p className="text-xl sm:text-2xl font-light text-gray-900 dark:text-white">{apporteur.taux_conversion || 0}%</p>
                     </div>
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                      <i className="ri-percent-line text-green-600 dark:text-green-400 text-xl"></i>
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <i className="ri-percent-line text-green-600 dark:text-green-400 text-lg sm:text-xl"></i>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Économies générées</p>
-                      <p className="text-2xl font-light text-gray-900 dark:text-white">{formatCurrency(apporteur.economies_generees)}</p>
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Économies générées</p>
+                      <p className="text-xl sm:text-2xl font-light text-gray-900 dark:text-white truncate">{formatCurrency(apporteur.economies_generees || 0, { decimals: 0 })}</p>
                     </div>
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                      <i className="ri-money-euro-circle-line text-purple-600 dark:text-purple-400 text-xl"></i>
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                      <i className="ri-money-euro-circle-line text-purple-600 dark:text-purple-400 text-lg sm:text-xl"></i>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Position classement</p>
-                      <p className="text-2xl font-light text-gray-900 dark:text-white">#{apporteur.position_classement}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                      <i className="ri-trophy-line text-orange-600 dark:text-orange-400 text-xl"></i>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* CA Total GMB Courtage */}
+              {/* TODO: Calculer le CA réel une fois que le système de rémunération/commission est implémenté */}
+              {/* Pour l'instant, on affiche N/A car le calcul nécessite les données de commission par dossier */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                   Chiffre d'affaires généré pour GMB Courtage
@@ -875,33 +743,41 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                     <i className="ri-money-dollar-circle-line text-[#335FAD] dark:text-[#335FAD]/80 text-2xl"></i>
                   </div>
                   <div>
-                    <p className="text-3xl font-light text-gray-900 dark:text-white">{formatCurrency(apporteur.ca_total_gmb)}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Depuis l'inscription ({formatDate(apporteur.date_inscription)})</p>
+                    <p className="text-3xl font-light text-gray-500 dark:text-gray-400">N/A</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Calcul en cours d'implémentation</p>
                   </div>
                 </div>
               </div>
 
-              {/* Clients récents */}
+              {/* Dossiers récents */}
               {statistics && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                     Dossiers récents
                   </h3>
+                  {statistics.clients_recents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i className="ri-folder-open-line text-gray-400 dark:text-gray-500 text-xl"></i>
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Aucun dossier pour le moment</p>
+                    </div>
+                  ) : (
                   <div className="space-y-4">
                     {statistics.clients_recents.map((client) => (
                       <div 
                         key={client.id} 
                         onClick={() => handleClientRecentClick(client.id)}
-                        className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                        className="flex items-center justify-between gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-[#335FAD] dark:text-[#335FAD]/80 font-medium text-sm">
                               {client.prenom.charAt(0)}{client.nom.charAt(0)}
                             </span>
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">
                               {client.prenom} {client.nom}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -909,40 +785,48 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                             </p>
                           </div>
                         </div>
-                        <div className="text-right flex items-center space-x-3">
-                          <div>
-                            <div className="flex items-center space-x-3">
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                          <div className="hidden sm:flex flex-col items-end space-y-2 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="text-right">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Capital</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                                  {formatCurrency(client.montant_capital, { decimals: 0 })}
+                                </p>
+                              </div>
+                              {client.economie > 0 && (
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Économie</p>
+                                  <p className="text-sm font-medium text-green-600 dark:text-green-400 whitespace-nowrap">
                                 {formatCurrency(client.economie)}
-                              </span>
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                client.statut === 'valide' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                client.statut === 'finalise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
-                                client.statut === 'devis_envoye' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                                'bg-[#335FAD]/10 text-[#335FAD] dark:bg-[#335FAD]/30 dark:text-[#335FAD]'
-                              }`}>
-                                {client.statut === 'valide' ? 'Validé' :
-                                 client.statut === 'finalise' ? 'Finalisé' :
-                                 client.statut === 'devis_envoye' ? 'Devis envoyé' :
-                                 'Nouveau'}
-                              </span>
+                                  </p>
                             </div>
+                              )}
                           </div>
-                          <i className="ri-arrow-right-line text-gray-400 dark:text-gray-500"></i>
+                          </div>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                            client.is_couple 
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' 
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}>
+                            {client.is_couple ? 'Couple' : 'Seul'}
+                          </span>
+                          <i className="ri-arrow-right-line text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
                         </div>
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Informations personnelles */}
+              {/* Informations de contact */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Informations personnelles
+                  Informations de contact
                 </h3>
                 <div className="space-y-3">
                   <div>
@@ -951,14 +835,6 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                     </label>
                     <p className="text-gray-900 dark:text-white">
                       {apporteur.prenom} {apporteur.nom}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Date de naissance
-                    </label>
-                    <p className="text-gray-900 dark:text-white">
-                      {new Date(apporteur.date_naissance).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                   <div>
@@ -972,43 +848,6 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                       Téléphone
                     </label>
                     <p className="text-gray-900 dark:text-white">{apporteur.telephone}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Adresse
-                    </label>
-                    <p className="text-gray-900 dark:text-white">
-                      {apporteur.adresse}<br />
-                      {apporteur.code_postal} {apporteur.ville}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Informations professionnelles */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                    <i className="ri-building-line text-[#335FAD]"></i>
-                  </div>
-                  Informations professionnelles
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Entreprise</span>
-                    <p className="text-gray-900 dark:text-white">{apporteur.entreprise || 'Non renseigné'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">SIRET</span>
-                    <p className="text-gray-900 dark:text-white">{apporteur.siret || 'Non renseigné'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Forme juridique</span>
-                    <p className="text-gray-900 dark:text-white">{apporteur.forme_juridique || 'Non renseignée'}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Zone géographique</span>
-                    <p className="text-gray-900 dark:text-white">{apporteur.zone_geographique?.join(', ') || 'Non renseignée'}</p>
                   </div>
                 </div>
               </div>
@@ -1041,6 +880,194 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                     </label>
                     {getStatutBadge(apporteur.statut)}
                   </div>
+                </div>
+              </div>
+
+              {/* Commission personnalisée */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <i className="ri-percent-line text-[#335FAD]"></i>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Commission
+                  </h3>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* Info sur la commission par défaut */}
+                  <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Commission par défaut du cabinet</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {defaultCommissionType === 'fixed' 
+                        ? `${defaultFixedAmount?.toFixed(2) || '0'}€ fixe par dossier`
+                        : `${defaultSharePct}% des frais de courtage`
+                      }
+                    </p>
+                  </div>
+
+                  {/* Toggle pour commission personnalisée */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Commission personnalisée
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Définir une commission spécifique pour cet apporteur
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUseCustomShare(!useCustomShare);
+                        if (!useCustomShare) {
+                          // Initialiser avec les défauts du broker
+                          if (defaultCommissionType === 'fixed') {
+                            setCommissionType('fixed');
+                            setCustomFixedAmount(defaultFixedAmount || 100);
+                          } else {
+                            setCommissionType('percentage');
+                            setCustomSharePct(defaultSharePct);
+                          }
+                        }
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        useCustomShare ? 'bg-[#335FAD]' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          useCustomShare ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Options de commission personnalisée */}
+                  {useCustomShare && (
+                    <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      {/* Type de commission */}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCommissionType('percentage');
+                            if (customSharePct === null) setCustomSharePct(defaultSharePct);
+                          }}
+                          className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
+                            commissionType === 'percentage'
+                              ? 'border-[#335FAD] bg-[#335FAD]/10 text-[#335FAD]'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                          }`}
+                        >
+                          <i className="ri-percent-line mr-1"></i>
+                          Pourcentage
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCommissionType('fixed');
+                            if (customFixedAmount === null) setCustomFixedAmount(defaultFixedAmount || 100);
+                          }}
+                          className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
+                            commissionType === 'fixed'
+                              ? 'border-[#335FAD] bg-[#335FAD]/10 text-[#335FAD]'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                          }`}
+                        >
+                          <i className="ri-money-euro-circle-line mr-1"></i>
+                          Montant fixe
+                        </button>
+                      </div>
+
+                      {/* Input pourcentage */}
+                      {commissionType === 'percentage' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={customSharePct ?? defaultSharePct}
+                              onChange={(e) => setCustomSharePct(Number(e.target.value))}
+                              className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#335FAD]"
+                            />
+                            <div className="w-20">
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={customSharePct ?? defaultSharePct}
+                                  onChange={(e) => setCustomSharePct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right pr-6"
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Comparaison avec défaut */}
+                          {defaultCommissionType === 'percentage' && customSharePct !== null && customSharePct !== defaultSharePct && (
+                            <div className={`text-xs px-3 py-2 rounded-lg ${
+                              customSharePct > defaultSharePct
+                                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                            }`}>
+                              <i className={`${customSharePct > defaultSharePct ? 'ri-arrow-up-line' : 'ri-arrow-down-line'} mr-1`}></i>
+                              {customSharePct > defaultSharePct ? '+' : ''}{customSharePct - defaultSharePct}% par rapport au taux par défaut
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Input montant fixe */}
+                      {commissionType === 'fixed' && (
+                        <div className="space-y-2">
+                          <div className="relative w-32">
+                            <input
+                              type="number"
+                              min="0"
+                              step="5"
+                              value={customFixedAmount ?? (defaultFixedAmount || 100)}
+                              onChange={(e) => setCustomFixedAmount(Number(e.target.value))}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-8"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">€</span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Cet apporteur touchera ce montant fixe par dossier finalisé
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Message succès */}
+                  {commissionSaveSuccess && (
+                    <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                      <p className="text-xs text-green-700 dark:text-green-400 flex items-center">
+                        <i className="ri-check-line mr-1"></i>
+                        Commission enregistrée
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Bouton sauvegarder */}
+                  <button
+                    onClick={handleSaveCommission}
+                    disabled={isSavingCommission}
+                    className="w-full py-2 px-3 text-sm font-medium text-white bg-[#335FAD] hover:bg-[#2a4d8f] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSavingCommission ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin"></i>
+                        Enregistrement...
+                      </>
+                    ) : (
+                      <>
+                        <i className="ri-save-line"></i>
+                        Enregistrer
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1081,24 +1108,40 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
+              {/* Version desktop */}
+              <div className="hidden lg:block overflow-x-auto -mx-6">
                 <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-600">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Mois
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <i className="ri-calendar-line"></i>
+                          <span>Mois</span>
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Dossiers traités
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <i className="ri-file-list-line"></i>
+                          <span>Traités</span>
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Dossiers validés
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <i className="ri-checkbox-circle-line"></i>
+                          <span>Validés</span>
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Économies générées
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <i className="ri-money-euro-circle-line"></i>
+                          <span>Économies</span>
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        CA GMB Courtage
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <i className="ri-line-chart-line"></i>
+                          <span>CA GMB</span>
+                        </div>
                       </th>
                     </tr>
                   </thead>
@@ -1109,40 +1152,44 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                       return (
                         <tr 
                           key={index}
-                          onClick={() => handleMonthClick(month.month)}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                          onClick={() => handleMonthClick(month.mois)}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-all"
                         >
-                          <td className="py-3 text-sm">
+                          <td className="px-6 py-4 text-sm whitespace-nowrap">
                             <div className="flex items-center space-x-2">
                               <span className="font-medium text-gray-900 dark:text-white">
-                                {month.month}
+                                {month.mois}
                               </span>
                               <i className="ri-eye-line text-gray-400 dark:text-gray-500 text-xs"></i>
                             </div>
                           </td>
-                          <td className="py-3 text-sm">
-                            <span className="font-medium text-gray-900 dark:text-white">
+                          <td className="px-6 py-4 text-sm whitespace-nowrap">
+                            <div className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
+                              <span className="font-semibold text-gray-900 dark:text-white">
                               {month.dossiers_traites}
                             </span>
+                            </div>
                           </td>
-                          <td className="py-3 text-sm">
+                          <td className="px-6 py-4 text-sm whitespace-nowrap">
                             <div className="flex items-center space-x-2">
-                              <span className="font-medium text-gray-900 dark:text-white">
+                              <div className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
+                                <span className="font-semibold text-gray-900 dark:text-white">
                                 {month.dossiers_valides}
                               </span>
-                              <span className={`text-xs px-2 py-1 rounded-full ${
+                              </div>
+                              <span className={`text-xs font-medium px-2.5 py-1 rounded-md ${
                                 taux >= 70 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 
                                 taux >= 50 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : 
-                                'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                               }`}>
                                 {taux.toFixed(0)}%
                               </span>
                             </div>
                           </td>
-                          <td className="py-3 text-sm font-medium text-gray-900 dark:text-white">
+                          <td className="px-6 py-4 text-sm font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
                             {formatCurrency(month.economies_generees)}
                           </td>
-                          <td className="py-3 text-sm font-medium text-gray-900 dark:text-white">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {formatCurrency(month.ca_gmb)}
                           </td>
                         </tr>
@@ -1151,44 +1198,75 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                   </tbody>
                 </table>
               </div>
-            </div>
 
-            {/* Évolution du classement */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                  <i className="ri-trophy-line text-yellow-600"></i>
+              {/* Version mobile/tablette - cartes empilées */}
+              <div className="lg:hidden">
+                <div className="space-y-4">
+                  {getFilteredPerformanceData().map((month, index) => {
+                    const taux = month.dossiers_traites > 0 ? (month.dossiers_valides / month.dossiers_traites * 100) : 0;
+                    
+                    return (
+                      <div
+                        key={index}
+                        onClick={() => handleMonthClick(month.mois)}
+                        className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <i className="ri-calendar-line text-gray-400 dark:text-gray-500"></i>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {month.mois}
+                            </span>
+                          </div>
+                          <i className="ri-eye-line text-gray-400 dark:text-gray-500 text-sm"></i>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">Dossiers traités</span>
+                            <div className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md mt-1">
+                              <span className="font-semibold text-gray-900 dark:text-white">
+                                {month.dossiers_traites}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">Dossiers validés</span>
+                            <div className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md mt-1">
+                              <span className="font-semibold text-gray-900 dark:text-white">
+                                {month.dossiers_valides}
+                              </span>
+                            </div>
+                            <div className="mt-1">
+                              <span className={`text-xs font-medium px-2.5 py-1 rounded-md inline-block ${
+                                taux >= 70 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 
+                                taux >= 50 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : 
+                                'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                              }`}>
+                                {taux.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">Économies générées</span>
+                            <div className="font-semibold text-green-600 dark:text-green-400 mt-1">
+                              {formatCurrency(month.economies_generees)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">CA GMB</span>
+                            <div className="font-medium text-gray-900 dark:text-white mt-1">
+                              {formatCurrency(month.ca_gmb)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                Évolution du classement
-              </h3>
-              <div className="space-y-3">
-                {mockRankingData.map((ranking, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{ranking.period}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Position {ranking.position}</p>
-                    </div>
-                    <div className="flex items-center">
-                      {ranking.evolution === 'up' && (
-                        <div className="w-6 h-6 flex items-center justify-center">
-                          <i className="ri-arrow-up-line text-green-600"></i>
-                        </div>
-                      )}
-                      {ranking.evolution === 'down' && (
-                        <div className="w-6 h-6 flex items-center justify-center">
-                          <i className="ri-arrow-down-line text-red-600"></i>
-                        </div>
-                      )}
-                      {ranking.evolution === 'stable' && (
-                        <div className="w-6 h-6 flex items-center justify-center">
-                          <i className="ri-subtract-line text-gray-400"></i>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
+
           </div>
         )}
       </main>
@@ -1248,24 +1326,25 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h4 className="font-medium text-gray-900 dark:text-white">
-                              {dossier.numero}
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                            <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                              {dossier.client_prenom} {dossier.client_nom}
                             </h4>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              dossier.is_couple 
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' 
+                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                            }`}>
+                              {dossier.is_couple ? 'Couple' : 'Seul'}
+                            </span>
                             {getDossierStatutBadge(dossier.statut)}
                           </div>
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                             <div>
-                              <span className="text-gray-500 dark:text-gray-400">Client :</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {dossier.client_prenom} {dossier.client_nom}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Type :</span>
+                              <span className="text-gray-500 dark:text-gray-400">Numéro :</span>
                               <span className="ml-2 text-gray-900 dark:text-white">
-                                {dossier.type_assurance}
+                                {dossier.numero}
                               </span>
                             </div>
                             <div>
@@ -1282,6 +1361,7 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                             </div>
                           </div>
                           
+                          {dossier.economie_generee > 0 && (
                           <div className="flex items-center space-x-4 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                             <div className="flex items-center space-x-2">
                               <i className="ri-money-euro-circle-line text-green-600 dark:text-green-400"></i>
@@ -1292,16 +1372,8 @@ export default function ApporteurDetailContent({ apporteurId }: ApporteurDetailC
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <i className="ri-bank-line text-[#335FAD] dark:text-[#335FAD]/80"></i>
-                              <div>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">CA GMB</span>
-                                <p className="font-medium text-[#335FAD] dark:text-[#335FAD]/80">
-                                  {formatCurrency(dossier.ca_gmb)}
-                                </p>
                               </div>
-                            </div>
-                          </div>
+                          )}
                         </div>
                         
                         <div className="ml-4 flex-shrink-0">

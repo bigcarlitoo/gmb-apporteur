@@ -1,0 +1,1589 @@
+[
+  {
+    "scenario": {
+      "name": "SCENARIO_1_SANS_CODE",
+      "description": "Sans code commission - Tous les tarifs avec leurs défauts"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181876",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6251.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5087.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4679.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4950.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4285.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4630.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181876</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>662200</cout_total_tarif>\n      <cout_premieres_annees_tarif>266680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1655</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n     ..."
+    },
+    "duration": 17961
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_2_CODE_GENERALI",
+      "description": "Avec code GENERALI 1T4 - Demande tous les tarifs",
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181877",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6251.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5087.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4679.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4950.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4285.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4630.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181877</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>662200</cout_total_tarif>\n      <cout_premieres_annees_tarif>266680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1655</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n     ..."
+    },
+    "duration": 22384
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_3_CODE_SWISSLIFE",
+      "description": "Avec code SWISSLIFE 2T2 - Demande tous les tarifs",
+      "commissionnement": "2T2"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181878",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6251.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5087.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4679.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4950.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4285.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4630.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181878</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>662200</cout_total_tarif>\n      <cout_premieres_annees_tarif>266680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1655</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n     ..."
+    },
+    "duration": 22875
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_4_CODE_HUMANIS",
+      "description": "Avec code HUMANIS 11T4 - Demande tous les tarifs",
+      "commissionnement": "11T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181879",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6251.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5087.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4679.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4950.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4285.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4630.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181879</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>662200</cout_total_tarif>\n      <cout_premieres_annees_tarif>266680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1655</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n     ..."
+    },
+    "duration": 16091
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_5_TARIF_SPECIFIQUE",
+      "description": "Tarif GENERALI (id=1) avec son code 1T4",
+      "idTarif": 1,
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181880",
+      "tarifs": [
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181880</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>694253</cout_total_tarif>\n      <cout_premieres_annees_tarif>279984</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1686</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1736</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>15808</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom..."
+    },
+    "duration": 1406
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_6_CODE_BAS",
+      "description": "Code commission bas (1T1 = 0% linéaire)",
+      "commissionnement": "1T1"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181881",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6251.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5087.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4679.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4950.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4285.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4630.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181881</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>662200</cout_total_tarif>\n      <cout_premieres_annees_tarif>266680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1655</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n     ..."
+    },
+    "duration": 22397
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_7_CODE_HAUT",
+      "description": "Code commission haut (1T10 = 40% linéaire)",
+      "commissionnement": "1T10"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181882",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6251.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5087.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4679.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4950.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4285.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4630.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181882</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>662200</cout_total_tarif>\n      <cout_premieres_annees_tarif>266680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1655</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n     ..."
+    },
+    "duration": 18168
+  },
+  {
+    "scenario": {
+      "name": "SCENARIO_8_AVEC_FRAIS",
+      "description": "Avec frais adhésion apporteur (200€)",
+      "fraisAdhesionApporteur": 20000,
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "3181883",
+      "tarifs": [
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6822,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5811.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 7142.53,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6451.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7941.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 8039.81,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6248.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5275.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6260.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6214.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5287.33,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6720.1,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4879.61,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 7058.54,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 5150.16,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1188
+        },
+        {
+          "id_tarif": "7",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10491.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "4",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5709.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5419.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4485.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1022
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 8035.44,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4830.6,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7468.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6317.88,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1482
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3181883</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>18</id_tarif>\n      <nom>SURAVENIR ASSUREA PLATINUM V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SURAVENIR</compagnie>\n      <frais_adhesion_apporteur>20000</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>682200</cout_total_tarif>\n      <cout_premieres_annees_tarif>286680</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1608</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1705</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé complet</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300318</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20124</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310318</periode>\n ..."
+    },
+    "duration": 18410
+  }
+]

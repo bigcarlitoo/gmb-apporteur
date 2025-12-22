@@ -13,8 +13,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DossiersService } from '@/lib/services/dossiers';
 import { DevisService } from '@/lib/services/devis';
+import { formatDate, formatCurrency } from '@/lib/utils/formatters';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 
-// TODO: SUPABASE INTEGRATION - INTERFACES COMPLÈTES
+// Interfaces pour les données du dossier
 interface DossierClient {
   nom: string;
   prenom: string;
@@ -68,7 +71,6 @@ interface DevisInfo {
   statut: 'disponible' | 'accepte' | 'refuse' | 'expire';
   motif_refus?: string;
   pdf_url?: string;
-  // TODO: SUPABASE - Champs additionnels
   created_at: string;
   updated_at: string;
 }
@@ -93,7 +95,6 @@ interface DossierComplet {
   devis?: DevisInfo;
   devisList?: DevisInfo[]; // Liste de tous les devis
   commentaire?: string;
-  // TODO: SUPABASE - Champs pour la base de données
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -105,6 +106,7 @@ interface DossierDetailContentProps {
 
 export default function DossierDetailContent({ dossierId }: DossierDetailContentProps) {
   const router = useRouter();
+  const { user } = useAuth();
 
   const [dossier, setDossier] = useState<DossierComplet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,6 +128,13 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
   // Nouvel état pour le suivi collapsible
   const [isProcessExpanded, setIsProcessExpanded] = useState(false);
 
+  // États pour la commission de l'apporteur
+  const [commissionInfo, setCommissionInfo] = useState<{
+    type: 'percentage' | 'fixed';
+    value: number; // % ou montant en euros
+    estimatedAmount: number | null; // Montant estimé en euros (si devis disponible)
+  } | null>(null);
+
   // Fonction principale pour récupérer le dossier complet depuis Supabase
   // État pour l'historique complet des devis
   const [devisHistory, setDevisHistory] = useState<any[]>([]);
@@ -142,6 +151,73 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
       }
     })();
   }, [dossier?.id]);
+
+  // Charger les informations de commission de l'apporteur
+  useEffect(() => {
+    const fetchCommissionInfo = async () => {
+      if (!user?.id) return;
+      
+      try {
+        // Récupérer le profil apporteur
+        const { data: apporteurProfile } = await supabase
+          .from('apporteur_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!apporteurProfile) return;
+
+        // Récupérer la relation broker_apporteurs avec les infos de commission
+        const { data: brokerApporteur } = await supabase
+          .from('broker_apporteurs')
+          .select('broker_id, custom_share_pct, custom_fixed_amount')
+          .eq('apporteur_profile_id', apporteurProfile.id)
+          .single();
+
+        if (!brokerApporteur) return;
+
+        // Récupérer les paramètres par défaut du broker
+        const { data: brokerSettings } = await supabase
+          .from('broker_commission_settings')
+          .select('default_apporteur_share_pct, default_apporteur_fixed_amount, default_frais_courtier')
+          .eq('broker_id', brokerApporteur.broker_id)
+          .single();
+
+        // Déterminer le type et la valeur de commission
+        let type: 'percentage' | 'fixed' = 'percentage';
+        let value = 80; // défaut
+
+        if (brokerApporteur.custom_fixed_amount !== null) {
+          type = 'fixed';
+          value = brokerApporteur.custom_fixed_amount / 100; // centimes -> euros
+        } else if (brokerApporteur.custom_share_pct !== null) {
+          type = 'percentage';
+          value = brokerApporteur.custom_share_pct;
+        } else if (brokerSettings?.default_apporteur_fixed_amount !== null) {
+          type = 'fixed';
+          value = brokerSettings.default_apporteur_fixed_amount / 100;
+        } else if (brokerSettings?.default_apporteur_share_pct !== null) {
+          type = 'percentage';
+          value = brokerSettings.default_apporteur_share_pct;
+        }
+
+        // Calculer le montant estimé si on a un devis avec des frais de courtage
+        let estimatedAmount: number | null = null;
+        if (type === 'fixed') {
+          estimatedAmount = value;
+        } else if (brokerSettings?.default_frais_courtier) {
+          // Pour le pourcentage, calculer basé sur les frais par défaut
+          estimatedAmount = (brokerSettings.default_frais_courtier / 100) * (value / 100);
+        }
+
+        setCommissionInfo({ type, value, estimatedAmount });
+      } catch (error) {
+        console.error('Erreur chargement commission:', error);
+      }
+    };
+
+    fetchCommissionInfo();
+  }, [user?.id]);
 
   const fetchDossier = async () => {
     setIsLoading(true);
@@ -450,16 +526,7 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
     }
   }, [dossierId]);
 
-  // Formatage des dates
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // ✅ Utilisation du formatter centralisé depuis lib/utils/formatters.ts
 
   // Formatage des montants
   const formatAmount = (amount: number) => {
@@ -705,7 +772,7 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
                           </h3>
                           {step.date && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatDate(step.date)}
+                              {formatDate(step.date, true)}
                             </span>
                           )}
                         </div>
@@ -949,6 +1016,64 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
           
           {/* Colonne latérale */}
           <div className="space-y-8">
+            {/* Ma Commission - Visible pour l'apporteur */}
+            {commissionInfo && (
+              <div className="bg-gradient-to-br from-[#335FAD]/5 to-purple-500/5 dark:from-[#335FAD]/10 dark:to-purple-500/10 rounded-2xl p-6 border border-[#335FAD]/20 dark:border-[#335FAD]/30">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+                  <i className="ri-wallet-3-line mr-3 text-[#335FAD]"></i>
+                  Ma commission
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Type de commission */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Type</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {commissionInfo.type === 'percentage' ? 'Pourcentage' : 'Montant fixe'}
+                    </span>
+                  </div>
+
+                  {/* Valeur */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {commissionInfo.type === 'percentage' ? 'Taux' : 'Montant par dossier'}
+                    </span>
+                    <span className="text-lg font-semibold text-[#335FAD]">
+                      {commissionInfo.type === 'percentage' 
+                        ? `${commissionInfo.value}%`
+                        : formatCurrency(commissionInfo.value)
+                      }
+                    </span>
+                  </div>
+
+                  {/* Estimation si pourcentage */}
+                  {commissionInfo.type === 'percentage' && commissionInfo.estimatedAmount !== null && (
+                    <div className="pt-3 border-t border-[#335FAD]/20 dark:border-[#335FAD]/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Estimation*</span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          ~{formatCurrency(commissionInfo.estimatedAmount)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        *Basé sur les frais de courtage moyens
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Info statut si devis accepté */}
+                  {dossier?.devis?.statut === 'accepte' && (
+                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                      <p className="text-xs text-green-700 dark:text-green-400 flex items-center">
+                        <i className="ri-check-double-line mr-2"></i>
+                        Commission en cours de traitement après finalisation
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Informations client */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
@@ -1326,7 +1451,7 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
               </button>
               <button
                 onClick={handleRefuseDevis}
-                disabled={isRefusing}
+                disabled={isRefusing || (selectedRefusMotif === 'Autre' && !refuseReason.trim())}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRefusing ? 'Envoi...' : 'Valider le refus'}

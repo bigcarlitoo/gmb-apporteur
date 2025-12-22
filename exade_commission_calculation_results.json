@@ -1,0 +1,538 @@
+[
+  {
+    "scenario": {
+      "name": "GENERALI_1T1_0pct",
+      "idTarif": 1,
+      "tarifName": "GENERALI",
+      "commissionnement": "1T1",
+      "fraisAdhesionApporteur": 20000
+    },
+    "result": {
+      "success": true,
+      "idSimulation": "3183448",
+      "idTarif": "1",
+      "compagnie": "GENERALI",
+      "nom": "GENERALI 7301 - 1 V9",
+      "coutTotal": 5968.85,
+      "coutPremieresAnnees": 2530.31,
+      "fraisAdhesion": 198,
+      "fraisAdhesionApporteur": 200,
+      "yearlyCosts": [
+        {
+          "year": 2026,
+          "date": "20260321",
+          "cost": 129.19
+        },
+        {
+          "year": 2027,
+          "date": "20270101",
+          "cost": 165.6
+        },
+        {
+          "year": 2028,
+          "date": "20280101",
+          "cost": 165.6
+        },
+        {
+          "year": 2029,
+          "date": "20290101",
+          "cost": 165.6
+        },
+        {
+          "year": 2030,
+          "date": "20300101",
+          "cost": 165.6
+        },
+        {
+          "year": 2031,
+          "date": "20310101",
+          "cost": 165.6
+        },
+        {
+          "year": 2032,
+          "date": "20320101",
+          "cost": 165.6
+        },
+        {
+          "year": 2033,
+          "date": "20330101",
+          "cost": 165.6
+        },
+        {
+          "year": 2034,
+          "date": "20340101",
+          "cost": 165.6
+        },
+        {
+          "year": 2035,
+          "date": "20350101",
+          "cost": 165.6
+        },
+        {
+          "year": 2036,
+          "date": "20360101",
+          "cost": 165.6
+        },
+        {
+          "year": 2037,
+          "date": "20370101",
+          "cost": 165.6
+        },
+        {
+          "year": 2038,
+          "date": "20380101",
+          "cost": 165.6
+        },
+        {
+          "year": 2039,
+          "date": "20390101",
+          "cost": 165.6
+        },
+        {
+          "year": 2040,
+          "date": "20400101",
+          "cost": 165.6
+        },
+        {
+          "year": 2041,
+          "date": "20410101",
+          "cost": 165.6
+        },
+        {
+          "year": 2042,
+          "date": "20420101",
+          "cost": 165.6
+        },
+        {
+          "year": 2043,
+          "date": "20430101",
+          "cost": 165.6
+        },
+        {
+          "year": 2044,
+          "date": "20440101",
+          "cost": 165.6
+        },
+        {
+          "year": 2045,
+          "date": "20450101",
+          "cost": 165.6
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3183448</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>20000</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>596885</cout_total_tarif>\n      <cout_premieres_annees_tarif>253031</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1393</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1492</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>12919</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20370101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20380101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20390101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20400101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20410101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20420101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20430101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20440101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20450101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20460101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>3668</cout>\n        ..."
+    },
+    "commission": {
+      "codeCommission": "1T1",
+      "description": "0% linéaire",
+      "coutAnnee1": 129.19,
+      "percentAnnee1": 0,
+      "commissionAnnee1": 0,
+      "fraisCourtier": 200,
+      "totalRevenusCourtier": 200,
+      "commissionPlateforme6pct": 12
+    }
+  },
+  {
+    "scenario": {
+      "name": "GENERALI_1T4_30_10",
+      "idTarif": 1,
+      "tarifName": "GENERALI",
+      "commissionnement": "1T4",
+      "fraisAdhesionApporteur": 20000
+    },
+    "result": {
+      "success": true,
+      "idSimulation": "3183449",
+      "idTarif": "1",
+      "compagnie": "GENERALI",
+      "nom": "GENERALI 7301 - 1 V9",
+      "coutTotal": 7142.54,
+      "coutPremieresAnnees": 2999.79,
+      "fraisAdhesion": 198,
+      "fraisAdhesionApporteur": 200,
+      "yearlyCosts": [
+        {
+          "year": 2026,
+          "date": "20260321",
+          "cost": 156.43
+        },
+        {
+          "year": 2027,
+          "date": "20270101",
+          "cost": 200.52
+        },
+        {
+          "year": 2028,
+          "date": "20280101",
+          "cost": 200.52
+        },
+        {
+          "year": 2029,
+          "date": "20290101",
+          "cost": 200.52
+        },
+        {
+          "year": 2030,
+          "date": "20300101",
+          "cost": 200.52
+        },
+        {
+          "year": 2031,
+          "date": "20310101",
+          "cost": 200.52
+        },
+        {
+          "year": 2032,
+          "date": "20320101",
+          "cost": 200.52
+        },
+        {
+          "year": 2033,
+          "date": "20330101",
+          "cost": 200.52
+        },
+        {
+          "year": 2034,
+          "date": "20340101",
+          "cost": 200.52
+        },
+        {
+          "year": 2035,
+          "date": "20350101",
+          "cost": 200.52
+        },
+        {
+          "year": 2036,
+          "date": "20360101",
+          "cost": 200.52
+        },
+        {
+          "year": 2037,
+          "date": "20370101",
+          "cost": 200.52
+        },
+        {
+          "year": 2038,
+          "date": "20380101",
+          "cost": 200.52
+        },
+        {
+          "year": 2039,
+          "date": "20390101",
+          "cost": 200.52
+        },
+        {
+          "year": 2040,
+          "date": "20400101",
+          "cost": 200.52
+        },
+        {
+          "year": 2041,
+          "date": "20410101",
+          "cost": 200.52
+        },
+        {
+          "year": 2042,
+          "date": "20420101",
+          "cost": 200.52
+        },
+        {
+          "year": 2043,
+          "date": "20430101",
+          "cost": 200.52
+        },
+        {
+          "year": 2044,
+          "date": "20440101",
+          "cost": 200.52
+        },
+        {
+          "year": 2045,
+          "date": "20450101",
+          "cost": 200.52
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3183449</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>20000</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>714254</cout_total_tarif>\n      <cout_premieres_annees_tarif>299979</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1686</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1786</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>15643</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20370101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20380101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20390101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20400101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20410101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20420101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20430101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20440101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20450101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20460101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>4441</cout>\n        ..."
+    },
+    "commission": {
+      "codeCommission": "1T4",
+      "description": "30% 1ère année / 10% suivantes",
+      "coutAnnee1": 156.43,
+      "percentAnnee1": 30,
+      "commissionAnnee1": 46.929,
+      "fraisCourtier": 200,
+      "totalRevenusCourtier": 246.929,
+      "commissionPlateforme6pct": 14.81574
+    }
+  },
+  {
+    "scenario": {
+      "name": "GENERALI_1T10_40pct",
+      "idTarif": 1,
+      "tarifName": "GENERALI",
+      "commissionnement": "1T10",
+      "fraisAdhesionApporteur": 20000
+    },
+    "result": {
+      "success": true,
+      "idSimulation": "3183450",
+      "idTarif": "1",
+      "compagnie": "GENERALI",
+      "nom": "GENERALI 7301 - 1 V9",
+      "coutTotal": 12046.13,
+      "coutPremieresAnnees": 4961.21,
+      "fraisAdhesion": 198,
+      "fraisAdhesionApporteur": 200,
+      "yearlyCosts": [
+        {
+          "year": 2026,
+          "date": "20260321",
+          "cost": 270.18
+        },
+        {
+          "year": 2027,
+          "date": "20270101",
+          "cost": 346.32
+        },
+        {
+          "year": 2028,
+          "date": "20280101",
+          "cost": 346.32
+        },
+        {
+          "year": 2029,
+          "date": "20290101",
+          "cost": 346.32
+        },
+        {
+          "year": 2030,
+          "date": "20300101",
+          "cost": 346.32
+        },
+        {
+          "year": 2031,
+          "date": "20310101",
+          "cost": 346.32
+        },
+        {
+          "year": 2032,
+          "date": "20320101",
+          "cost": 346.32
+        },
+        {
+          "year": 2033,
+          "date": "20330101",
+          "cost": 346.32
+        },
+        {
+          "year": 2034,
+          "date": "20340101",
+          "cost": 346.32
+        },
+        {
+          "year": 2035,
+          "date": "20350101",
+          "cost": 346.32
+        },
+        {
+          "year": 2036,
+          "date": "20360101",
+          "cost": 346.32
+        },
+        {
+          "year": 2037,
+          "date": "20370101",
+          "cost": 346.32
+        },
+        {
+          "year": 2038,
+          "date": "20380101",
+          "cost": 346.32
+        },
+        {
+          "year": 2039,
+          "date": "20390101",
+          "cost": 346.32
+        },
+        {
+          "year": 2040,
+          "date": "20400101",
+          "cost": 346.32
+        },
+        {
+          "year": 2041,
+          "date": "20410101",
+          "cost": 346.32
+        },
+        {
+          "year": 2042,
+          "date": "20420101",
+          "cost": 346.32
+        },
+        {
+          "year": 2043,
+          "date": "20430101",
+          "cost": 346.32
+        },
+        {
+          "year": 2044,
+          "date": "20440101",
+          "cost": 346.32
+        },
+        {
+          "year": 2045,
+          "date": "20450101",
+          "cost": 346.32
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3183450</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>20000</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>1204613</cout_total_tarif>\n      <cout_premieres_annees_tarif>496121</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>2912</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>3012</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>27018</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20370101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20380101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20390101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20400101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20410101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20420101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20430101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20440101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20450101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20460101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>7670</cout>\n       ..."
+    },
+    "commission": {
+      "codeCommission": "1T10",
+      "description": "40% linéaire",
+      "coutAnnee1": 270.18,
+      "percentAnnee1": 40,
+      "commissionAnnee1": 108.072,
+      "fraisCourtier": 200,
+      "totalRevenusCourtier": 308.072,
+      "commissionPlateforme6pct": 18.48432
+    }
+  },
+  {
+    "scenario": {
+      "name": "SWISSLIFE_2T2_40_10",
+      "idTarif": 2,
+      "tarifName": "SWISSLIFE",
+      "commissionnement": "2T2",
+      "fraisAdhesionApporteur": 20000
+    },
+    "result": {
+      "success": true,
+      "idSimulation": "3183451",
+      "idTarif": "2",
+      "compagnie": "SWISS LIFE",
+      "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+      "coutTotal": 4836,
+      "coutPremieresAnnees": 2622.84,
+      "fraisAdhesion": 190,
+      "fraisAdhesionApporteur": 200,
+      "yearlyCosts": [
+        {
+          "year": 2026,
+          "date": "20260321",
+          "cost": 145.08
+        },
+        {
+          "year": 2027,
+          "date": "20270321",
+          "cost": 202.68
+        },
+        {
+          "year": 2028,
+          "date": "20280321",
+          "cost": 203.64
+        },
+        {
+          "year": 2029,
+          "date": "20290321",
+          "cost": 196.44
+        },
+        {
+          "year": 2030,
+          "date": "20300321",
+          "cost": 197.4
+        },
+        {
+          "year": 2031,
+          "date": "20310321",
+          "cost": 189.84
+        },
+        {
+          "year": 2032,
+          "date": "20320321",
+          "cost": 181.8
+        },
+        {
+          "year": 2033,
+          "date": "20330321",
+          "cost": 173.16
+        },
+        {
+          "year": 2034,
+          "date": "20340321",
+          "cost": 163.8
+        },
+        {
+          "year": 2035,
+          "date": "20350321",
+          "cost": 153.6
+        },
+        {
+          "year": 2036,
+          "date": "20360321",
+          "cost": 147.6
+        },
+        {
+          "year": 2037,
+          "date": "20370321",
+          "cost": 140.4
+        },
+        {
+          "year": 2038,
+          "date": "20380321",
+          "cost": 131.28
+        },
+        {
+          "year": 2039,
+          "date": "20390321",
+          "cost": 119.76
+        },
+        {
+          "year": 2040,
+          "date": "20400321",
+          "cost": 105.84
+        },
+        {
+          "year": 2041,
+          "date": "20410321",
+          "cost": 90.36
+        },
+        {
+          "year": 2042,
+          "date": "20420321",
+          "cost": 68.04
+        },
+        {
+          "year": 2043,
+          "date": "20430321",
+          "cost": 53.28
+        },
+        {
+          "year": 2044,
+          "date": "20440321",
+          "cost": 37.32
+        },
+        {
+          "year": 2045,
+          "date": "20450321",
+          "cost": 19.8
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>3183451</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>2</id_tarif>\n      <nom>SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>SWISS LIFE</compagnie>\n      <frais_adhesion_apporteur>20000</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>483600</cout_total_tarif>\n      <cout_premieres_annees_tarif>262284</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1112</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1209</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé simplifié </formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>14508</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20268</cout>\n          <crd>19356423</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20364</cout>\n          <crd>18630422</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>19644</cout>\n          <crd>17878599</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>19740</cout>\n          <crd>17100035</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>18984</cout>\n          <crd>16293780</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>18180</cout>\n          <crd>15458851</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>17316</cout>\n          <crd>14594223</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16380</cout>\n          <crd>13698843</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>15360</cout>\n          <crd>12771621</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>14760</cout>\n          <crd>11811420</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20370321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>14040</cout>\n          <crd>10817065</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20380321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>13128</cout>\n          <crd>9787343</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20390321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>11976</cout>\n          <crd>8720998</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20400321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>10584</cout>\n          <crd>7616726</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20410321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>9036</cout>\n          <crd>6473180</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20420321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>6804</cout>\n          <crd>5288961</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20430321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>5328</cout>\n          <crd>4062623</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20440321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>3732</cout>\n          <crd>2792666</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20450321</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>1980</cout>\n          <crd>1477541</crd>\n        </garantie_pret>\n        <frais_pret>\n          <periode>20260321</periode>\n          <nom>FRAIS ADHESION</nom>\n          <cout>3000</cout>\n      ..."
+    },
+    "commission": {
+      "codeCommission": "2T2",
+      "description": "40% 1ère / 10% suivantes",
+      "coutAnnee1": 145.08,
+      "percentAnnee1": 40,
+      "commissionAnnee1": 58.03200000000001,
+      "fraisCourtier": 200,
+      "totalRevenusCourtier": 258.03200000000004,
+      "commissionPlateforme6pct": 15.481920000000002
+    }
+  }
+]

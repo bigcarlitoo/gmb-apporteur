@@ -10,6 +10,11 @@ import { ApporteursService } from '@/lib/services/apporteurs';
 import { DossierReadStatusService } from '@/lib/services/dossier-read-status';
 import { ReadStatusCache } from '@/lib/services/read-status-cache';
 import DossierCard from '@/components/DossierCard';
+import { mapStatutForDisplay, getStatutBadgeConfig } from '@/lib/utils/statut-mapping';
+import { formatCurrency, formatDate, getAgeColor } from '@/lib/utils/formatters';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useAuth } from '@/components/AuthProvider';
 
 // Interface pour les données admin
 interface AdminData {
@@ -26,13 +31,13 @@ interface Dossier {
   numero_dossier: string;
   apporteur_id: string | null;
   client_infos: Array<{
-  client_nom: string;
-  client_prenom: string;
+    client_nom: string;
+    client_prenom: string;
     client_email: string;
     client_telephone: string | null;
   }>;
   pret_data: Array<{
-  montant_capital: number;
+    montant_capital: number;
     banque_preteuse: string;
     duree_mois: number;
     type_pret: string;
@@ -44,6 +49,7 @@ interface Dossier {
   } | null;
   statut: string | null; // canonique DB: en_attente, devis_disponible, devis_accepte, refuse, finalise
   type_dossier: string;
+  is_couple: boolean;
   date_creation: string | null;
   age_jours?: number;
   is_read?: boolean;
@@ -78,28 +84,32 @@ export default function AdminDossiersPage() {
   const [error, setError] = useState<string | null>(null);
   const [unreadStats, setUnreadStats] = useState<Record<string, number>>({});
   const [isMobile, setIsMobile] = useState(false);
+  const { currentBrokerId } = useBrokerContext();
+  const { user } = useAuth();
 
-  // Données admin simulées
-  const adminData = useMemo<AdminData>(() => ({
-    id: '00000000-0000-0000-0000-000000000001', // UUID valide pour l'admin
-    firstName: 'Alexandre',
-    lastName: 'Martin',
-    initials: 'AM',
-    role: 'Administrateur'
-  }), []);
+  // ✅ Données admin depuis l'utilisateur connecté
+  const adminData = useMemo<AdminData>(() => {
+    const firstName = user?.user_metadata?.prenom || 'Admin';
+    const lastName = user?.user_metadata?.nom || '';
+    return {
+      id: user?.id || '',
+      firstName,
+      lastName,
+      initials: `${firstName.charAt(0)}${lastName.charAt(0) || ''}`.toUpperCase(),
+      role: 'Administrateur'
+    };
+  }, [user]);
 
-  // Statut centralisé côté DB via computed_statut
+  /**
+   * 🎯 Dérive le statut admin depuis le statut canonique
+   * ✅ Utilise l'utilitaire centralisé pour garantir la cohérence
+   */
   const deriveAdminStatus = (d: any): Dossier['admin_status'] => {
-    const computed = (d?.computed_statut || d?.statut || '').toString();
-    switch (computed) {
-      case 'finalise': return 'finalise';
-      case 'refuse': return 'refuse';
-      case 'valide': return 'valide';
-      case 'devis_envoye': return 'devis_envoye';
-      case 'devis_disponible': return 'en_cours' as any;
-      case 'en_attente': return 'nouveau';
-      default: return 'nouveau';
-    }
+    // Priorité : computed_statut (depuis la vue) > statut (devrait être statut_canon)
+    const statutCanonique = (d?.computed_statut || d?.statut || 'en_attente').toString();
+
+    // ✅ Utilise la fonction centralisée de mapping
+    return mapStatutForDisplay(statutCanonique) as Dossier['admin_status'];
   };
 
   // Chargement des dossiers et apporteurs depuis Supabase
@@ -109,55 +119,55 @@ export default function AdminDossiersPage() {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Charger les dossiers
-        const dossiersData = await DossiersService.getAllDossiers();
+        const dossiersData = await DossiersService.getAllDossiers(currentBrokerId || undefined);
 
         // Dériver un statut admin rétroactif depuis devis (si présent dans la requête)
         const dossiersWithDerived = dossiersData.map((d: any) => ({
           ...d,
           admin_status: deriveAdminStatus(d)
         }))
-        
+
         // Ajouter l'âge en jours, admin_status et fusionner avec le cache local
         const dossiersWithAge = dossiersData.map((dossier: any) => {
           const cachedStatus = ReadStatusCache.getReadStatus(dossier.id);
           const finalIsRead = cachedStatus !== null ? cachedStatus : dossier.is_read;
           const admin_status = deriveAdminStatus(dossier);
-          
+
           return {
             ...dossier,
             is_read: finalIsRead,
             admin_status,
-            age_jours: dossier.date_creation 
+            age_jours: dossier.date_creation
               ? Math.floor((Date.now() - new Date(dossier.date_creation).getTime()) / (1000 * 60 * 60 * 24))
               : 0
           } as Dossier;
         });
-        
+
         setDossiers(dossiersWithDerived);
 
         // Charger les apporteurs avec leurs statistiques
-        const apporteursData = await ApporteursService.getAllApporteurs();
-        
+        const apporteursData = await ApporteursService.getAllApporteurs(currentBrokerId || undefined);
+
         const apporteursWithStats = apporteursData.map((apporteur: any) => {
           const totalDossiers = apporteur.dossiers?.length || 0;
-          const nouveauxDossiers = apporteur.dossiers?.filter((d: any) => 
+          const nouveauxDossiers = apporteur.dossiers?.filter((d: any) =>
             (d.statut === 'en_attente' || d.statut === 'nouveau')
           ).length || 0;
-          
+
           return {
             id: apporteur.id,
             nom: apporteur.nom,
             prenom: apporteur.prenom,
             email: apporteur.email,
             totalDossiers,
-      nouveauxDossiers
+            nouveauxDossiers
           };
         });
-        
+
         setApporteurs(apporteursWithStats);
-        
+
       } catch (err) {
         console.error('Erreur lors du chargement des données:', err);
         setError('Erreur lors du chargement des données');
@@ -167,7 +177,7 @@ export default function AdminDossiersPage() {
     };
 
     loadData();
-  }, [refreshKey]);
+  }, [refreshKey, currentBrokerId]);
 
   // Rafraîchir la liste au retour sur l’onglet/fenêtre
   useEffect(() => {
@@ -180,10 +190,10 @@ export default function AdminDossiersPage() {
   useEffect(() => {
     // Forcer la synchronisation au montage
     ReadStatusCache.forceSync();
-    
+
     // Debug: Afficher le cache
     console.log('🔍 Cache au montage:', ReadStatusCache);
-    
+
     // Nettoyer les timeouts au démontage
     return () => {
       ReadStatusCache.forceSync();
@@ -213,10 +223,10 @@ export default function AdminDossiersPage() {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth < 1024); // lg breakpoint
     };
-    
+
     checkIsMobile();
     window.addEventListener('resize', checkIsMobile);
-    
+
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
@@ -225,13 +235,13 @@ export default function AdminDossiersPage() {
   // Fonction pour marquer un dossier comme lu (optimiste)
   const markDossierAsRead = (dossierId: string) => {
     // Mise à jour optimiste immédiate
-    setDossiers(prev => prev.map(dossier => 
+    setDossiers(prev => prev.map(dossier =>
       dossier.id === dossierId ? { ...dossier, is_read: true } : dossier
     ));
-    
+
     // Ajouter au cache pour synchronisation en arrière-plan
     ReadStatusCache.markAsReadOptimistic(dossierId);
-    
+
     // Recalculer les stats des apporteurs
     updateUnreadStats();
   };
@@ -239,7 +249,7 @@ export default function AdminDossiersPage() {
   // Fonction pour mettre à jour les stats de dossiers non lus
   const updateUnreadStats = () => {
     const stats: Record<string, number> = {};
-    
+
     dossiers.forEach(dossier => {
       if (!dossier.is_read && dossier.apporteur_profiles) {
         const apporteurId = dossier.apporteur_id;
@@ -248,7 +258,7 @@ export default function AdminDossiersPage() {
         }
       }
     });
-    
+
     setUnreadStats(stats);
   };
 
@@ -257,20 +267,20 @@ export default function AdminDossiersPage() {
     if (typeof window !== 'undefined' && !isInitialized) {
       const savedDarkMode = localStorage.getItem('darkMode') === 'true';
       setDarkMode(savedDarkMode);
-      
+
       if (savedDarkMode) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
-      
+
       setIsInitialized(true);
     }
   }, [isInitialized]);
 
   const handleDarkModeToggle = (newDarkMode: boolean) => {
     setDarkMode(newDarkMode);
-    
+
     if (typeof window !== 'undefined') {
       if (newDarkMode) {
         document.documentElement.classList.add('dark');
@@ -311,26 +321,26 @@ export default function AdminDossiersPage() {
   // Filtrage et tri des dossiers
   const filteredAndSortedDossiers = useMemo(() => {
     let filtered = dossiers.filter(dossier => {
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
         dossier.numero_dossier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dossier.client_infos && dossier.client_infos.length > 0 && 
+        (dossier.client_infos && dossier.client_infos.length > 0 &&
           `${dossier.client_infos[0].client_prenom} ${dossier.client_infos[0].client_nom}`.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+
       const matchesStatus = selectedStatus === 'tous' ||
         (selectedStatus === 'en_cours' ? (dossier.admin_status !== 'finalise') : dossier.admin_status === selectedStatus);
-      
+
       // Filtre par apporteur
-      const matchesApporteur = selectedApporteur === '' || 
-        (dossier.apporteur_profiles && 
+      const matchesApporteur = selectedApporteur === '' ||
+        (dossier.apporteur_profiles &&
           `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` === selectedApporteur);
-      
+
       return matchesSearch && matchesStatus && matchesApporteur;
     });
 
     filtered.sort((a, b) => {
       let aValue: any;
       let bValue: any;
-      
+
       if (sortField === 'date_creation') {
         aValue = new Date(a.date_creation || 0).getTime();
         bValue = new Date(b.date_creation || 0).getTime();
@@ -341,12 +351,12 @@ export default function AdminDossiersPage() {
         aValue = a[sortField];
         bValue = b[sortField];
       }
-      
+
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
@@ -368,7 +378,7 @@ export default function AdminDossiersPage() {
     const nouveaux = dossiers.filter(d => d.admin_status === 'nouveau').length;
     // En cours = tout sauf Finalisé
     const enCours = dossiers.filter(d => d.admin_status !== 'finalise').length;
-    
+
     return { total, nouveaux, enCours };
   }, [dossiers]);
 
@@ -394,19 +404,31 @@ export default function AdminDossiersPage() {
     }
   };
 
+  /**
+   * 🎯 Badge de statut - Utilise la source de vérité unique
+   * Note: adminStatus est déjà le résultat de mapStatutForDisplay()
+   */
   const getStatusBadge = (adminStatus?: Dossier['admin_status']) => {
-    const statusConfig = {
-      nouveau: { color: 'bg-[#335FAD]/10 text-[#335FAD] dark:bg-[#335FAD]/30 dark:text-[#335FAD]', text: 'Nouveau' },
-      en_cours: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300', text: 'En cours' },
-      devis_envoye: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400', text: 'Devis envoyé' },
-      valide: { color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: 'Validé' },
-      finalise: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400', text: 'Finalisé' },
-      refuse: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', text: 'Refusé' }
-    } as const;
-    
-    const key = (adminStatus || 'nouveau') as keyof typeof statusConfig;
-    const config = statusConfig[key] || statusConfig.en_cours;
-    
+    // adminStatus est déjà mappé, on doit le "remonter" au statut canonique
+    const reversMap: Record<string, string> = {
+      'nouveau': 'en_attente',
+      'devis_envoye': 'devis_disponible',
+      'valide': 'devis_accepte',
+      'refuse': 'refuse',
+      'finalise': 'finalise'
+    };
+
+    const statutCanonique = reversMap[adminStatus || 'nouveau'] || 'en_attente';
+    const config = getStatutBadgeConfig(statutCanonique);
+
+    if (!config) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          Inconnu
+        </span>
+      );
+    }
+
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
         {config.text}
@@ -414,28 +436,7 @@ export default function AdminDossiersPage() {
     );
   };
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M€`;
-    } else if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(0)}k€`;
-    }
-    return `${amount}€`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const getAgeColor = (days: number) => {
-    if (days <= 3) return 'text-green-600 dark:text-green-400';
-    if (days <= 7) return 'text-orange-600 dark:text-orange-400';
-    return 'text-red-600 dark:text-red-400';
-  };
+  // ✅ Utilisation des formatters centralisés depuis lib/utils/formatters.ts
 
   if (!isInitialized || loading) {
     return (
@@ -472,12 +473,12 @@ export default function AdminDossiersPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-      <AdminHeader 
-        darkMode={darkMode} 
+      <AdminHeader
+        darkMode={darkMode}
         setDarkMode={handleDarkModeToggle}
         adminData={adminData}
       />
-      
+
       {/* Hero redesigné */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-4 sm:px-8 py-6 max-w-7xl mx-auto">
@@ -490,9 +491,9 @@ export default function AdminDossiersPage() {
                 Supervisez et traitez tous les dossiers d'assurance de prêt
               </p>
             </div>
-            
+
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={handleNouveauDossierAdmin}
                 className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:shadow-lg flex items-center space-x-2 whitespace-nowrap cursor-pointer"
               >
@@ -507,11 +508,10 @@ export default function AdminDossiersPage() {
       <main className="px-4 sm:px-8 py-6 max-w-7xl mx-auto">
         {/* Statistiques - CARTES CLIQUABLES */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div 
+          <div
             onClick={() => handleStatBadgeClick('total')}
-            className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md dark:hover:shadow-gray-900/20 ${
-              selectedStatus === 'tous' ? 'ring-2 ring-[#335FAD] bg-[#335FAD]/5 dark:bg-[#335FAD]/10' : ''
-            }`}
+            className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md dark:hover:shadow-gray-900/20 ${selectedStatus === 'tous' ? 'ring-2 ring-[#335FAD] bg-[#335FAD]/5 dark:bg-[#335FAD]/10' : ''
+              }`}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -524,11 +524,10 @@ export default function AdminDossiersPage() {
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => handleStatBadgeClick('nouveaux')}
-            className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md dark:hover:shadow-gray-900/20 ${
-              selectedStatus === 'nouveau' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : ''
-            }`}
+            className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md dark:hover:shadow-gray-900/20 ${selectedStatus === 'nouveau' ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : ''
+              }`}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -541,11 +540,10 @@ export default function AdminDossiersPage() {
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => handleStatBadgeClick('enCours')}
-            className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md dark:hover:shadow-gray-900/20 ${
-              selectedStatus === 'en_cours' ? 'ring-2 ring-orange-500 bg-orange-50 dark:bg-orange-900/20' : ''
-            }`}
+            className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md dark:hover:shadow-gray-900/20 ${selectedStatus === 'en_cours' ? 'ring-2 ring-orange-500 bg-orange-50 dark:bg-orange-900/20' : ''
+              }`}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -568,11 +566,10 @@ export default function AdminDossiersPage() {
                 setSelectedApporteur('');
                 setCurrentPage(1);
               }}
-              className={`flex-shrink-0 px-4 py-2 rounded-full border-2 whitespace-nowrap transition-all duration-200 hover:shadow-md cursor-pointer ${
-                selectedApporteur === '' 
-                  ? 'bg-[#335FAD] dark:bg-[#335FAD] text-white border-[#335FAD] dark:border-[#335FAD] shadow-md' 
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
+              className={`flex-shrink-0 px-4 py-2 rounded-full border-2 whitespace-nowrap transition-all duration-200 hover:shadow-md cursor-pointer ${selectedApporteur === ''
+                ? 'bg-[#335FAD] dark:bg-[#335FAD] text-white border-[#335FAD] dark:border-[#335FAD] shadow-md'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
             >
               Tous les apporteurs
             </button>
@@ -583,11 +580,10 @@ export default function AdminDossiersPage() {
                   setSelectedApporteur(`${apporteur.prenom} ${apporteur.nom}`);
                   setCurrentPage(1);
                 }}
-                className={`flex-shrink-0 px-4 py-2 rounded-full border-2 whitespace-nowrap transition-all duration-200 hover:shadow-md relative cursor-pointer ${
-                  selectedApporteur === `${apporteur.prenom} ${apporteur.nom}` 
-                    ? 'bg-[#335FAD] dark:bg-[#335FAD] text-white border-[#335FAD] dark:border-[#335FAD] shadow-md' 
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
+                className={`flex-shrink-0 px-4 py-2 rounded-full border-2 whitespace-nowrap transition-all duration-200 hover:shadow-md relative cursor-pointer ${selectedApporteur === `${apporteur.prenom} ${apporteur.nom}`
+                  ? 'bg-[#335FAD] dark:bg-[#335FAD] text-white border-[#335FAD] dark:border-[#335FAD] shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
               >
                 {apporteur.prenom} {apporteur.nom}
                 {(unreadStats[apporteur.id] || 0) > 0 && (
@@ -619,11 +615,10 @@ export default function AdminDossiersPage() {
                     setSelectedStatus(tab.key as any);
                     setCurrentPage(1);
                   }}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-                    selectedStatus === tab.key
-                      ? 'border-indigo-500 text-[#335FAD] dark:text-[#335FAD]/80 bg-indigo-50 dark:bg-indigo-900/20'
-                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  }`}
+                  className={`px-6 py-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${selectedStatus === tab.key
+                    ? 'border-indigo-500 text-[#335FAD] dark:text-[#335FAD]/80 bg-indigo-50 dark:bg-indigo-900/20'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    }`}
                 >
                   {tab.label} ({tab.count})
                 </button>
@@ -709,44 +704,56 @@ export default function AdminDossiersPage() {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {paginatedDossiers.map((dossier) => (
-                    <tr 
-                      key={dossier.id} 
-                      className={`transition-colors duration-700 ease-out ${
-                        !dossier.is_read 
-                          ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30' 
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
+                    <tr
+                      key={dossier.id}
+                      className={`transition-colors duration-700 ease-out ${!dossier.is_read
+                        ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
                       onMouseEnter={() => !isMobile && !dossier.is_read && markDossierAsRead(dossier.id)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {dossier.numero_dossier}
-                        </div>
+                          </div>
                           {/* Indicateur de synchronisation */}
-                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" 
-                               style={{ display: ReadStatusCache.hasPendingUpdates(dossier.id) ? 'block' : 'none' }}
-                               title="Synchronisation en cours...">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"
+                            style={{ display: ReadStatusCache.hasPendingUpdates(dossier.id) ? 'block' : 'none' }}
+                            title="Synchronisation en cours...">
                           </div>
                         </div>
                         {dossier.age_jours !== undefined && (
-                        <div className={`text-xs ${getAgeColor(dossier.age_jours)}`}>
-                          {dossier.age_jours}j
-                        </div>
+                          <div className={`text-xs ${getAgeColor(dossier.age_jours)}`}>
+                            {dossier.age_jours}j
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {(dossier.client_infos && dossier.client_infos.length > 0) ? 
-                            `${dossier.client_infos[0].client_prenom} ${dossier.client_infos[0].client_nom}` : 
-                            'N/A'
-                          }
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {(dossier.client_infos && dossier.client_infos.length > 0) ?
+                              `${dossier.client_infos[0].client_prenom} ${dossier.client_infos[0].client_nom}` :
+                              'N/A'
+                            }
+                          </div>
+                          {dossier.is_couple ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                              <i className="ri-team-line mr-1 text-xs"></i>
+                              Couple
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                              <i className="ri-user-line mr-1 text-xs"></i>
+                              Seul
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {dossier.apporteur_profiles ? 
-                            `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` : 
+                          {dossier.apporteur_profiles ?
+                            `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` :
                             'N/A'
                           }
                         </div>
@@ -756,8 +763,8 @@ export default function AdminDossiersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {(dossier.pret_data && dossier.pret_data.length > 0) ? 
-                            formatCurrency(dossier.pret_data[0].montant_capital) : 
+                          {(dossier.pret_data && dossier.pret_data.length > 0) ?
+                            formatCurrency(dossier.pret_data[0].montant_capital, { compact: true }) :
                             'N/A'
                           }
                         </div>
@@ -792,62 +799,72 @@ export default function AdminDossiersPage() {
                     onMarkAsRead={markDossierAsRead}
                     isResponsive={true}
                   >
-                    <div 
-                      className={`rounded-lg p-4 border transition-colors duration-700 ease-out ${
-                        !dossier.is_read 
-                          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' 
-                          : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600'
-                      }`}
+                    <div
+                      className={`rounded-lg p-4 border transition-colors duration-700 ease-out ${!dossier.is_read
+                        ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                        : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600'
+                        }`}
                     >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {dossier.numero_dossier}
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {dossier.numero_dossier}
+                          </div>
+                          {dossier.age_jours !== undefined && (
+                            <div className={`text-xs ${getAgeColor(dossier.age_jours)}`}>
+                              {dossier.age_jours}j
+                            </div>
+                          )}
                         </div>
-                        {dossier.age_jours !== undefined && (
-                        <div className={`text-xs ${getAgeColor(dossier.age_jours)}`}>
-                          {dossier.age_jours}j
-                        </div>
-                        )}
+                        {getStatusBadge(dossier.admin_status)}
                       </div>
-                      {getStatusBadge(dossier.admin_status)}
-                    </div>
-                    
-                    <div className="space-y-2 mb-3">
-                      <div className="text-sm">
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {(dossier.client_infos && dossier.client_infos.length > 0) ? 
-                            `${dossier.client_infos[0].client_prenom} ${dossier.client_infos[0].client_nom}` : 
+
+                      <div className="space-y-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {(dossier.client_infos && dossier.client_infos.length > 0) ?
+                              `${dossier.client_infos[0].client_prenom} ${dossier.client_infos[0].client_nom}` :
+                              'N/A'
+                            }
+                          </span>
+                          {dossier.is_couple ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                              <i className="ri-team-line mr-1 text-xs"></i>
+                              Couple
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                              <i className="ri-user-line mr-1 text-xs"></i>
+                              Seul
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          Apporteur: {dossier.apporteur_profiles ?
+                            `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` :
                             'N/A'
                           }
-                        </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {(dossier.pret_data && dossier.pret_data.length > 0) ?
+                              formatCurrency(dossier.pret_data[0].montant_capital, { compact: true }) :
+                              'N/A'
+                            }
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {dossier.date_creation ? formatDate(dossier.date_creation) : 'N/A'}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        Apporteur: {dossier.apporteur_profiles ? 
-                          `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` : 
-                          'N/A'
-                        }
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {(dossier.pret_data && dossier.pret_data.length > 0) ? 
-                            formatCurrency(dossier.pret_data[0].montant_capital) : 
-                            'N/A'
-                          }
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {dossier.date_creation ? formatDate(dossier.date_creation) : 'N/A'}
-                      </div>
+
+                      <button
+                        onClick={() => handleViewDetails(dossier.id)}
+                        className="w-full bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                      >
+                        Voir détails
+                      </button>
                     </div>
-                    
-                    <button
-                      onClick={() => handleViewDetails(dossier.id)}
-                      className="w-full bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                    >
-                      Voir détails
-                    </button>
-                  </div>
                   </DossierCard>
                 ))}
               </div>
@@ -888,7 +905,7 @@ export default function AdminDossiersPage() {
                 >
                   <i className="ri-arrow-left-s-line"></i>
                 </button>
-                
+
                 <div className="flex items-center space-x-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
@@ -906,11 +923,10 @@ export default function AdminDossiersPage() {
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
-                          currentPage === pageNum
-                            ? 'bg-indigo-600 dark:bg-indigo-5 0 text-white'
-                            : 'bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                        }`}
+                        className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${currentPage === pageNum
+                          ? 'bg-indigo-600 dark:bg-indigo-5 0 text-white'
+                          : 'bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                          }`}
                       >
                         {pageNum}
                       </button>
@@ -931,16 +947,32 @@ export default function AdminDossiersPage() {
 
           {/* État vide */}
           {paginatedDossiers.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="ri-file-list-line text-gray-400 dark:text-gray-500 text-2xl"></i>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Aucun dossier trouvé
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                {searchQuery ? 'Essayez de modifier vos critères de recherche.' : 'Aucun dossier ne correspond aux filtres sélectionnés.'}
-              </p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+              {searchQuery || selectedStatus !== 'tous' || selectedApporteur ? (
+                <EmptyState
+                  icon="ri-search-line"
+                  title="Aucun résultat"
+                  description="Aucun dossier ne correspond à vos critères. Essayez de modifier vos filtres."
+                  secondaryAction={{
+                    label: "Réinitialiser les filtres",
+                    onClick: () => {
+                      setSearchQuery('');
+                      setSelectedStatus('tous');
+                      setSelectedApporteur('');
+                    }
+                  }}
+                />
+              ) : (
+                <EmptyState
+                  icon="ri-inbox-line"
+                  title="Aucun dossier"
+                  description="Vos dossiers apparaîtront ici une fois que vos apporteurs en auront créé."
+                  action={{
+                    label: "Créer un dossier",
+                    href: "/admin/nouveau-dossier"
+                  }}
+                />
+              )}
             </div>
           )}
         </div>

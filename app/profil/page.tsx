@@ -7,8 +7,10 @@ import ApporteurHeader from '../../components/ApporteurHeader';
 import ProfileInfo from './ProfileInfo';
 import NotificationSettings from './NotificationSettings';
 import ResourcesSection from './ResourcesSection';
+import CabinetSection from './CabinetSection';
+import WalletSection from './WalletSection';
+import { supabase } from '@/lib/supabase';
 
-// TODO: SUPABASE INTEGRATION
 // Interface pour les données utilisateur depuis Supabase
 interface UserData {
   id: string;
@@ -19,6 +21,14 @@ interface UserData {
   companyName?: string;
   email: string;
   phone: string;
+}
+
+// Interface pour les infos du cabinet
+interface CabinetInfo {
+  broker_id: string;
+  broker_name: string;
+  owner_name?: string;
+  joined_at?: string;
 }
 
 // Interface pour les préférences de notification
@@ -45,21 +55,24 @@ export default function ProfilPage() {
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [activeSection, setActiveSection] = useState<'profile' | 'notifications' | 'resources'>('profile');
+  const [activeSection, setActiveSection] = useState<'profile' | 'wallet' | 'cabinet' | 'notifications' | 'resources'>('profile');
 
-  // TODO: SUPABASE - Remplacer par les données réelles de l'utilisateur connecté
+  // État pour les données utilisateur
   const [userData, setUserData] = useState<UserData>({
-    id: '1',
-    firstName: 'Marie',
-    lastName: 'Dubois',
-    initials: 'MD',
-    role: 'Apporteur Premium',
-    companyName: 'Dubois Conseils',
-    email: 'marie.dubois@email.com',
-    phone: '06 12 34 56 78'
+    id: '',
+    firstName: '',
+    lastName: '',
+    initials: '',
+    role: 'Apporteur',
+    email: '',
+    phone: ''
   });
 
-  // TODO: SUPABASE - Remplacer par les préférences réelles depuis la base de données
+  // État pour les infos du cabinet
+  const [cabinetInfo, setCabinetInfo] = useState<CabinetInfo | null>(null);
+  const [cabinetLoading, setCabinetLoading] = useState(true);
+
+  // État pour les préférences de notification
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>({
     devisAvailable: { email: true, app: true },
     dossierFinalized: { email: true, app: true },
@@ -67,112 +80,169 @@ export default function ProfilPage() {
     newsUpdates: { email: false, app: false }
   });
 
-  // TODO: SUPABASE INTEGRATION FUNCTIONS
-  // Fonction pour récupérer les données utilisateur
-  const fetchUserData = async () => {
+  // Fonction pour récupérer les données utilisateur et du cabinet
+  const fetchUserDataAndCabinet = async () => {
     try {
-      // const { data, error } = await supabase
-      //   .from('apporteur_profiles')
-      //   .select('*')
-      //   .eq('user_id', userId)
-      //   .single();
-      // 
-      // if (error) throw error;
-      // setUserData({
-      //   id: data.user_id,
-      //   firstName: data.prenom,
-      //   lastName: data.nom,
-      //   initials: `${data.prenom[0]}${data.nom[0]}`,
-      //   role: data.role || 'Apporteur',
-      //   companyName: data.company_name,
-      //   email: data.email,
-      //   phone: data.phone
-      // });
-    } catch (error) {
-      console.error('Erreur lors du chargement des données utilisateur:', error);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Récupérer le profil apporteur
+      const { data: profile } = await supabase
+        .from('apporteur_profiles')
+        .select('id, nom, prenom, email, telephone, statut')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profile) {
+        setUserData({
+          id: profile.id,
+          firstName: profile.prenom || '',
+          lastName: profile.nom || '',
+          initials: `${(profile.prenom || '')[0] || ''}${(profile.nom || '')[0] || ''}`.toUpperCase(),
+          role: 'Apporteur',
+          email: profile.email || '',
+          phone: profile.telephone || ''
+        });
+
+        // Récupérer le cabinet lié
+        const { data: brokerLink } = await supabase
+          .from('broker_apporteurs')
+          .select('broker_id, created_at')
+          .eq('apporteur_profile_id', profile.id)
+          .single();
+
+        if (brokerLink) {
+          // Récupérer les infos du broker via broker_apporteurs avec jointure
+          const { data: linkWithBroker } = await supabase
+            .from('broker_apporteurs')
+            .select(`
+              broker_id,
+              created_at,
+              brokers (
+                id,
+                name
+              )
+            `)
+            .eq('apporteur_profile_id', profile.id)
+            .single();
+
+          if (linkWithBroker?.brokers) {
+            const broker = linkWithBroker.brokers as any;
+            setCabinetInfo({
+              broker_id: broker.id,
+              broker_name: broker.name,
+              joined_at: linkWithBroker.created_at
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des données:', error);
+    } finally {
+      setCabinetLoading(false);
     }
   };
 
-  // Fonction pour récupérer les préférences de notification
-  const fetchNotificationPreferences = async () => {
+  // Fonction pour quitter le cabinet
+  const handleLeaveCabinet = async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      // const { data, error } = await supabase
-      //   .from('notification_preferences')
-      //   .select('*')
-      //   .eq('user_id', userId)
-      //   .single();
-      // 
-      // if (error) throw error;
-      // setNotificationPreferences(data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des préférences:', error);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Utilisateur non connecté' };
+      }
+
+      // Récupérer le profil apporteur
+      const { data: profile } = await supabase
+        .from('apporteur_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) {
+        return { success: false, error: 'Profil non trouvé' };
+      }
+
+      // Supprimer le lien avec le cabinet
+      const { error: deleteError } = await supabase
+        .from('broker_apporteurs')
+        .delete()
+        .eq('apporteur_profile_id', profile.id);
+
+      if (deleteError) {
+        return { success: false, error: deleteError.message };
+      }
+
+      // Désactiver le profil apporteur
+      const { error: updateError } = await supabase
+        .from('apporteur_profiles')
+        .update({ statut: 'inactif' })
+        .eq('id', profile.id);
+
+      if (updateError) {
+        return { success: false, error: updateError.message };
+      }
+
+      // Déconnexion
+      await supabase.auth.signOut();
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Erreur inconnue' };
     }
   };
+
+  // Charger les données au montage
+  useEffect(() => {
+    fetchUserDataAndCabinet();
+  }, []);
 
   // Fonction pour sauvegarder les données utilisateur
   const saveUserData = async (updatedData: Partial<UserData>) => {
     try {
-      // const { error } = await supabase
-      //   .from('apporteur_profiles')
-      //   .update({
-      //     company_name: updatedData.companyName,
-      //     email: updatedData.email,
-      //     phone: updatedData.phone,
-      //     updated_at: new Date().toISOString()
-      //   })
-      //   .eq('user_id', userData.id);
-      // 
-      // if (error) throw error;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { success: false, error: 'Non connecté' };
+
+      const { error } = await supabase
+        .from('apporteur_profiles')
+        .update({
+          email: updatedData.email,
+          telephone: updatedData.phone,
+        })
+        .eq('user_id', user.id);
       
-      // Mettre à jour l'état local
+      if (error) throw error;
+      
       setUserData(prev => ({ ...prev, ...updatedData }));
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la sauvegarde:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erreur inconnue' };
     }
   };
 
   // Fonction pour sauvegarder les préférences de notification
   const saveNotificationPreferences = async (preferences: NotificationPreferences) => {
     try {
-      // const { error } = await supabase
-      //   .from('notification_preferences')
-      //   .upsert({
-      //     user_id: userData.id,
-      //     devis_available_email: preferences.devisAvailable.email,
-      //     devis_available_app: preferences.devisAvailable.app,
-      //     dossier_finalized_email: preferences.dossierFinalized.email,
-      //     dossier_finalized_app: preferences.dossierFinalized.app,
-      //     ranking_changed_email: preferences.rankingChanged.email,
-      //     ranking_changed_app: preferences.rankingChanged.app,
-      //     news_updates_email: preferences.newsUpdates.email,
-      //     news_updates_app: preferences.newsUpdates.app,
-      //     updated_at: new Date().toISOString()
-      //   });
-      // 
-      // if (error) throw error;
-      
       setNotificationPreferences(preferences);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la sauvegarde des préférences:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erreur inconnue' };
     }
   };
 
   // Fonction pour changer le mot de passe
   const changePassword = async (currentPassword: string, newPassword: string) => {
     try {
-      // const { error } = await supabase.auth.updateUser({
-      //   password: newPassword
-      // });
-      // 
-      // if (error) throw error;
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors du changement de mot de passe:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erreur inconnue' };
     }
   };
 
@@ -214,6 +284,18 @@ export default function ProfilPage() {
       label: 'Informations du Profil',
       icon: 'ri-user-line',
       description: 'Gérez vos informations personnelles'
+    },
+    {
+      id: 'wallet' as const,
+      label: 'Mon Wallet',
+      icon: 'ri-wallet-3-line',
+      description: 'Vos commissions et paiements'
+    },
+    {
+      id: 'cabinet' as const,
+      label: 'Mon Cabinet',
+      icon: 'ri-building-2-line',
+      description: 'Votre cabinet de courtage'
     },
     {
       id: 'notifications' as const,
@@ -302,6 +384,18 @@ export default function ProfilPage() {
                 userData={userData}
                 onSave={saveUserData}
                 onChangePassword={changePassword}
+              />
+            )}
+
+            {activeSection === 'wallet' && userData.id && (
+              <WalletSection apporteurId={userData.id} />
+            )}
+
+            {activeSection === 'cabinet' && (
+              <CabinetSection
+                cabinetInfo={cabinetInfo}
+                loading={cabinetLoading}
+                onLeaveCabinet={handleLeaveCabinet}
               />
             )}
             

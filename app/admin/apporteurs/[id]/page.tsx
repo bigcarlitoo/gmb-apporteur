@@ -1,25 +1,32 @@
 import { Suspense } from 'react';
 import ApporteurDetailContent from './ApporteurDetailContent';
+import { supabase } from '@/lib/supabase';
 
 export async function generateStaticParams() {
-  return [
-    { id: '1' },
-    { id: '2' },
-    { id: '3' },
-    { id: '4' },
-    { id: '5' },
-    { id: '6' },
-    { id: '7' },
-    { id: '8' },
-    { id: '9' },
-    { id: '10' },
-    { id: 'ap1' },
-    { id: 'ap2' },
-    { id: 'ap3' },
-  ];
+  try {
+    // Récupérer tous les IDs d'apporteurs depuis la DB pour la génération statique
+    const { data: apporteurs, error } = await supabase
+      .from('apporteur_profiles')
+      .select('id');
+
+    if (error) {
+      console.error('Erreur lors de la récupération des apporteurs pour generateStaticParams:', error);
+      return [];
+    }
+
+    // Retourner les IDs pour la génération des pages statiques
+    return apporteurs?.map((apporteur) => ({
+      id: apporteur.id
+    })) || [];
+  } catch (error) {
+    console.error('Erreur dans generateStaticParams:', error);
+    return [];
+  }
 }
 
-export default function ApporteurDetailPage({ params }: { params: { id: string } }) {
+export default async function ApporteurDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
@@ -29,7 +36,7 @@ export default function ApporteurDetailPage({ params }: { params: { id: string }
         </div>
       </div>
     }>
-      <ApporteurDetailContent apporteurId={params.id} />
+      <ApporteurDetailContent apporteurId={id} />
     </Suspense>
   );
 }

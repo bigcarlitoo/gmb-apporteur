@@ -3,6 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ActivitiesService } from '@/lib/services/activities';
+import { ActivityReadStatusCache } from '@/lib/services/activity-read-status-cache';
+import ActivityCard from './ActivityCard';
+import { getActivityConfig } from '@/lib/utils/activity-config';
 
 interface ActivityItem {
   id: string;
@@ -185,62 +189,7 @@ export default function AdminActivity({ limit = 10 }: AdminActivityProps) {
     return filtered.slice(0, limit);
   }, [activities, filter, limit]);
 
-  // Configuration des types d'activité
-  // TODO: SUPABASE - Ces configurations correspondent aux types d'activités
-  // qui doivent être trackées dans la base de données
-  const getActivityConfig = (type: string) => {
-    switch (type) {
-      case 'nouveau_dossier':
-        return {
-          icon: 'ri-file-add-line',
-          color: 'text-[#335FAD] dark:text-[#335FAD]',
-          bgColor: 'bg-[#335FAD]/10 dark:bg-[#335FAD]/30',
-          label: 'Nouveau dossier'
-        };
-      case 'validation_devis':
-        return {
-          icon: 'ri-check-double-line',
-          color: 'text-green-600 dark:text-green-400',
-          bgColor: 'bg-green-100 dark:bg-green-900/30',
-          label: 'Devis validé'
-        };
-      case 'refus_devis':
-        return {
-          icon: 'ri-close-circle-line',
-          color: 'text-red-600 dark:text-red-400',
-          bgColor: 'bg-red-100 dark:bg-red-900/30',
-          label: 'Devis refusé'
-        };
-      case 'finalisation':
-        return {
-          icon: 'ri-award-line',
-          color: 'text-purple-600 dark:text-purple-400',
-          bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-          label: 'Dossier finalisé'
-        };
-      case 'nouveau_apporteur':
-        return {
-          icon: 'ri-user-add-line',
-          color: 'text-[#335FAD] dark:text-[#335FAD]',
-          bgColor: 'bg-[#335FAD]/10 dark:bg-[#335FAD]/30',
-          label: 'Nouvel apporteur'
-        };
-      case 'modification_dossier':
-        return {
-          icon: 'ri-edit-line',
-          color: 'text-orange-600 dark:text-orange-400',
-          bgColor: 'bg-orange-100 dark:bg-orange-900/30',
-          label: 'Dossier modifié'
-        };
-      default:
-        return {
-          icon: 'ri-information-line',
-          color: 'text-gray-600 dark:text-gray-400',
-          bgColor: 'bg-gray-100 dark:bg-gray-700',
-          label: 'Activité'
-        };
-    }
-  };
+  // ✅ Utilisation de la configuration centralisée depuis lib/utils/activity-config.ts
 
   // Générer le message d'activité
   const getActivityMessage = (activity: ActivityItem) => {

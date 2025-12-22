@@ -64,7 +64,7 @@ serve(async (req) => {
       await supabaseClient
         .from('dossiers')
         .update({ 
-          statut: 'valide',
+          statut_canon: 'devis_accepte',
           updated_at: new Date().toISOString()
         })
         .eq('id', actionData.dossierId)
@@ -117,7 +117,7 @@ serve(async (req) => {
       await supabaseClient
         .from('dossiers')
         .update({ 
-          statut: 'refuse',
+          statut_canon: 'refuse',
           commentaires: actionData.reason,
           updated_at: new Date().toISOString()
         })

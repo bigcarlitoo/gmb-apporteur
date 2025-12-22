@@ -4,6 +4,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminHeader from '../../../components/AdminHeader';
 import { DatePicker } from '@/components/ui/date-picker';
+import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils/formatters';
+import { useTheme } from '@/lib/hooks/useTheme';
+import { DossiersService } from '@/lib/services/dossiers';
+import { DevisService } from '@/lib/services/devis';
+import { useAuth } from '@/components/AuthProvider';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
 
 // ============================================================================
 // INTERFACES POUR L'INTÉGRATION SUPABASE
@@ -21,7 +27,7 @@ interface AdminData {
 // Interface pour les KPIs globaux
 interface GlobalKPIs {
   nb_dossiers_traites: number;
-  chiffre_affaires_total: number; // Somme des "Frais de Gestion Nets" - À intégrer plus tard
+  chiffre_affaires_total: number; // Somme des frais de courtage des dossiers finalisés
   economie_moyenne_generee: number;
   capital_total_assure: number;
 }
@@ -69,12 +75,13 @@ interface CustomDateRange {
 
 export default function AdminStatistiquesPage() {
   const router = useRouter();
-  const [darkMode, setDarkMode] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // États pour les filtres de période
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('mois');
+  // ✅ Utilisation du hook centralisé pour le dark mode
+  const { darkMode, isInitialized, toggleDarkMode } = useTheme();
+  
+  // États pour les filtres de période - Par défaut "annee" pour voir toutes les données existantes
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('annee');
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange>({
     debut: '',
     fin: ''
@@ -87,15 +94,22 @@ export default function AdminStatistiquesPage() {
   const [refusalReasons, setRefusalReasons] = useState<RefusalReason[]>([]);
   const [companyAnalysis, setCompanyAnalysis] = useState<CompanyAnalysis[]>([]);
   const [temporalEvolution, setTemporalEvolution] = useState<TemporalEvolution[]>([]);
+  
+  const { user } = useAuth();
+  const { currentBrokerId } = useBrokerContext();
 
-  // Données admin simulées
-  const adminData = useMemo<AdminData>(() => ({
-    id: 'admin1',
-    firstName: 'Alexandre',
-    lastName: 'Martin',
-    initials: 'AM',
-    role: 'Administrateur'
-  }), []);
+  // ✅ Données admin depuis l'utilisateur connecté
+  const adminData = useMemo<AdminData>(() => {
+    const firstName = user?.user_metadata?.prenom || 'Admin';
+    const lastName = user?.user_metadata?.nom || '';
+    return {
+      id: user?.id || '',
+      firstName,
+      lastName,
+      initials: `${firstName.charAt(0)}${lastName.charAt(0) || ''}`.toUpperCase(),
+      role: 'Administrateur'
+    };
+  }, [user]);
 
   // ============================================================================
   // SUPABASE INTEGRATION - RÉCUPÉRATION DES STATISTIQUES
@@ -106,7 +120,7 @@ export default function AdminStatistiquesPage() {
    * 
    * Cette fonction doit récupérer depuis Supabase :
    * 1. Nombre de dossiers traités (finalisés) sur la période
-   * 2. Chiffre d'affaires total (somme des frais de gestion nets) - À implémenter plus tard
+   * 2. Chiffre d'affaires total (somme des frais de courtage)
    * 3. Économie moyenne générée par dossier
    * 4. Capital total assuré
    * 
@@ -124,25 +138,9 @@ export default function AdminStatistiquesPage() {
    */
   const fetchGlobalKPIs = async (startDate: string, endDate: string) => {
     try {
-      // SUPABASE: Récupération des KPIs globaux
-      /*
-      const { data, error } = await supabase
-        .rpc('get_global_kpis', {
-          start_date: startDate,
-          end_date: endDate
-        });
-
-      if (error) throw error;
+      // ✅ SUPABASE CONNECTED - Récupération des KPIs globaux réels avec filtrage par broker
+      const data = await DossiersService.getStatistiquesPeriode(startDate, endDate, currentBrokerId || undefined);
       return data;
-      */
-
-      // Données mock pour la démonstration
-      return {
-        nb_dossiers_traites: 234,
-        chiffre_affaires_total: 0, // À implémenter plus tard
-        economie_moyenne_generee: 2850,
-        capital_total_assure: 45600000
-      };
     } catch (error) {
       console.error('Erreur lors de la récupération des KPIs globaux:', error);
       return null;
@@ -179,25 +177,9 @@ export default function AdminStatistiquesPage() {
    */
   const fetchActivityAnalysis = async (startDate: string, endDate: string) => {
     try {
-      // SUPABASE: Récupération de l'analyse d'activité
-      /*
-      const { data, error } = await supabase
-        .rpc('get_activity_analysis', {
-          start_date: startDate,
-          end_date: endDate
-        });
-
-      if (error) throw error;
+      // ✅ SUPABASE CONNECTED - Récupération de l'analyse d'activité réelle avec filtrage par broker
+      const data = await DossiersService.getAnalyseActivite(startDate, endDate, currentBrokerId || undefined);
       return data;
-      */
-
-      // Données mock pour la démonstration
-      return {
-        taux_conversion_global: 78.5,
-        delai_traitement_moyen: 12.3,
-        nb_dossiers_soumis: 298,
-        nb_dossiers_finalises: 234
-      };
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'analyse d\'activité:', error);
       return null;
@@ -226,26 +208,9 @@ export default function AdminStatistiquesPage() {
    */
   const fetchRefusalReasons = async (startDate: string, endDate: string) => {
     try {
-      // SUPABASE: Récupération des motifs de refus
-      /*
-      const { data, error } = await supabase
-        .rpc('get_refusal_reasons', {
-          start_date: startDate,
-          end_date: endDate
-        });
-
-      if (error) throw error;
+      // ✅ SUPABASE CONNECTED - Récupération des motifs de refus réels avec filtrage par broker
+      const data = await DossiersService.getMotifsRefus(startDate, endDate, currentBrokerId || undefined);
       return data;
-      */
-
-      // Données mock pour la démonstration
-      return [
-        { motif: 'Prix trop élevé', nombre: 28, pourcentage: 40.0 },
-        { motif: 'Client a gardé l\'assurance banque', nombre: 21, pourcentage: 30.0 },
-        { motif: 'Questionnaire médical trop contraignant', nombre: 11, pourcentage: 15.7 },
-        { motif: 'Délai de traitement trop long', nombre: 7, pourcentage: 10.0 },
-        { motif: 'Autres motifs', nombre: 3, pourcentage: 4.3 }
-      ];
     } catch (error) {
       console.error('Erreur lors de la récupération des motifs de refus:', error);
       return [];
@@ -284,45 +249,9 @@ export default function AdminStatistiquesPage() {
    */
   const fetchCompanyAnalysis = async (startDate: string, endDate: string) => {
     try {
-      // SUPABASE: Récupération de l'analyse par compagnie
-      /*
-      const { data, error } = await supabase
-        .rpc('get_company_analysis', {
-          start_date: startDate,
-          end_date: endDate
-        });
-
-      if (error) throw error;
+      // ✅ SUPABASE CONNECTED - Récupération de l'analyse par compagnie réelle avec filtrage par broker
+      const data = await DevisService.getAnalyseCompagnies(startDate, endDate, currentBrokerId || undefined);
       return data;
-      */
-
-      // Données mock pour la démonstration
-      return [
-        {
-          nom_compagnie: 'Generali',
-          ca_pourcentage: 45.2,
-          ca_montant: 125600,
-          nb_devis_envoyes: 156,
-          nb_devis_acceptes: 128,
-          taux_acceptation: 82.1
-        },
-        {
-          nom_compagnie: 'SwissLife',
-          ca_pourcentage: 32.8,
-          ca_montant: 91200,
-          nb_devis_envoyes: 134,
-          nb_devis_acceptes: 98,
-          taux_acceptation: 73.1
-        },
-        {
-          nom_compagnie: 'MNCAP',
-          ca_pourcentage: 22.0,
-          ca_montant: 61100,
-          nb_devis_envoyes: 89,
-          nb_devis_acceptes: 67,
-          taux_acceptation: 75.3
-        }
-      ];
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'analyse par compagnie:', error);
       return [];
@@ -350,26 +279,9 @@ export default function AdminStatistiquesPage() {
    */
   const fetchTemporalEvolution = async (startDate: string, endDate: string) => {
     try {
-      // SUPABASE: Récupération de l'évolution temporelle
-      /*
-      const { data, error } = await supabase
-        .rpc('get_temporal_evolution', {
-          start_date: startDate,
-          end_date: endDate
-        });
-
-      if (error) throw error;
+      // ✅ SUPABASE CONNECTED - Récupération de l'évolution temporelle réelle avec filtrage par broker
+      const data = await DossiersService.getEvolutionTemporelle(startDate, endDate, currentBrokerId || undefined);
       return data;
-      */
-
-      // Données mock pour la démonstration
-      return [
-        { periode: '2023-09', nb_dossiers: 18, ca_total: 45200, economies_generees: 52800 },
-        { periode: '2023-10', nb_dossiers: 22, ca_total: 56800, economies_generees: 64200 },
-        { periode: '2023-11', nb_dossiers: 28, ca_total: 68400, economies_generees: 78600 },
-        { periode: '2023-12', nb_dossiers: 31, ca_total: 74200, economies_generees: 89400 },
-        { periode: '2024-01', nb_dossiers: 24, ca_total: 61200, economies_generees: 71800 }
-      ];
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'évolution temporelle:', error);
       return [];
@@ -473,42 +385,14 @@ export default function AdminStatistiquesPage() {
     }
   };
 
-  // Initialisation du mode sombre
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialized) {
-      const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-      setDarkMode(savedDarkMode);
-      
-      if (savedDarkMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      setIsInitialized(true);
-    }
-  }, [isInitialized]);
+  // ✅ Le dark mode est géré par le hook useTheme
 
-  // Chargement initial et rechargement lors du changement de période
+  // Chargement initial et rechargement lors du changement de période ou de broker
   useEffect(() => {
-    if (isInitialized) {
+    if (isInitialized && currentBrokerId) {
       loadStatistics();
     }
-  }, [isInitialized, periodFilter, customDateRange]);
-
-  const handleDarkModeToggle = (newDarkMode: boolean) => {
-    setDarkMode(newDarkMode);
-    
-    if (typeof window !== 'undefined') {
-      if (newDarkMode) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('darkMode', 'true');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('darkMode', 'false');
-      }
-    }
-  };
+  }, [isInitialized, periodFilter, customDateRange, currentBrokerId]);
 
   // Fonction pour appliquer la plage de dates personnalisée
   const handleCustomDateApply = () => {
@@ -518,22 +402,7 @@ export default function AdminStatistiquesPage() {
     }
   };
 
-  // Fonctions utilitaires de formatage
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatNumber = (number: number) => {
-    return new Intl.NumberFormat('fr-FR').format(number);
-  };
-
-  const formatPercentage = (percentage: number) => {
-    return `${percentage.toFixed(1)}%`;
-  };
+  // ✅ Utilisation des formatters centralisés depuis lib/utils/formatters.ts
 
   // Configuration des couleurs pour les graphiques
   const chartColors = [
@@ -559,7 +428,7 @@ export default function AdminStatistiquesPage() {
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
       <AdminHeader 
         darkMode={darkMode} 
-        setDarkMode={handleDarkModeToggle}
+        setDarkMode={toggleDarkMode}
         adminData={adminData}
       />
       
@@ -710,13 +579,11 @@ export default function AdminStatistiquesPage() {
                       <div>
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Chiffre d'Affaires</p>
                         <p className="text-2xl font-light text-gray-900 dark:text-white">
-                          {globalKPIs.chiffre_affaires_total > 0 ? formatCurrency(globalKPIs.chiffre_affaires_total) : 'À venir'}
+                          {formatCurrency(globalKPIs.chiffre_affaires_total)}
                         </p>
-                        {globalKPIs.chiffre_affaires_total === 0 && (
-                          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                            Fonctionnalité en développement
-                          </p>
-                        )}
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Frais de courtage (dossiers finalisés)
+                        </p>
                       </div>
                       <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                         <i className="ri-money-euro-circle-line text-green-600 dark:text-green-400 text-xl"></i>
@@ -795,24 +662,42 @@ export default function AdminStatistiquesPage() {
                     </h3>
                     <div className="flex items-center space-x-4">
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-3xl font-light text-gray-900 dark:text-white">
-                            {activityAnalysis.delai_traitement_moyen.toFixed(1)} jours
-                          </span>
-                          <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            activityAnalysis.delai_traitement_moyen <= 10 
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                              : activityAnalysis.delai_traitement_moyen <= 15
-                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                          }`}>
-                            {activityAnalysis.delai_traitement_moyen <= 10 ? 'Rapide' :
-                             activityAnalysis.delai_traitement_moyen <= 15 ? 'Correct' : 'Lent'}
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          De la soumission à la finalisation
-                        </p>
+                        {activityAnalysis.delai_traitement_moyen > 0 ? (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-3xl font-light text-gray-900 dark:text-white">
+                                {activityAnalysis.delai_traitement_moyen.toFixed(1)} jours
+                              </span>
+                              <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                activityAnalysis.delai_traitement_moyen <= 10 
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                  : activityAnalysis.delai_traitement_moyen <= 15
+                                  ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                              }`}>
+                                {activityAnalysis.delai_traitement_moyen <= 10 ? 'Rapide' :
+                                 activityAnalysis.delai_traitement_moyen <= 15 ? 'Correct' : 'Lent'}
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              De la soumission à la finalisation
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-2xl font-light text-gray-400 dark:text-gray-500">
+                                N/A
+                              </span>
+                              <div className="flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                Données insuffisantes
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Applicable aux nouveaux dossiers finalisés
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -821,11 +706,11 @@ export default function AdminStatistiquesPage() {
             )}
 
             {/* Analyse des Motifs de Refus */}
-            {refusalReasons.length > 0 && (
-              <div>
-                <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">
-                  Analyse des Motifs de Refus
-                </h2>
+            <div>
+              <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">
+                Analyse des Motifs de Refus
+              </h2>
+              {refusalReasons.length > 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Graphique en barres */}
@@ -894,15 +779,27 @@ export default function AdminStatistiquesPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i className="ri-bar-chart-line text-gray-400 text-2xl"></i>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Aucun refus pour cette période
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Les motifs de refus apparaîtront ici lorsque des devis seront refusés
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Analyse des Produits (Compagnies d'Assurance) */}
-            {companyAnalysis.length > 0 && (
-              <div>
-                <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">
-                  Analyse des Produits (Compagnies d'Assurance)
-                </h2>
+            <div>
+              <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">
+                Analyse des Produits (Compagnies d'Assurance)
+              </h2>
+              {companyAnalysis.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Répartition du CA par Compagnie */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -990,15 +887,27 @@ export default function AdminStatistiquesPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i className="ri-shield-check-line text-gray-400 text-2xl"></i>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Aucune donnée disponible
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Les analyses par compagnie apparaîtront ici lorsque des devis seront générés
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Évolution Temporelle */}
-            {temporalEvolution.length > 0 && (
-              <div>
-                <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">
-                  Évolution Temporelle
-                </h2>
+            <div>
+              <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">
+                Évolution Temporelle
+              </h2>
+              {temporalEvolution.length > 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -1042,8 +951,20 @@ export default function AdminStatistiquesPage() {
                     </table>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i className="ri-line-chart-line text-gray-400 text-2xl"></i>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Aucune donnée temporelle disponible
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    L'évolution temporelle apparaîtra ici lorsque des dossiers seront finalisés
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>

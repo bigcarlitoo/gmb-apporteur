@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { Database } from '@/types/supabase'
 
 type DocumentRow = Database['public']['Tables']['documents']['Row']
 type DocumentInsert = Database['public']['Tables']['documents']['Insert']
@@ -30,7 +31,7 @@ export class DocumentsService {
       const timestamp = Date.now()
       const fileExtension = file.name.split('.').pop()
       const fileName = `${dossierId}/${documentType}_${timestamp}.${fileExtension}`
-      
+
       // Upload vers Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
@@ -44,12 +45,8 @@ export class DocumentsService {
         throw uploadError
       }
 
-      // Obtenir l'URL publique
-      const { data: urlData } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName)
-
-      return urlData.publicUrl
+      // Retourner le chemin de stockage (storage_path) au lieu de l'URL publique
+      return uploadData.path
     } catch (error) {
       console.error('[DocumentsService.uploadDocument] error', error)
       throw error
@@ -78,23 +75,23 @@ export class DocumentsService {
    * Upload et enregistre un document complet
    */
   static async uploadAndCreateDocument(
-    file: File, 
-    dossierId: string, 
+    file: File,
+    dossierId: string,
     documentType: string,
-    metadata?: Record<string, any>
+    _metadata?: Record<string, any> // Note: metadata not stored in documents table
   ): Promise<DocumentRow> {
     try {
       // Upload le fichier
       const fileUrl = await this.uploadDocument(file, dossierId, documentType)
-      
+
       // Enregistrer en base
       const documentData: DocumentInsert = {
         dossier_id: dossierId,
         document_type: documentType,
-        file_name: file.name,
+        document_name: file.name,
         file_size: file.size,
-        file_url: fileUrl,
-        metadata: metadata || {},
+        storage_path: fileUrl, // fileUrl est maintenant le chemin stocké
+        mime_type: file.type || null,
         uploaded_by: (await supabase.auth.getUser()).data.user?.id || null
       }
 
@@ -114,7 +111,7 @@ export class DocumentsService {
   ): Promise<DocumentRow[]> {
     const uploadPromises = Object.entries(documents)
       .filter(([_, file]) => file !== null)
-      .map(([documentType, file]) => 
+      .map(([documentType, file]) =>
         this.uploadAndCreateDocument(file, dossierId, documentType)
       )
 
@@ -135,7 +132,7 @@ export class DocumentsService {
     // Récupérer les infos du document
     const { data: document, error: fetchError } = await supabase
       .from('documents')
-      .select('file_url')
+      .select('storage_path')
       .eq('id', documentId)
       .single()
 
@@ -145,17 +142,14 @@ export class DocumentsService {
     }
 
     // Supprimer le fichier du storage
-    if (document.file_url) {
-      const fileName = document.file_url.split('/').pop()
-      if (fileName) {
-        const { error: storageError } = await supabase.storage
-          .from('documents')
-          .remove([fileName])
+    if (document.storage_path) {
+      const { error: storageError } = await supabase.storage
+        .from('documents')
+        .remove([document.storage_path])
 
-        if (storageError) {
-          console.error('[DocumentsService.deleteDocument] storage error', storageError)
-          // Continue même si le storage échoue
-        }
+      if (storageError) {
+        console.error('[DocumentsService.deleteDocument] storage error', storageError)
+        // Continue même si le storage échoue
       }
     }
 

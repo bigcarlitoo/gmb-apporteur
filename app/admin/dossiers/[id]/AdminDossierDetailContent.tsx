@@ -10,6 +10,29 @@ import { supabase } from '@/lib/supabase';
 import { ClientInfosService } from '@/lib/services/client-infos';
 import { PretDataService } from '@/lib/services/pret-data';
 import { DocumentsService } from '@/lib/services/documents';
+import { DocumentExtractionService } from '@/lib/services/document-extraction';
+import { ExtractionResult, ExtractedDataDisplay } from '@/components/ExtractionResult';
+import { DataComparisonService } from '@/lib/services/data-comparison';
+import DataComparisonModal from '@/components/DataComparisonModal';
+import type { DiffReport, ExtractedClientData } from '@/types/data-comparison';
+import { 
+  CATEGORY_OPTIONS, 
+  getCategoryLabel,
+  TYPE_PRET_OPTIONS,
+  getTypePretLabel,
+  OBJET_FINANCEMENT_OPTIONS,
+  getObjetFinancementLabel,
+  FRAC_ASSURANCE_OPTIONS
+} from '@/lib/constants/exade';
+import { getStatutBadgeConfig, mapStatutForDisplay } from '@/lib/utils/statut-mapping';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { DocumentViewerModal } from '@/components/features/document-viewer/DocumentViewerModal';
+import { DevisCommissionPanel } from '@/components/features/devis/DevisCommissionPanel';
+import { CommissionRecommendationCard } from '@/components/features/commission/CommissionRecommendationCard';
+import { DevisDetailModal } from '@/components/features/devis/DevisDetailModal';
+import { DevisListView } from '@/components/features/devis/DevisListView';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
+import { ExadePushService } from '@/lib/services/exade-push';
 
 // ============================================================================
 // INTERFACES POUR L'INTÉGRATION SUPABASE
@@ -30,21 +53,27 @@ interface DossierDetail {
   numero_dossier: string;
   type: 'seul' | 'couple';
   is_couple: boolean;
+  // Emprunteur principal
+  client_civilite?: string;
   client_nom: string;
   client_prenom: string;
+  client_nom_naissance?: string;
   client_email: string;
   client_telephone: string;
   client_date_naissance: string;
   client_adresse: string;
-  client_profession: string;
+  client_categorie_professionnelle?: number;  // Code Exade 1-11
+  client_fumeur: boolean;
   // Informations du conjoint (si dossier couple)
+  conjoint_civilite?: string;
   conjoint_nom?: string;
   conjoint_prenom?: string;
+  conjoint_nom_naissance?: string;
   conjoint_date_naissance?: string;
-  conjoint_profession?: string;
-  conjoint_revenus?: string;
+  conjoint_categorie_professionnelle?: number;  // Code Exade 1-11
   conjoint_fumeur?: boolean;
-  client_fumeur: boolean;
+  conjoint_email?: string;
+  conjoint_telephone?: string;
   apporteur_id: string;
   apporteur_nom: string;
   apporteur_prenom: string;
@@ -52,6 +81,10 @@ interface DossierDetail {
   date_soumission: string;
   // STATUT CRITIQUE - Synchronisé en temps réel avec la DB
   status: 'nouveau' | 'devis_envoye' | 'devis_disponible' | 'valide' | 'refuse' | 'finalise';
+  // Métadonnées d'extraction
+  extracted_client_data?: any;
+  comparison_modal_seen?: boolean;
+  last_extraction_at?: string;
   type_assurance: string;
   montant_capital: number;
   duree_pret: number;
@@ -91,7 +124,10 @@ interface Devis {
   id_tarif: string;
   cout_total_tarif: number;
   frais_adhesion: number;
+  frais_adhesion_apporteur?: number;
   frais_frac: number;
+  frais_courtier?: number;
+  commission_exade_code?: string;
   detail_pret: {
     capital: number;
     duree: number;
@@ -99,33 +135,49 @@ interface Devis {
   };
   formalites_detaillees: string[];
   erreurs: string[];
+  compatible_lemoine?: boolean;
+  type_tarif?: string;
+  taux_capital_assure?: number;
+  donnees_devis?: Record<string, unknown>;
+  // Champs pour le workflow push Exade
+  exade_simulation_id?: string | null;
+  exade_pushed_at?: string | null;
+  exade_locked?: boolean;
 }
 
 // Interfaces locales pour les états d'édition afin d'éviter les any implicites
 interface EditedClientData {
+  client_civilite?: string;
   client_nom: string;
   client_prenom: string;
+  client_nom_naissance?: string;
   client_email: string;
   client_telephone: string;
   client_date_naissance: string;
   client_adresse: string;
-  client_profession: string;
+  client_categorie_professionnelle?: number;  // Code Exade 1-11
+  client_fumeur: boolean;
   // Informations du conjoint (si dossier couple)
+  conjoint_civilite?: string;
   conjoint_nom?: string;
   conjoint_prenom?: string;
+  conjoint_nom_naissance?: string;
   conjoint_date_naissance?: string;
-  conjoint_profession?: string;
-  conjoint_revenus?: string;
+  conjoint_categorie_professionnelle?: number;  // Code Exade 1-11
   conjoint_fumeur?: boolean;
-  client_fumeur: boolean;
+  conjoint_email?: string;
+  conjoint_telephone?: string;
 }
 
 interface EditedPretData {
   banque_preteuse: string;
   montant_capital: number;
   duree_mois: number;
-  type_pret: string;
+  type_pret: string;           // Libellé textuel (legacy)
+  type_pret_code: number;      // Code Exade 1-10
+  objet_financement_code: number; // Code Exade 1-8
   cout_assurance_banque: number | null;
+  frac_assurance: number;      // 10 = Prime unique, 12 = Mensuel
 }
 
 interface AdminDossierDetailContentProps {
@@ -134,6 +186,7 @@ interface AdminDossierDetailContentProps {
 
 export default function AdminDossierDetailContent({ dossierId }: AdminDossierDetailContentProps) {
   const router = useRouter();
+  const { currentBrokerId } = useBrokerContext();
   const [darkMode, setDarkMode] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -143,37 +196,66 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showDevisModal, setShowDevisModal] = useState(false);
   const [selectedDevisDetail, setSelectedDevisDetail] = useState<Devis | null>(null);
-  
+
   // États pour l'édition
   const [isEditingClient, setIsEditingClient] = useState(false);
   const [isEditingPret, setIsEditingPret] = useState(false);
   const [editedClientData, setEditedClientData] = useState<EditedClientData>({
+    client_civilite: '',
     client_nom: '',
     client_prenom: '',
+    client_nom_naissance: '',
     client_email: '',
     client_telephone: '',
     client_date_naissance: '',
     client_adresse: '',
-    client_profession: '',
+    client_categorie_professionnelle: 0,
+    client_fumeur: false,
     // Informations du conjoint (si dossier couple)
+    conjoint_civilite: '',
     conjoint_nom: '',
     conjoint_prenom: '',
+    conjoint_nom_naissance: '',
     conjoint_date_naissance: '',
-    conjoint_profession: '',
-    conjoint_revenus: '',
+    conjoint_categorie_professionnelle: 0,
     conjoint_fumeur: false,
-    client_fumeur: false
+    conjoint_email: '',
+    conjoint_telephone: ''
   });
   const [editedPretData, setEditedPretData] = useState<EditedPretData>({
     banque_preteuse: '',
     montant_capital: 0,
     duree_mois: 0,
     type_pret: '',
-    cout_assurance_banque: null
+    type_pret_code: 1,           // Par défaut: Amortissable
+    objet_financement_code: 1,   // Par défaut: Résidence principale
+    cout_assurance_banque: null,
+    frac_assurance: 12           // Par défaut: Mensuel
   });
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
   const [showDeleteDocModal, setShowDeleteDocModal] = useState(false);
+
+  // États pour l'ajout de documents
+  const [newDocumentType, setNewDocumentType] = useState<string>('');
+  const [newDocumentFile, setNewDocumentFile] = useState<File | null>(null);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+
+  // États pour l'extraction de documents
+  const [extractionResult, setExtractionResult] = useState<any>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [isRefreshingDevis, setIsRefreshingDevis] = useState(false);
+
+  // États pour la comparaison de données
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [diffReport, setDiffReport] = useState<DiffReport | null>(null);
+  const [extractedClientData, setExtractedClientData] = useState<ExtractedClientData | null>(null);
+  const [autoCheckDone, setAutoCheckDone] = useState(false);
+
+  // État pour la modale de suppression
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState(''); // Pour ne vérifier qu'une fois au chargement
 
   // Données admin simulées
   const adminData = useMemo<AdminData>(() => ({
@@ -187,7 +269,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   // ============================================================================
   // SUPABASE INTEGRATION - RÉCUPÉRATION DU DOSSIER EN TEMPS RÉEL
   // ============================================================================
-  
+
   /**
    * ÉTAT PRINCIPAL DU DOSSIER
    * 
@@ -201,70 +283,11 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
    * - client_infos (données client)
    * - apporteur_profiles (infos apporteur)
    * - documents (fichiers joints)
+   * 
+   * NOTE: Plus de données mock - tout est chargé depuis la DB
    */
-  const [dossier, setDossier] = useState<DossierDetail>({
-    id: dossierId,
-    numero_dossier: `DSS-2024-00${dossierId}`,
-    type: 'seul',
-    is_couple: false,
-    client_nom: 'Martin',
-    client_prenom: 'Pierre',
-    client_email: 'pierre.martin@email.com',
-    client_telephone: '06 12 34 56 78',
-    client_date_naissance: '1985-03-15',
-    client_adresse: '15 rue de la République, 75001 Paris',
-    client_profession: 'Ingénieur informatique',
-    client_fumeur: false,
-    apporteur_id: 'ap1',
-    apporteur_nom: 'Dubois',
-    apporteur_prenom: 'Marie',
-    apporteur_email: 'marie.dubois@email.com',
-    date_soumission: '2024-01-15T10:30:00Z',
-    // STATUT EN TEMPS RÉEL - Reflète l'état exact de la DB
-    status: dossierId === '1' ? 'nouveau' : dossierId === '2' ? 'devis_envoye' : dossierId === '3' ? 'valide' : dossierId === '4' ? 'refuse' : 'finalise',
-    type_assurance: 'Prêt Immobilier',
-    montant_capital: 350000,
-    duree_pret: 20,
-    donnees_saisies: {
-      situation_familiale: 'Marié(e)',
-      nombre_enfants: 2,
-      profession: 'Ingénieur informatique',
-      revenus_mensuels: 4500,
-      charges_mensuelles: 1200,
-      fumeur: false,
-      pratique_sport_risque: false
-    },
-    donnees_ia: {
-      risque_medical: 'Faible',
-      score_assurabilite: 85,
-      recommandations: ['Contrat standard recommandé', 'Aucune surprime nécessaire'],
-      donnees_extraites: {
-        age: 39,
-        imc: 23.5,
-        antecedents_medicaux: 'Aucun',
-        profession_risque: 'Standard'
-      }
-    },
-    infos_pret: {
-      banque_preteuse: 'Crédit Agricole',
-      montant_capital: 350000,
-      duree_mois: 240,
-      type_pret: 'Amortissable à taux fixe',
-      cout_assurance_banque: 280
-    },
-    documents: {
-      offre_pret: null,
-      tableau_amortissement: null,
-      carte_identite: null,
-      carte_identite_conjoint: null
-    },
-    commentaire_apporteur: undefined,
-    cout_assurance_banque: dossierId === '1' ? undefined : 280,
-    commentaire_refus: dossierId === '4' ? 'Le client trouve les tarifs trop élevés par rapport à son assurance bancaire actuelle.' : undefined,
-    date_validation: dossierId === '3' ? '2024-01-17T11:30:00Z' : undefined,
-    date_refus: dossierId === '4' ? '2024-01-18T08:45:00Z' : undefined,
-    date_finalisation: dossierId === '5' ? '2024-01-19T14:20:00Z' : undefined
-  });
+  const [dossier, setDossier] = useState<DossierDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   /**
    * ÉTAT DES DEVIS - SYNCHRONISÉ AVEC L'API EXADE ET SUPABASE
@@ -280,186 +303,181 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
    * - Apporteur/client valide -> statut dossier = 'valide'
    * - Apporteur/client refuse -> statut dossier = 'refuse', devis.refused = true
    * - Admin peut sélectionner un autre devis après refus
+   * 
+   * NOTE: Plus de données mock - tout est chargé depuis la DB/API
    */
-  const [devis, setDevis] = useState<Devis[]>([
-    {
-      id: 'devis1',
-      compagnie: 'Generali',
-      produit: 'ASSUREA PRET 7301 CI',
-      cout_mensuel: 95.50,
-      cout_total: 22920,
-      economie_estimee: 44280,
-      formalites_medicales: ['Questionnaire de santé', 'Examen médical si > 300k€'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT'],
-      exclusions: ['Sports extrêmes', 'Guerre'],
-      avantages: ['Remboursement anticipé sans frais', 'Garantie chômage optionnelle'],
-      // STATUT SÉLECTIONNÉ - Reflète la sélection admin en temps réel
-      selected: dossierId === '2' || dossierId === '3' || dossierId === '4' || dossierId === '5',
-      refused: false,
-      id_simulation: 'SIM_2024_001',
-      id_tarif: '1',
-      cout_total_tarif: 22920,
-      frais_adhesion: 30,
-      frais_frac: 20,
-      detail_pret: {
-        capital: 350000,
-        duree: 240,
-        taux_assurance: 0.33
-      },
-      formalites_detaillees: [
-        'Questionnaire de santé simplifié',
-        'Examen médical obligatoire si capital > 300 000€',
-        'Analyse d\'urine et prise de sang si âge > 50 ans',
-        'Rapport du médecin traitant si antécédents déclarés'
-      ],
-      erreurs: []
-    },
-    {
-      id: 'devis2',
-      compagnie: 'Swisslife',
-      produit: 'EMPRUNTEUR SECURITE PLUS',
-      cout_mensuel: 102.30,
-      cout_total: 24552,
-      economie_estimee: 42648,
-      formalites_medicales: ['Questionnaire de santé détaillé'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT', 'IPP'],
-      exclusions: ['Maladies préexistantes', 'Sports à risque'],
-      avantages: ['Franchise ITT réduite', 'Prise en charge psychologique'],
-      selected: false,
-      refused: false,
-      id_simulation: 'SIM_2024_002',
-      id_tarif: '2',
-      cout_total_tarif: 24552,
-      frais_adhesion: 45,
-      frais_frac: 12,
-      detail_pret: {
-        capital: 350000,
-        duree: 240,
-        taux_assurance: 0.39
-      },
-      formalites_detaillees: [
-        'Questionnaire de santé détaillé obligatoire',
-        'Téléconsultation médicale systématique',
-        'Bilan cardiologique si âge > 45 ans',
-        'Examen spécialisé selon profession à risque'
-      ],
-      erreurs: []
-    },
-    {
-      id: 'devis3',
-      compagnie: 'Allianz',
-      produit: 'ALLIANZ EMPRUNTEUR OPTIMAL',
-      cout_mensuel: 89.75,
-      cout_total: 21540,
-      economie_estimee: 45660,
-      formalites_medicales: ['Questionnaire simplifié', 'Téléconsultation médicale'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT'],
-      exclusions: ['Suicide 1ère année', 'Alcoolisme'],
-      avantages: ['Souscription 100% digitale', 'Tarif préférentiel non-fumeur'],
-      selected: false,
-      refused: false,
-      id_simulation: 'SIM_2024_003',
-      id_tarif: '3',
-      cout_total_tarif: 21540,
-      frais_adhesion: 25,
-      frais_frac: 8,
-      detail_pret: {
-        capital: 350000,
-        duree: 240,
-        taux_assurance: 0.31
-      },
-      formalites_detaillees: [
-        'Questionnaire de santé simplifié en ligne',
-        'Téléconsultation médicale gratuite incluse',
-        'Pas d\'examen complémentaire jusqu\'à 500 000€',
-        'Validation automatique si profil standard'
-      ],
-      erreurs: []
-    }
-  ]);
+  const [devis, setDevis] = useState<Devis[]>([]);
 
   // Charger et appliquer les données DB (remplace les mocks)
+  /**
+   * Fonction pour charger/recharger les données du dossier
+   */
+  const loadDossierData = async () => {
+    try {
+      const data: any = await DossiersService.getDossierById(dossierId);
+      if (!data) return;
+      const ci = Array.isArray(data.client_infos) ? data.client_infos[0] : null;
+      const pret = Array.isArray(data.pret_data) ? data.pret_data[0] : null;
+      const docs = Array.isArray(data.documents) ? data.documents : [];
+      const canon = (data.statut as any) || 'en_attente';
+      // ✅ Utilisation de la source de vérité unique pour mapper statut canonique → statut affichage
+      const statusForDisplay = mapStatutForDisplay(canon);
+      setDossier(prev => ({
+        ...(prev as any),
+        id: data.id,
+        numero_dossier: data.numero_dossier,
+        type: (data.is_couple ? 'couple' : 'seul'),
+        is_couple: data.is_couple || false,
+        client_nom: ci?.client_nom || '',
+        client_prenom: ci?.client_prenom || '',
+        client_email: ci?.client_email || '',
+        client_telephone: ci?.client_telephone || '',
+        client_date_naissance: ci?.client_date_naissance || '',
+        client_adresse: ci?.client_adresse || '',
+        client_profession: ci?.client_profession || '',
+        client_fumeur: !!ci?.client_fumeur,
+        // Informations du conjoint (si dossier couple)
+        conjoint_nom: ci?.conjoint_nom || '',
+        conjoint_prenom: ci?.conjoint_prenom || '',
+        conjoint_date_naissance: ci?.conjoint_date_naissance || '',
+        conjoint_profession: ci?.conjoint_profession || '',
+        conjoint_revenus: ci?.conjoint_revenus || '',
+        conjoint_fumeur: !!ci?.conjoint_fumeur,
+        apporteur_id: data.apporteur_id || '',
+        apporteur_nom: data.apporteur_profiles?.nom || (prev as any)?.apporteur_nom || '',
+        apporteur_prenom: data.apporteur_profiles?.prenom || (prev as any)?.apporteur_prenom || '',
+        apporteur_email: data.apporteur_profiles?.email || (prev as any)?.apporteur_email || '',
+        date_soumission: data.created_at || (prev as any)?.date_soumission || '',
+        status: statusForDisplay,
+        type_assurance: pret?.type_pret || (prev as any)?.type_assurance || 'Prêt Immobilier',
+        montant_capital: Number(pret?.montant_capital || (prev as any)?.montant_capital || 0),
+        duree_pret: Number(pret?.duree_mois || ((prev as any)?.duree_pret || 0) * 12) / 12,
+        infos_pret: {
+          ...(prev as any)?.infos_pret,
+          banque_preteuse: pret?.banque_preteuse || (prev as any)?.infos_pret?.banque_preteuse || '',
+          montant_capital: Number(pret?.montant_capital || (prev as any)?.infos_pret?.montant_capital || 0),
+          duree_mois: Number(pret?.duree_mois || (prev as any)?.infos_pret?.duree_mois || 0),
+          type_pret: pret?.type_pret || (prev as any)?.infos_pret?.type_pret || '',
+          type_pret_code: pret?.type_pret_code || (prev as any)?.infos_pret?.type_pret_code || 1,
+          objet_financement_code: pret?.objet_financement_code || (prev as any)?.infos_pret?.objet_financement_code || 1,
+        },
+        documents: mapDocumentsFromRows(docs, (prev as any)?.documents),
+        commentaire_apporteur: data.commentaire || undefined
+      }) as any);
+
+      // Charger les données d'extraction après avoir chargé les données du dossier
+      await loadExtractionData();
+
+    } catch (e) {
+      console.error('[AdminDetail] fetch DB error', e);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const data: any = await DossiersService.getDossierById(dossierId);
-        if (!data) return;
-        const ci = Array.isArray(data.client_infos) ? data.client_infos[0] : null;
-        const pret = Array.isArray(data.pret_data) ? data.pret_data[0] : null;
-        const docs = Array.isArray(data.documents) ? data.documents : [];
-        const canon = (data.statut as any) || 'nouveau';
-        const mapCanonToAdmin = (s: string) => {
-          if (s === 'finalise') return 'finalise';
-          if (s === 'refuse') return 'refuse';
-          if (s === 'devis_accepte') return 'valide';
-          if (s === 'devis_disponible') return 'devis_envoye';
-          if (s === 'en_attente' || s === 'nouveau') return 'nouveau';
-          return 'nouveau';
-        };
-        setDossier(prev => ({
-          ...(prev as any),
-          id: data.id,
-          numero_dossier: data.numero_dossier,
-          type: (data.is_couple ? 'couple' : 'seul'),
-          is_couple: data.is_couple || false,
-          client_nom: ci?.client_nom || '',
-          client_prenom: ci?.client_prenom || '',
-          client_email: ci?.client_email || '',
-          client_telephone: ci?.client_telephone || '',
-          client_date_naissance: ci?.client_date_naissance || '',
-          client_adresse: ci?.client_adresse || '',
-          client_profession: ci?.client_profession || '',
-          client_fumeur: !!ci?.client_fumeur,
-          // Informations du conjoint (si dossier couple)
-          conjoint_nom: ci?.conjoint_nom || '',
-          conjoint_prenom: ci?.conjoint_prenom || '',
-          conjoint_date_naissance: ci?.conjoint_date_naissance || '',
-          conjoint_profession: ci?.conjoint_profession || '',
-          conjoint_revenus: ci?.conjoint_revenus || '',
-          conjoint_fumeur: !!ci?.conjoint_fumeur,
-          apporteur_id: data.apporteur_id || '',
-          apporteur_nom: data.apporteur_profiles?.nom || (prev as any)?.apporteur_nom || '',
-          apporteur_prenom: data.apporteur_profiles?.prenom || (prev as any)?.apporteur_prenom || '',
-          apporteur_email: data.apporteur_profiles?.email || (prev as any)?.apporteur_email || '',
-          date_soumission: data.created_at || (prev as any)?.date_soumission || '',
-          status: mapCanonToAdmin(canon),
-          type_assurance: pret?.type_pret || (prev as any)?.type_assurance || 'Prêt Immobilier',
-          montant_capital: Number(pret?.montant_capital || (prev as any)?.montant_capital || 0),
-          duree_pret: Number(pret?.duree_mois || ((prev as any)?.duree_pret || 0) * 12) / 12,
-          infos_pret: {
-            ...(prev as any)?.infos_pret,
-            banque_preteuse: pret?.banque_preteuse || (prev as any)?.infos_pret?.banque_preteuse || '',
-            montant_capital: Number(pret?.montant_capital || (prev as any)?.infos_pret?.montant_capital || 0),
-            duree_mois: Number(pret?.duree_mois || (prev as any)?.infos_pret?.duree_mois || 0),
-            type_pret: pret?.type_pret || (prev as any)?.infos_pret?.type_pret || '',
-          },
-          documents: mapDocumentsFromRows(docs, (prev as any)?.documents),
-          commentaire_apporteur: data.commentaire || undefined
-        }) as any);
-      } catch (e) {
-        console.error('[AdminDetail] fetch DB error', e);
-      }
-    })();
+    loadDossierData();
   }, [dossierId]);
+
+  // Vérifier automatiquement au chargement si une extraction récente a des différences
+  useEffect(() => {
+    const checkPendingExtraction = async () => {
+      // Ne vérifier qu'une seule fois et seulement si le dossier est chargé
+      if (autoCheckDone || !dossier?.id) return;
+
+      try {
+        // Récupérer les métadonnées d'extraction depuis la DB
+        const { data: dossierMeta, error } = await supabase
+          .from('dossiers')
+          .select('extracted_client_data, comparison_modal_seen, last_extraction_at')
+          .eq('id', dossierId)
+          .single();
+
+        if (error) {
+          console.error('[AdminDetail] Erreur récupération métadonnées extraction:', error);
+          return;
+        }
+
+        // Vérifier si on doit afficher la modale automatiquement
+        const shouldShowModal =
+          dossierMeta?.extracted_client_data &&
+          !dossierMeta?.comparison_modal_seen &&
+          dossierMeta?.last_extraction_at;
+
+        if (shouldShowModal) {
+          console.log('[AdminDetail] Extraction récente non vue détectée, vérification des différences...');
+
+          // Simuler les données extraites comme si elles venaient de l'API
+          const simulatedExtraction = {
+            emprunteurs: dossierMeta.extracted_client_data,
+            nombreAssures: dossierMeta.extracted_client_data.nombreAssures,
+            metadata: {
+              champsManquants: dossierMeta.extracted_client_data.champsManquants || []
+            }
+          };
+
+          // Lancer la comparaison
+          await checkDataDifferences(simulatedExtraction);
+        }
+
+        setAutoCheckDone(true);
+      } catch (error) {
+        console.error('[AdminDetail] Erreur vérification extraction automatique:', error);
+        setAutoCheckDone(true);
+      }
+    };
+
+    if (dossier?.id) {
+      checkPendingExtraction();
+    }
+  }, [dossier?.id, autoCheckDone]);
 
   function mapDocumentsFromRows(rows: any[], prevDocs?: any) {
     const findDocMulti = (types: string[]) => rows.find((r: any) => types.includes(r.document_type));
     const toObj = (row?: any) => row ? {
+      id: row.id, // Ajout de l'ID pour la suppression
       nom: row.document_name,
       url: row.storage_path,
-      taille: row.file_size ? `${(row.file_size / (1024*1024)).toFixed(1)} MB` : ''
+      taille: row.file_size ? `${(row.file_size / (1024 * 1024)).toFixed(1)} MB` : '',
+      type: row.document_type // Ajout du type pour l'affichage
     } : null;
+
+    // Types principaux
+    const principalTypes = ['offre_pret', 'offrePret', 'tableau_amortissement', 'tableauAmortissement',
+      'carte_identite', 'carteIdentite', 'carte_identite_conjoint', 'carteIdentiteConjoint'];
+
+    // Filtrer les autres documents (tous sauf les types principaux)
+    const autresDocuments = rows
+      .filter((r: any) => !principalTypes.includes(r.document_type))
+      .map((r: any) => toObj(r));
+
     return {
-      offre_pret: toObj(findDocMulti(['offre_pret','offrePret'])) || prevDocs?.offre_pret || null,
-      tableau_amortissement: toObj(findDocMulti(['tableau_amortissement','tableauAmortissement'])) || prevDocs?.tableau_amortissement || null,
-      carte_identite: toObj(findDocMulti(['carte_identite','carteIdentite'])) || prevDocs?.carte_identite || null,
-      carte_identite_conjoint: toObj(findDocMulti(['carte_identite_conjoint','carteIdentiteConjoint'])) || prevDocs?.carte_identite_conjoint || null,
+      offre_pret: toObj(findDocMulti(['offre_pret', 'offrePret'])) || prevDocs?.offre_pret || null,
+      tableau_amortissement: toObj(findDocMulti(['tableau_amortissement', 'tableauAmortissement'])) || prevDocs?.tableau_amortissement || null,
+      carte_identite: toObj(findDocMulti(['carte_identite', 'carteIdentite'])) || prevDocs?.carte_identite || null,
+      carte_identite_conjoint: toObj(findDocMulti(['carte_identite_conjoint', 'carteIdentiteConjoint'])) || prevDocs?.carte_identite_conjoint || null,
+      autres: autresDocuments.length > 0 ? autresDocuments : (prevDocs?.autres || []),
     };
   }
 
   const buildPublicUrl = (key: string) => {
     const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, '')
     return `${base}/storage/v1/object/public/documents/${key}`
+  }
+
+  /**
+   * Convertit les types de documents en labels lisibles
+   */
+  const getDocumentTypeLabel = (type: string): string => {
+    const labels: Record<string, string> = {
+      'offrePret': 'Offre de Prêt',
+      'tableauAmortissement': 'Tableau d\'Amortissement',
+      'carteIdentite': 'Carte d\'Identité',
+      'carteIdentiteConjoint': 'Carte d\'Identité (Conjoint)',
+      'bulletinDePaie': 'Bulletin de Paie',
+      'avisImposition': 'Avis d\'Imposition',
+      'contratTravail': 'Contrat de Travail',
+      'autre': 'Autre Document'
+    };
+    return labels[type] || type;
   }
 
   // Charger devis depuis DB; si vide, appeler EXADE puis semer en DB et recharger
@@ -507,12 +525,16 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           return;
         }
 
-        // 2) Aucun devis: tenter EXADE puis fallback mocks si erreur
+        // 2) Aucun devis: tenter EXADE
         try {
           const resp = await fetch('/api/exade/tarifs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clientInfo: (dossier as any), pretData: (dossier as any).infos_pret })
+            body: JSON.stringify({ 
+              broker_id: currentBrokerId,
+              clientInfo: (dossier as any), 
+              pretData: (dossier as any).infos_pret 
+            })
           });
           const payload = await resp.json();
           if (!resp.ok) throw new Error(payload?.error || 'Erreur EXADE');
@@ -530,27 +552,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
             await DevisService.createMultipleDevis(devisToInsert as any);
           }
         } catch (exErr) {
-          console.warn('[AdminDetail] EXADE indisponible', exErr);
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[AdminDetail] Fallback mocks activé en développement');
-            const mocks = Array.from({ length: 3 }).map((_, idx) => ({
-              dossier_id: dossier.id,
-              numero_devis: `MOCK-${Date.now()}-${idx + 1}`,
-              statut: 'en_attente',
-              donnees_devis: {
-                compagnie: idx === 0 ? 'Assureur A' : idx === 1 ? 'Assureur B' : 'Assureur C',
-                reference: `REF-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
-                mensualite: 40 + idx * 10,
-                primeTotale: (40 + idx * 10) * ((dossier as any)?.duree_pret ? (dossier as any).duree_pret * 12 : 240),
-                garanties: [{ libelle: 'DC' }, { libelle: 'PTIA' }]
-              },
-              date_generation: new Date().toISOString(),
-              date_expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-            }));
-            await DevisService.createMultipleDevis(mocks as any);
-          } else {
-            console.error('[AdminDetail] EXADE indisponible en production - pas de création de mocks');
-          }
+          console.error('[AdminDetail] Erreur lors de la génération des devis EXADE', exErr);
+          // Afficher un message d'erreur à l'utilisateur mais ne pas créer de données fictives
         }
 
         // 3) Relire depuis DB
@@ -700,13 +703,13 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
     if (typeof window !== 'undefined' && !isInitialized) {
       const savedDarkMode = localStorage.getItem('darkMode') === 'true';
       setDarkMode(savedDarkMode);
-      
+
       if (savedDarkMode) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
-      
+
       setIsInitialized(true);
     }
   }, [isInitialized]);
@@ -722,15 +725,14 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         client_telephone: dossier.client_telephone,
         client_date_naissance: dossier.client_date_naissance,
         client_adresse: dossier.client_adresse,
-        client_profession: dossier.client_profession,
+        client_categorie_professionnelle: dossier.client_categorie_professionnelle || 0,
+        client_fumeur: dossier.client_fumeur,
         // Informations du conjoint (si dossier couple)
         conjoint_nom: dossier.conjoint_nom || '',
         conjoint_prenom: dossier.conjoint_prenom || '',
         conjoint_date_naissance: dossier.conjoint_date_naissance || '',
-        conjoint_profession: dossier.conjoint_profession || '',
-        conjoint_revenus: dossier.conjoint_revenus || '',
-        conjoint_fumeur: dossier.conjoint_fumeur || false,
-        client_fumeur: dossier.client_fumeur
+        conjoint_categorie_professionnelle: dossier.conjoint_categorie_professionnelle || 0,
+        conjoint_fumeur: dossier.conjoint_fumeur || false
       });
 
       setEditedPretData({
@@ -738,6 +740,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         montant_capital: dossier.infos_pret.montant_capital,
         duree_mois: dossier.infos_pret.duree_mois,
         type_pret: dossier.infos_pret.type_pret,
+        type_pret_code: dossier.infos_pret.type_pret_code || 1,
+        objet_financement_code: dossier.infos_pret.objet_financement_code || 1,
         cout_assurance_banque: dossier.infos_pret.cout_assurance_banque
       });
       setDidInitForm(true);
@@ -750,30 +754,36 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   }, [dossier?.id]);
 
   const handleStartEditClient = () => {
+    if (!dossier) return;
     // Toujours pré-remplir depuis le dossier courant avant d'entrer en mode édition
     setEditedClientData({
+      client_civilite: dossier.client_civilite || '',
       client_nom: dossier.client_nom,
       client_prenom: dossier.client_prenom,
+      client_nom_naissance: dossier.client_nom_naissance || '',
       client_email: dossier.client_email,
       client_telephone: dossier.client_telephone,
       client_date_naissance: dossier.client_date_naissance,
       client_adresse: dossier.client_adresse,
-      client_profession: dossier.client_profession,
+      client_categorie_professionnelle: dossier.client_categorie_professionnelle || 0,
+      client_fumeur: dossier.client_fumeur,
       // Informations du conjoint (si dossier couple)
+      conjoint_civilite: dossier.conjoint_civilite || '',
       conjoint_nom: dossier.conjoint_nom || '',
       conjoint_prenom: dossier.conjoint_prenom || '',
+      conjoint_nom_naissance: dossier.conjoint_nom_naissance || '',
       conjoint_date_naissance: dossier.conjoint_date_naissance || '',
-      conjoint_profession: dossier.conjoint_profession || '',
-      conjoint_revenus: dossier.conjoint_revenus || '',
+      conjoint_categorie_professionnelle: dossier.conjoint_categorie_professionnelle || 0,
       conjoint_fumeur: dossier.conjoint_fumeur || false,
-      client_fumeur: dossier.client_fumeur
+      conjoint_email: dossier.conjoint_email || '',
+      conjoint_telephone: dossier.conjoint_telephone || ''
     });
     setIsEditingClient(true);
   };
 
   const handleDarkModeToggle = (newDarkMode: boolean) => {
     setDarkMode(newDarkMode);
-    
+
     if (typeof window !== 'undefined') {
       if (newDarkMode) {
         document.documentElement.classList.add('dark');
@@ -796,27 +806,33 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
    * Synchronise automatiquement avec l'interface apporteur
    */
   const handleSaveClientData = async () => {
+    if (!dossier) return;
     try {
       console.log('Sauvegarde des données client:', editedClientData);
-      
+
       // Validation basique + sauvegarde via service (update si existe, sinon insert)
       const payload: any = {
         dossier_id: dossier.id,
+        client_civilite: editedClientData.client_civilite || null,
         client_nom: editedClientData.client_nom,
         client_prenom: editedClientData.client_prenom,
+        client_nom_naissance: editedClientData.client_nom_naissance || null,
         client_email: editedClientData.client_email,
         client_telephone: editedClientData.client_telephone,
         client_date_naissance: editedClientData.client_date_naissance,
         client_adresse: editedClientData.client_adresse,
-        client_profession: editedClientData.client_profession,
+        categorie_professionnelle: editedClientData.client_categorie_professionnelle || null,
+        client_fumeur: editedClientData.client_fumeur,
         // Informations du conjoint (si dossier couple)
+        conjoint_civilite: editedClientData.conjoint_civilite || null,
         conjoint_nom: editedClientData.conjoint_nom || null,
         conjoint_prenom: editedClientData.conjoint_prenom || null,
+        conjoint_nom_naissance: editedClientData.conjoint_nom_naissance || null,
         conjoint_date_naissance: editedClientData.conjoint_date_naissance || null,
-        conjoint_profession: editedClientData.conjoint_profession || null,
-        conjoint_revenus: editedClientData.conjoint_revenus || null,
+        conjoint_categorie_professionnelle: editedClientData.conjoint_categorie_professionnelle || null,
         conjoint_fumeur: editedClientData.conjoint_fumeur || false,
-        client_fumeur: editedClientData.client_fumeur,
+        conjoint_email: editedClientData.conjoint_email || null,
+        conjoint_telephone: editedClientData.conjoint_telephone || null,
       };
       const validationErrors = ClientInfosService.validateClientData(payload);
       if (validationErrors.length > 0) {
@@ -824,27 +840,35 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         return;
       }
       const saved = await ClientInfosService.upsertClientInfo(payload);
-      
+
       // Mettre à jour l'état local (sera synchronisé par subscription)
-      setDossier(prev => ({
-        ...prev,
-        client_nom: saved?.client_nom ?? editedClientData.client_nom,
-        client_prenom: saved?.client_prenom ?? editedClientData.client_prenom,
-        client_email: saved?.client_email ?? editedClientData.client_email,
-        client_telephone: saved?.client_telephone ?? editedClientData.client_telephone,
-        client_date_naissance: saved?.client_date_naissance ?? editedClientData.client_date_naissance,
-        client_adresse: saved?.client_adresse ?? editedClientData.client_adresse,
-        client_profession: saved?.client_profession ?? editedClientData.client_profession,
-        // Informations du conjoint (si dossier couple)
-        conjoint_nom: saved?.conjoint_nom ?? editedClientData.conjoint_nom,
-        conjoint_prenom: saved?.conjoint_prenom ?? editedClientData.conjoint_prenom,
-        conjoint_date_naissance: saved?.conjoint_date_naissance ?? editedClientData.conjoint_date_naissance,
-        conjoint_profession: saved?.conjoint_profession ?? editedClientData.conjoint_profession,
-        conjoint_revenus: saved?.conjoint_revenus ?? editedClientData.conjoint_revenus,
-        conjoint_fumeur: saved?.conjoint_fumeur ?? editedClientData.conjoint_fumeur,
-        client_fumeur: saved?.client_fumeur ?? editedClientData.client_fumeur
-      }));
-      
+      setDossier(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          client_civilite: saved?.client_civilite ?? editedClientData.client_civilite,
+          client_nom: saved?.client_nom ?? editedClientData.client_nom,
+          client_prenom: saved?.client_prenom ?? editedClientData.client_prenom,
+          client_nom_naissance: saved?.client_nom_naissance ?? editedClientData.client_nom_naissance,
+          client_email: saved?.client_email ?? editedClientData.client_email,
+          client_telephone: saved?.client_telephone ?? editedClientData.client_telephone,
+          client_date_naissance: saved?.client_date_naissance ?? editedClientData.client_date_naissance,
+          client_adresse: saved?.client_adresse ?? editedClientData.client_adresse,
+          client_categorie_professionnelle: saved?.categorie_professionnelle ?? editedClientData.client_categorie_professionnelle,
+          client_fumeur: saved?.client_fumeur ?? editedClientData.client_fumeur,
+          // Informations du conjoint (si dossier couple)
+          conjoint_civilite: saved?.conjoint_civilite ?? editedClientData.conjoint_civilite,
+          conjoint_nom: saved?.conjoint_nom ?? editedClientData.conjoint_nom,
+          conjoint_prenom: saved?.conjoint_prenom ?? editedClientData.conjoint_prenom,
+          conjoint_nom_naissance: saved?.conjoint_nom_naissance ?? editedClientData.conjoint_nom_naissance,
+          conjoint_date_naissance: saved?.conjoint_date_naissance ?? editedClientData.conjoint_date_naissance,
+          conjoint_categorie_professionnelle: saved?.conjoint_categorie_professionnelle ?? editedClientData.conjoint_categorie_professionnelle,
+          conjoint_fumeur: saved?.conjoint_fumeur ?? editedClientData.conjoint_fumeur,
+          conjoint_email: saved?.conjoint_email ?? editedClientData.conjoint_email,
+          conjoint_telephone: saved?.conjoint_telephone ?? editedClientData.conjoint_telephone,
+        };
+      });
+
       // Pas de refetch immédiat pour éviter d'écraser l'état si la DB est ralentie
       setIsEditingClient(false);
     } catch (error: any) {
@@ -854,24 +878,69 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   };
 
   const handleCancelEditClient = () => {
+    if (!dossier) return;
     setIsEditingClient(false);
     // Réinitialiser les données éditées avec les données actuelles du dossier
     setEditedClientData({
+      client_civilite: dossier.client_civilite || '',
       client_nom: dossier.client_nom,
       client_prenom: dossier.client_prenom,
+      client_nom_naissance: dossier.client_nom_naissance || '',
       client_email: dossier.client_email,
       client_telephone: dossier.client_telephone,
       client_date_naissance: dossier.client_date_naissance,
       client_adresse: dossier.client_adresse,
-      client_profession: dossier.client_profession,
+      client_categorie_professionnelle: dossier.client_categorie_professionnelle || 0,
+      client_fumeur: dossier.client_fumeur,
+      conjoint_civilite: dossier.conjoint_civilite || '',
       conjoint_nom: dossier.conjoint_nom || '',
       conjoint_prenom: dossier.conjoint_prenom || '',
+      conjoint_nom_naissance: dossier.conjoint_nom_naissance || '',
       conjoint_date_naissance: dossier.conjoint_date_naissance || '',
-      conjoint_profession: dossier.conjoint_profession || '',
-      conjoint_revenus: dossier.conjoint_revenus || '',
+      conjoint_categorie_professionnelle: dossier.conjoint_categorie_professionnelle || 0,
       conjoint_fumeur: dossier.conjoint_fumeur || false,
-      client_fumeur: dossier.client_fumeur
+      conjoint_email: dossier.conjoint_email || '',
+      conjoint_telephone: dossier.conjoint_telephone || '',
     });
+  };
+
+  /**
+   * SUPPRESSION DU DOSSIER
+   * Ouvre la modale de confirmation de suppression
+   */
+  const handleDeleteDossier = () => {
+    setDeleteConfirmInput('');
+    setShowDeleteModal(true);
+  };
+
+  /**
+   * Confirme et exécute la suppression du dossier
+   */
+  const confirmDeleteDossier = async () => {
+    if (deleteConfirmInput !== 'SUPPRIMER') {
+      alert('Vous devez taper exactement "SUPPRIMER" pour confirmer.');
+      return;
+    }
+
+    try {
+      console.log(`[AdminDetail] Suppression du dossier ${dossierId}`);
+
+      // Suppression via le service (cascade delete géré par la DB)
+      await DossiersService.deleteDossier(dossierId);
+
+      console.log(`[AdminDetail] ✅ Dossier ${dossierId} supprimé avec succès`);
+
+      // Fermer la modale
+      setShowDeleteModal(false);
+
+      // Redirection vers la liste des dossiers
+      router.push('/admin/dossiers');
+
+    } catch (error: any) {
+      console.error('[AdminDetail] ❌ Erreur lors de la suppression du dossier:', error);
+      alert(`Erreur lors de la suppression du dossier : ${error?.message || 'Erreur inconnue'}`);
+      setShowDeleteModal(false);
+    }
   };
 
   /**
@@ -883,22 +952,30 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   const handleSavePretData = async () => {
     try {
       console.log('Sauvegarde des données prêt:', editedPretData);
-      
+
       // Persistance pret_data par dossier_id
       const saved = await PretDataService.upsertByDossierId(dossierId, editedPretData as any);
-      
+
       // Mettre à jour l'état local
-      setDossier(prev => ({
-        ...prev,
-        infos_pret: {
-          banque_preteuse: saved.banque_preteuse,
-          montant_capital: saved.montant_capital,
-          duree_mois: saved.duree_mois,
-          type_pret: saved.type_pret,
-          cout_assurance_banque: saved.cout_assurance_banque
-        } as any
-      }));
-      
+      const savedAny = saved as any
+      setDossier(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          infos_pret: {
+            ...prev.infos_pret,
+            banque_preteuse: savedAny.banque_preteuse,
+            montant_capital: savedAny.montant_capital,
+            duree_mois: savedAny.duree_mois,
+            type_pret: savedAny.type_pret,
+            type_pret_code: savedAny.type_pret_code || editedPretData.type_pret_code,
+            objet_financement_code: savedAny.objet_financement_code || editedPretData.objet_financement_code,
+            cout_assurance_banque: savedAny.cout_assurance_banque,
+            frac_assurance: savedAny.frac_assurance || editedPretData.frac_assurance
+          } as any
+        };
+      });
+
       setIsEditingPret(false);
     } catch (error) {
       console.error('Erreur sauvegarde données prêt:', error);
@@ -909,55 +986,6 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   // SUPABASE INTEGRATION - GESTION DES DOCUMENTS
   // ============================================================================
 
-  /**
-   * SUPPRESSION D'UN DOCUMENT
-   * 
-   * Supprime le fichier de Supabase Storage et l'entrée de la table 'documents'
-   */
-  const handleDeleteDocument = async (documentType: string) => {
-    try {
-      console.log('Suppression du document:', documentType);
-      
-      // SUPABASE: Suppression complète du document
-      /*
-      // 1. Récupérer le chemin du fichier
-      const { data: docData } = await supabase
-        .from('documents')
-        .select('file_path')
-        .eq('dossier_id', dossierId)
-        .eq('type', documentType)
-        .single();
-
-      if (docData?.file_path) {
-        // 2. Supprimer de Storage
-        await supabase.storage
-          .from('documents')
-          .remove([docData.file_path]);
-      }
-
-      // 3. Supprimer de la table
-      await supabase
-        .from('documents')
-        .delete()
-        .eq('dossier_id', dossierId)
-        .eq('type', documentType);
-      */
-      
-      // Mettre à jour l'état local
-      setDossier(prev => ({
-        ...prev,
-        documents: {
-          ...prev.documents,
-          [documentType]: null
-        }
-      }));
-      
-      setShowDeleteDocModal(false);
-      setDocumentToDelete(null);
-    } catch (error) {
-      console.error('Erreur suppression document:', error);
-    }
-  };
 
   /**
    * AJOUT D'UN DOCUMENT
@@ -967,7 +995,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   const handleAddDocument = async (documentType: string, file: File) => {
     try {
       console.log('Ajout du document:', documentType, file.name);
-      
+
       // SUPABASE: Upload et enregistrement
       /*
       const filePath = `${dossierId}/${documentType}/${file.name}`;
@@ -999,37 +1027,53 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         .from('documents')
         .getPublicUrl(filePath);
       */
-      
+
       const newDocument = {
         nom: file.name,
         url: `/documents/${file.name}`,
         taille: `${(file.size / 1024 / 1024).toFixed(1)} MB`
       };
-      
-      setDossier(prev => ({
-        ...prev,
-        documents: {
-          ...prev.documents,
-          [documentType]: newDocument
-        }
-      }));
-      
+
+      setDossier(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          documents: {
+            ...prev.documents,
+            [documentType]: newDocument
+          }
+        };
+      });
+
       setShowDocumentModal(false);
     } catch (error) {
       console.error('Erreur ajout document:', error);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      nouveau: { color: 'bg-[#335FAD]/10 text-[#335FAD] dark:bg-[#335FAD]/30 dark:text-[#335FAD]', text: 'Nouveau', icon: 'ri-file-add-line' },
-      devis_envoye: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400', text: 'Devis envoyé', icon: 'ri-send-plane-line' },
-      valide: { color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', text: 'Validé', icon: 'ri-check-line' },
-      refuse: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', text: 'Refusé', icon: 'ri-close-line' },
-      finalise: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400', text: 'Finalisé', icon: 'ri-checkbox-circle-line' }
+  // ✅ MIGRATION COMPLÈTE - Utilisation de la source de vérité unique
+  const getStatusBadge = (statusDisplay: string) => {
+    // Reverse mapping: statut affichage → statut canonique
+    const reversMap: Record<string, string> = {
+      'nouveau': 'en_attente',
+      'devis_envoye': 'devis_disponible',
+      'valide': 'devis_accepte',
+      'refuse': 'refuse',
+      'finalise': 'finalise'
     };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300', text: 'En cours', icon: 'ri-time-line' };
+
+    const statutCanonique = reversMap[statusDisplay] || statusDisplay;
+    const config = getStatutBadgeConfig(statutCanonique);
+
+    if (!config) {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300">
+          <i className="ri-time-line mr-2"></i>
+          En cours
+        </span>
+      );
+    }
+
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
         <i className={`${config.icon} mr-2`}></i>
@@ -1038,26 +1082,10 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
     );
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // ✅ Utilisation des formatters centralisés depuis lib/utils/formatters.ts
 
   const calculateEconomie = (coutDevis: number, coutBanque?: number) => {
-    if (!coutBanque) return null;
+    if (!coutBanque || !dossier?.infos_pret?.duree_mois) return null;
     const economie = (coutBanque * dossier.infos_pret.duree_mois) - coutDevis;
     const pourcentage = ((economie / (coutBanque * dossier.infos_pret.duree_mois)) * 100);
     return { economie, pourcentage };
@@ -1069,23 +1097,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   };
 
   const handleChoisirDevis = async (devisId: string) => {
-    // Si l'id n'est pas un UUID valide (ex: 'devis1'), on crée en DB un devis à partir du mock sélectionné
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(devisId)) {
-      const mock = devis.find(d => d.id === devisId);
-      if (mock) {
-        try {
-          const created = await DevisService.createDevisFromMock(mock, dossier.id);
-          // Remplace l'id local par l'uuid DB créé
-          setDevis(prev => prev.map(d => d.id === devisId ? { ...d, id: created.id, numero_devis: created.numero_devis } as any : d));
-          devisId = created.id;
-        } catch (e) {
-          console.error('[AdminDetail] création devis mock en DB échouée', e);
-          alert('Impossible de créer le devis en base pour l\'envoi');
-          return;
-        }
-      }
-    }
+    // Note: La création de devis mock n'est plus nécessaire avec le nouveau système
+    // Tous les devis sont désormais créés directement en base de données
     // Marquer visuellement le devis sélectionné immédiatement
     setDevis(prev => prev.map(d => ({ ...d, selected: d.id === devisId, refused: d.refused })) as any);
     setSelectedDevis(devisId);
@@ -1096,7 +1109,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   const handleRenvoyerDevis = async (devisId: string) => {
     try {
       console.log('Renvoi du devis:', devisId);
-      
+
       // Utiliser la fonction RPC atomique pour renvoyer le devis
       const { data: rpcResult, error: rpcError } = await supabase.rpc('envoyer_devis_selectionne', {
         p_devis_id: devisId,
@@ -1118,20 +1131,503 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         refused: false,
         statut: d.id === devisId ? 'envoye' : d.statut
       })));
-      
-      setDossier(prev => ({
-        ...prev,
-        status: 'devis_envoye'
-      }));
+
+      setDossier(prev => {
+        if (!prev) return prev;
+        return { ...prev, status: 'devis_envoye' };
+      });
 
       // Fermer la modale
       setShowDevisModal(false);
-      
+
       alert('Devis renvoyé avec succès ! L\'apporteur recevra une notification.');
 
     } catch (error) {
       console.error('[AdminDetail] Erreur lors du renvoi du devis:', error);
       alert('Erreur lors du renvoi du devis. Veuillez réessayer.');
+    }
+  };
+
+  // ============================================================================
+  // FONCTIONS D'AJOUT DE DOCUMENTS
+  // ============================================================================
+
+  /**
+   * Upload d'un nouveau document pour le dossier
+   */
+  const handleUploadDocument = async () => {
+    if (!dossier) return;
+    if (!newDocumentType || !newDocumentFile) {
+      alert('Veuillez sélectionner un type de document et un fichier');
+      return;
+    }
+
+    setIsUploadingDocument(true);
+
+    try {
+      console.log('[AdminDetail] Upload document:', {
+        dossierId: dossier.id,
+        type: newDocumentType,
+        fileName: newDocumentFile.name,
+        fileSize: newDocumentFile.size
+      });
+
+      // Créer un FormData pour l'upload
+      const formData = new FormData();
+      formData.append('dossierId', dossier.id);
+      formData.append('documentType', newDocumentType);
+      formData.append('file', newDocumentFile);
+
+      const response = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'upload');
+      }
+
+      const result = await response.json();
+      console.log('[AdminDetail] Document uploadé avec succès:', result);
+
+      // Recharger les documents du dossier
+      await loadDossierData();
+
+      // Fermer la modal et réinitialiser les états
+      setShowDocumentModal(false);
+      setNewDocumentType('');
+      setNewDocumentFile(null);
+
+      // Afficher un message de succès
+      alert('Document ajouté avec succès !');
+
+    } catch (error: any) {
+      console.error('[AdminDetail] Erreur upload document:', error);
+      alert(`Erreur lors de l'upload: ${error.message}`);
+    } finally {
+      setIsUploadingDocument(false);
+    }
+  };
+
+  /**
+   * Gestion du changement de fichier
+   */
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
+  };
+
+  /**
+   * Validation et définition du fichier
+   */
+  const validateAndSetFile = (file: File) => {
+    // Vérifier la taille du fichier (50MB max)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      alert('Le fichier est trop volumineux. Taille maximum: 50MB');
+      return;
+    }
+
+    setNewDocumentFile(file);
+  };
+
+  /**
+   * Gestion du glisser-déposer
+   */
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleDragEnter = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const files = event.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      validateAndSetFile(file);
+    }
+  };
+
+  // Fonction pour relancer l'extraction de documents
+  const handleRefreshExtraction = async () => {
+    setIsExtracting(true);
+    setExtractionError(null);
+
+    try {
+      console.log('[AdminDetail] Relance de l\'extraction pour le dossier:', dossierId);
+
+      // Appel à l'API route d'extraction
+      const response = await fetch('/api/extraction/extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dossierId }),
+      });
+
+      console.log('[AdminDetail] Réponse API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      const result = await response.json();
+      console.log('[AdminDetail] Résultat API:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || `Erreur API ${response.status}: ${response.statusText}`);
+      }
+
+      if (result.success && result.data && result.data.pret) {
+        // L'extraction est considérée comme réussie si on a au moins les données du prêt
+        // Les calculs peuvent être null si le tableau d'amortissement est manquant
+        const hasCalculs = result.data.calculs !== null;
+
+        setExtractionResult({
+          success: true,
+          message: hasCalculs
+            ? 'Données extraites automatiquement avec succès'
+            : 'Données extraites partiellement (tableau d\'amortissement non trouvé)',
+          confidence: result.data.metadata?.confidence || 0,
+          warnings: result.data.metadata?.warnings || [],
+          sourcesUtilisees: result.data.metadata?.sourcesUtilisees || []
+        });
+
+        // Recharger les données du dossier
+        await loadExtractionData();
+
+        console.log('[AdminDetail] Extraction réussie avec confidence:', result.data.metadata?.confidence);
+
+        // Vérifier les différences dans les données client et proposer la mise à jour
+        await checkDataDifferences(result.data);
+
+        // Si pas de calculs, afficher un avertissement
+        if (!hasCalculs) {
+          console.warn('[AdminDetail] Calculs métier non disponibles - tableau d\'amortissement non trouvé');
+        }
+      } else {
+        throw new Error('Données d\'extraction incomplètes - aucune information de prêt trouvée');
+      }
+
+    } catch (error: unknown) {
+      console.error('[AdminDetail] Erreur lors de l\'extraction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue lors de l\'extraction';
+      setExtractionError(errorMessage);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  // Fonction pour comparer les données extraites avec les données actuelles
+  const checkDataDifferences = async (extractedData: any) => {
+    if (!dossier) return;
+    try {
+      if (!extractedData || !extractedData.emprunteurs) {
+        console.log('[AdminDetail] Pas de données emprunteur à comparer');
+        return;
+      }
+
+      // Construire l'objet ExtractedClientData
+      const clientData: ExtractedClientData = {
+        principal: {
+          civilite: extractedData.emprunteurs.principal?.civilite || null,
+          nom: extractedData.emprunteurs.principal?.nom || null,
+          prenom: extractedData.emprunteurs.principal?.prenom || null,
+          nomNaissance: extractedData.emprunteurs.principal?.nomNaissance || null,
+          dateNaissance: extractedData.emprunteurs.principal?.dateNaissance || null,
+          fumeur: extractedData.emprunteurs.principal?.fumeur || null,
+          categorieProfessionnelle: extractedData.emprunteurs.principal?.categorieProfessionnelle || null,
+          profession: extractedData.emprunteurs.principal?.profession || null,
+          email: extractedData.emprunteurs.principal?.email || null,
+          telephone: extractedData.emprunteurs.principal?.telephone || null,
+        },
+        conjoint: extractedData.emprunteurs.conjoint ? {
+          civilite: extractedData.emprunteurs.conjoint.civilite || null,
+          nom: extractedData.emprunteurs.conjoint.nom || null,
+          prenom: extractedData.emprunteurs.conjoint.prenom || null,
+          nomNaissance: extractedData.emprunteurs.conjoint.nomNaissance || null,
+          dateNaissance: extractedData.emprunteurs.conjoint.dateNaissance || null,
+          fumeur: extractedData.emprunteurs.conjoint.fumeur || null,
+          categorieProfessionnelle: extractedData.emprunteurs.conjoint.categorieProfessionnelle || null,
+          profession: extractedData.emprunteurs.conjoint.profession || null,
+          email: extractedData.emprunteurs.conjoint.email || null,
+          telephone: extractedData.emprunteurs.conjoint.telephone || null,
+        } : null,
+        nombreAssures: extractedData.nombreAssures || (extractedData.emprunteurs.conjoint ? 2 : 1),
+        champsManquants: extractedData.metadata?.champsManquants || []
+      };
+
+      // Récupérer les données actuelles du dossier
+      const currentData = {
+        civilite: dossier.client_civilite,
+        client_nom: dossier.client_nom,
+        client_prenom: dossier.client_prenom,
+        nom_naissance: dossier.client_nom_naissance,
+        client_date_naissance: dossier.client_date_naissance,
+        client_fumeur: dossier.client_fumeur,
+        categorie_professionnelle: dossier.client_categorie_professionnelle,
+        client_email: dossier.client_email,
+        client_telephone: dossier.client_telephone,
+        conjoint_civilite: dossier.conjoint_civilite,
+        conjoint_nom: dossier.conjoint_nom,
+        conjoint_prenom: dossier.conjoint_prenom,
+        conjoint_nom_naissance: dossier.conjoint_nom_naissance,
+        conjoint_date_naissance: dossier.conjoint_date_naissance,
+        conjoint_fumeur: dossier.conjoint_fumeur,
+        conjoint_categorie_professionnelle: dossier.conjoint_categorie_professionnelle,
+        conjoint_email: dossier.conjoint_email,
+        conjoint_telephone: dossier.conjoint_telephone,
+      };
+
+      // Générer le rapport de différences
+      const report = DataComparisonService.generateDiffReport(
+        currentData,
+        clientData,
+        dossier.is_couple
+      );
+
+      console.log('[AdminDetail] Rapport de comparaison:', report);
+
+      // Si des différences sont détectées, afficher la modale
+      if (report.hasClientDifferences || report.hasTypeMismatch) {
+        setExtractedClientData(clientData);
+        setDiffReport(report);
+        setShowComparisonModal(true);
+      }
+
+    } catch (error) {
+      console.error('[AdminDetail] Erreur lors de la comparaison:', error);
+    }
+  };
+
+  // Fonction pour appliquer les changements sélectionnés
+  const handleApplyDataChanges = async (selectedFields: string[], updateType: boolean) => {
+    try {
+      if (!extractedClientData) {
+        console.error('[AdminDetail] Pas de données extraites disponibles');
+        return;
+      }
+
+      console.log('═══════════════════════════════════════════');
+      console.log('[AdminDetail] 🔄 DÉBUT APPLICATION CHANGEMENTS');
+      console.log('[AdminDetail] Champs sélectionnés:', selectedFields);
+      console.log('[AdminDetail] Mise à jour type dossier:', updateType);
+      console.log('[AdminDetail] Données extraites:', extractedClientData);
+      console.log('[AdminDetail] Dossier ID:', dossierId);
+
+      // Construire le payload de mise à jour
+      const payload = DataComparisonService.buildUpdatePayload(
+        selectedFields,
+        extractedClientData,
+        dossierId
+      );
+
+      console.log('[AdminDetail] 📦 Payload construit:', JSON.stringify(payload, null, 2));
+      console.log('[AdminDetail] Nombre de clés dans payload:', Object.keys(payload).length);
+
+      // Mettre à jour les données client
+      if (Object.keys(payload).length > 1) { // Plus que juste dossier_id
+        console.log('[AdminDetail] ✅ Mise à jour des données client...');
+        try {
+          const result = await ClientInfosService.upsertClientInfo(payload);
+          console.log('[AdminDetail] ✅ Données client mises à jour avec succès:', result);
+        } catch (clientError: any) {
+          console.error('[AdminDetail] ❌ ERREUR mise à jour client:', clientError);
+          console.error('[AdminDetail] Message erreur:', clientError?.message);
+          console.error('[AdminDetail] Détails erreur:', clientError);
+          throw new Error(`Erreur mise à jour client: ${clientError?.message || 'Inconnue'}`);
+        }
+      } else {
+        console.log('[AdminDetail] ⏭️ Pas de données client à mettre à jour');
+      }
+
+      // Changer le type de dossier si demandé
+      if (updateType && diffReport) {
+        console.log('[AdminDetail] 🔄 Changement type dossier vers:', diffReport.detectedType);
+        try {
+          await DossiersService.changeDossierType(dossierId, diffReport.detectedType);
+          console.log('[AdminDetail] ✅ Type de dossier changé avec succès');
+        } catch (typeError: any) {
+          console.error('[AdminDetail] ❌ ERREUR changement type:', typeError);
+          console.error('[AdminDetail] Message erreur:', typeError?.message);
+          console.error('[AdminDetail] Détails erreur:', typeError);
+          throw new Error(`Erreur changement type: ${typeError?.message || 'Inconnue'}`);
+        }
+      } else {
+        console.log('[AdminDetail] ⏭️ Pas de changement de type');
+      }
+
+      // Recharger les données
+      console.log('[AdminDetail] 🔄 Rechargement des données...');
+      await loadDossierData();
+      console.log('[AdminDetail] ✅ Données rechargées');
+
+      // Fermer la modale
+      setShowComparisonModal(false);
+      setDiffReport(null);
+      setExtractedClientData(null);
+
+      console.log('[AdminDetail] ✅ FIN APPLICATION CHANGEMENTS - SUCCÈS');
+      console.log('═══════════════════════════════════════════');
+
+      alert('Modifications appliquées avec succès !');
+
+    } catch (error: any) {
+      console.error('═══════════════════════════════════════════');
+      console.error('[AdminDetail] ❌ ERREUR LORS DE L\'APPLICATION DES CHANGEMENTS');
+      console.error('[AdminDetail] Type erreur:', typeof error);
+      console.error('[AdminDetail] Message:', error?.message);
+      console.error('[AdminDetail] Stack:', error?.stack);
+      console.error('[AdminDetail] Objet complet:', error);
+      console.error('═══════════════════════════════════════════');
+      throw error;
+    }
+  };
+
+  // Fonction pour actualiser les devis
+  const handleRefreshDevis = async () => {
+    if (!dossier) return;
+    setIsRefreshingDevis(true);
+
+    try {
+      console.log('[AdminDetail] Actualisation des devis pour le dossier:', dossierId);
+
+      // Appel à l'API Exade avec les données extraites
+      const response = await fetch('/api/exade/tarifs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker_id: currentBrokerId,
+          clientInfo: dossier,
+          pretData: dossier.infos_pret
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Erreur lors de la génération des devis');
+      }
+
+      const tarifs: any[] = payload?.tarifs || [];
+
+      if (tarifs.length > 0) {
+        // Supprimer les anciens devis
+        await supabase
+          .from('devis')
+          .delete()
+          .eq('dossier_id', dossierId);
+
+        // Créer les nouveaux devis
+        const devisToInsert = tarifs.map((t: any, index: number) => ({
+          dossier_id: dossierId,
+          numero_devis: `EX-${Date.now()}-${index + 1}`,
+          statut: 'en_attente',
+          donnees_devis: t,
+          date_generation: new Date().toISOString(),
+          date_expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        }));
+
+        await DevisService.createMultipleDevis(devisToInsert as any);
+
+        // Recharger les devis
+        await loadDossierData();
+
+        console.log('[AdminDetail] Devis actualisés avec succès');
+      } else {
+        console.warn('[AdminDetail] Aucun devis généré');
+      }
+
+    } catch (error) {
+      console.error('[AdminDetail] Erreur lors de l\'actualisation des devis:', error);
+      alert('Erreur lors de l\'actualisation des devis. Veuillez réessayer.');
+    } finally {
+      setIsRefreshingDevis(false);
+    }
+  };
+
+  // Fonction pour charger les données d'extraction
+  const loadExtractionData = async () => {
+    try {
+      // Charger les données de prêt depuis la base de données
+      const { data: pretData, error } = await supabase
+        .from('pret_data')
+        .select('*')
+        .eq('dossier_id', dossierId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('[AdminDetail] Erreur chargement pret_data:', error);
+        return;
+      }
+
+      if (pretData) {
+        // Mettre à jour les informations du prêt avec les données extraites
+        setDossier(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            infos_pret: {
+              ...prev.infos_pret,
+              banque_preteuse: pretData.banque_preteuse || prev.infos_pret?.banque_preteuse || '',
+              montant_capital: pretData.montant_capital || prev.infos_pret?.montant_capital || 0,
+              duree_mois: pretData.duree_mois || prev.infos_pret?.duree_mois || 0,
+              type_pret: pretData.type_pret || prev.infos_pret?.type_pret || '',
+              type_pret_code: pretData.type_pret_code || prev.infos_pret?.type_pret_code || 1,
+              objet_financement_code: pretData.objet_financement_code || prev.infos_pret?.objet_financement_code || 1,
+              cout_assurance_banque: pretData.cout_assurance_banque || prev.infos_pret?.cout_assurance_banque || null,
+              // Données supplémentaires extraites par l'IA
+              date_debut: pretData.date_debut,
+              date_fin: pretData.date_fin,
+              taux_nominal: pretData.taux_nominal,
+              date_debut_effective: pretData.date_debut_effective,
+              duree_restante_mois: pretData.duree_restante_mois,
+              capital_restant_du: pretData.capital_restant_du
+            }
+          };
+        });
+
+        // Charger les activités d'extraction pour afficher le statut
+        const { data: activities } = await supabase
+          .from('activities')
+          .select('*')
+          .eq('dossier_id', dossierId)
+          .in('activity_type', ['extraction_automatique', 'extraction_echouee'])
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (activities && activities.length > 0) {
+          const lastActivity = activities[0];
+          if (lastActivity.activity_type === 'extraction_automatique') {
+            setExtractionResult({
+              success: true,
+              message: lastActivity.activity_description,
+              confidence: lastActivity.activity_data?.confidence || 0.8,
+              warnings: lastActivity.activity_data?.warnings || [],
+              sourcesUtilisees: lastActivity.activity_data?.sources_utilisees || []
+            });
+          } else if (lastActivity.activity_type === 'extraction_echouee') {
+            setExtractionError(lastActivity.activity_data?.error || 'Extraction automatique échouée');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[AdminDetail] Erreur chargement données extraction:', error);
     }
   };
 
@@ -1160,7 +1656,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   const confirmEnvoiDevis = async () => {
     try {
       console.log('Envoi du devis sélectionné:', selectedDevis);
-      
+
       // Utiliser la fonction RPC atomique pour l'envoi de devis
       const { data: rpcResult, error: rpcError } = await supabase.rpc('envoyer_devis_selectionne', {
         p_devis_id: selectedDevis,
@@ -1182,12 +1678,12 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         refused: false,
         statut: d.id === selectedDevis ? 'envoye' : d.statut
       })));
-      
-      setDossier(prev => ({
-        ...prev,
-        status: 'devis_envoye'
-      }));
-      
+
+      setDossier(prev => {
+        if (!prev) return prev;
+        return { ...prev, status: 'devis_envoye' };
+      });
+
       // Refetch dossier + devis pour aligner l'état (selected via devis_selectionne_id)
       try {
         const refreshed = await DossiersService.getDossierById(dossierId);
@@ -1197,7 +1693,10 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           selected: selectedId ? d.id === selectedId : false,
           refused: d.statut === 'refuse',
         }));
-        setDossier(prev => ({ ...prev, status: 'devis_envoye' }));
+        setDossier(prev => {
+          if (!prev) return prev;
+          return { ...prev, status: 'devis_envoye' };
+        });
         setDevis(freshDevis);
       } catch (e) {
         console.warn('[AdminDetail] refetch après envoi devis échoué', e);
@@ -1205,7 +1704,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
 
       setShowConfirmModal(false);
       setSelectedDevis(null);
-      
+
       console.log('✅ Devis envoyé avec succès - L\'apporteur va recevoir une notification');
     } catch (error) {
       console.error('❌ Erreur lors de l\'envoi du devis:', error);
@@ -1230,12 +1729,13 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
    * Cette action n'est possible qu'après validation client/apporteur
    */
   const confirmFinalisation = async () => {
+    if (!dossier) return;
     try {
       console.log('Finalisation du dossier:', dossier.id);
-      
+
       // Persistance: statut finalisé côté DB
       await DossiersService.updateDossier(dossierId, { statut: 'finalise' as any });
-      
+
       // Créer une activité pour l'apporteur
       if (dossier.apporteur_id) {
         await supabase
@@ -1266,14 +1766,17 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
             data: { dossier_id: dossierId }
           });
       }
-      
+
       // Mise à jour locale
-      setDossier(prev => ({
-        ...prev,
-        status: 'finalise',
-        date_finalisation: new Date().toISOString()
-      }));
-      
+      setDossier(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: 'finalise',
+          date_finalisation: new Date().toISOString()
+        };
+      });
+
       setShowFinalizeModal(false);
       console.log('✅ Dossier finalisé avec succès');
     } catch (error) {
@@ -1287,15 +1790,91 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
     window.open(url, '_blank');
   };
 
-  const handleViewDocument = (url: string) => {
-    console.log('Visualisation du document:', url);
-    window.open(url, '_blank');
+  // State pour le visualiseur de documents
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [currentDocUrl, setCurrentDocUrl] = useState<string | null>(null);
+  const [currentDocTitle, setCurrentDocTitle] = useState('');
+  const [currentDocType, setCurrentDocType] = useState('');
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+
+  const handleViewDocument = (url: string, title: string = 'Document', type: string = '', id: string | null = null) => {
+    console.log('Visualisation du document:', { url, title, type, id });
+    setCurrentDocUrl(url);
+    setCurrentDocTitle(title);
+    setCurrentDocType(type);
+    setCurrentDocId(id);
+    setShowDocModal(true);
+  };
+
+  /**
+   * Suppression d'un document
+   */
+  const handleDeleteDocument = async (documentId: string, documentName: string) => {
+    try {
+      console.log('[AdminDetail] Suppression du document:', documentId);
+
+      const response = await fetch(`/api/documents/delete?documentId=${documentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la suppression');
+      }
+
+      const result = await response.json();
+      console.log('[AdminDetail] Document supprimé:', result);
+
+      // Fermer la modale
+      setShowDeleteDocModal(false);
+      setDocumentToDelete(null);
+
+      // Recharger les données du dossier
+      await loadDossierData();
+
+      // Afficher un message de succès
+      alert('Document supprimé avec succès');
+
+    } catch (error: unknown) {
+      console.error('[AdminDetail] Erreur suppression document:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+      alert(`Erreur lors de la suppression: ${errorMsg}`);
+    }
+  };
+
+  /**
+   * Ouvrir la modale de suppression
+   */
+  const openDeleteModal = (documentId: string, documentName: string) => {
+    setDocumentToDelete(documentId);
+    setShowDeleteDocModal(true);
   };
 
   if (!isInitialized) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#335FAD]"></div>
+      </div>
+    );
+  }
+
+  // Guard clause - TypeScript sait maintenant que dossier n'est pas null après ce point
+  if (!dossier) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <i className="ri-error-warning-line text-4xl text-red-500 mb-4"></i>
+          <p className="text-gray-600 dark:text-gray-400">Dossier non trouvé</p>
+          <button 
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-[#335FAD] text-white rounded-lg hover:bg-[#2a4d8a] transition-colors"
+          >
+            Retour
+          </button>
+        </div>
       </div>
     );
   }
@@ -1331,43 +1910,48 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
             <div className="flex space-x-8 overflow-x-auto scrollbar-hide pb-2">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${
-                  activeTab === 'overview'
-                    ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'overview'
+                  ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
               >
                 Vue d&apos;ensemble
               </button>
               <button
                 onClick={() => setActiveTab('client')}
-                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${
-                  activeTab === 'client'
-                    ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'client'
+                  ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
               >
                 Données client
               </button>
               <button
                 onClick={() => setActiveTab('pret')}
-                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${
-                  activeTab === 'pret'
-                    ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'pret'
+                  ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
               >
                 Infos du prêt
               </button>
               <button
                 onClick={() => setActiveTab('devis')}
-                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${
-                  activeTab === 'devis'
-                    ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'devis'
+                  ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
               >
                 Devis comparatif
+              </button>
+              <button
+                onClick={() => setActiveTab('reglages')}
+                className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'reglages'
+                  ? 'border-[#335FAD] text-[#335FAD] dark:text-[#335FAD]/80'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+              >
+                Réglages
               </button>
             </div>
           </div>
@@ -1423,10 +2007,19 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
               </div>
 
+              {/* Card de recommandation commission (mode compact) */}
+              {dossier.status === 'nouveau' || dossier.status === 'devis_disponible' ? (
+                <CommissionRecommendationCard
+                  dossierId={dossierId}
+                  coutAssuranceBanque={dossier.infos_pret?.cout_assurance_banque || dossier.cout_assurance_banque}
+                  compact={true}
+                />
+              ) : null}
+
               {/* ============================================================================ */}
               {/* SECTION CRITIQUE : DEVIS SÉLECTIONNÉ - TRAÇABILITÉ COMPLÈTE */}
               {/* ============================================================================ */}
-              
+
               {/* 
               FONCTIONNEMENT COMPLET DE CETTE SECTION :
               
@@ -1473,13 +2066,13 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                       Voir tous les devis
                     </button>
                   </div>
-                  
+
                   {(() => {
                     const selectedDevis = devis.find(d => d.selected);
                     if (!selectedDevis) return null;
-                    
+
                     const economieCalculee = calculateEconomie(selectedDevis.cout_total, dossier.infos_pret.cout_assurance_banque);
-                    
+
                     // THEMING DYNAMIQUE SELON LE STATUT - Reflète l'état du workflow
                     const getDevisTheme = () => {
                       if (dossier.status === 'refuse') {
@@ -1519,7 +2112,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     };
 
                     const theme = getDevisTheme();
-                    
+
                     return (
                       <div className={`${theme.bgClass} border rounded-lg p-4`}>
                         <div className="flex items-start justify-between mb-3">
@@ -1541,7 +2134,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                             Voir détails
                           </button>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div>
                             <label className={`block text-xs font-medium ${theme.labelClass} mb-1`}>
@@ -1563,11 +2156,10 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                             <label className={`block text-xs font-medium ${theme.labelClass} mb-1`}>
                               Économie Estimée
                             </label>
-                            <p className={`font-medium ${
-                              (economieCalculee?.economie || selectedDevis.economie_estimee || 0) > 0 
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
+                            <p className={`font-medium ${(economieCalculee?.economie || selectedDevis.economie_estimee || 0) > 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                              }`}>
                               {formatCurrency(economieCalculee?.economie || selectedDevis.economie_estimee || 0)}
                               {economieCalculee && (
                                 <span className="text-xs ml-1">
@@ -1577,7 +2169,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                             </p>
                           </div>
                         </div>
-                        
+
                         {/* Motif de refus quand refusé */}
                         {dossier.status === 'refuse' && (
                           <div className={`mt-3 pt-3 border-t ${theme.borderColor}`}>
@@ -1585,11 +2177,11 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                               Motif du refus
                             </label>
                             <p className={`text-sm ${theme.valueClass}`}>
-                              {selectedDevis.motif_refus 
-                                || (selectedDevis as any)?.commentaire_refus 
-                                || (selectedDevis as any)?.donnees_devis?.motif_refus 
-                                || (dossier as any)?.commentaire 
-                                || (dossier as any)?.commentaire_refus 
+                              {selectedDevis.motif_refus
+                                || (selectedDevis as any)?.commentaire_refus
+                                || (selectedDevis as any)?.donnees_devis?.motif_refus
+                                || (dossier as any)?.commentaire
+                                || (dossier as any)?.commentaire_refus
                                 || '—'}
                             </p>
                           </div>
@@ -1634,7 +2226,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
               {/* ============================================================================ */}
               {/* WORKFLOW COMPLET - ACTIONS SELON LE STATUT DU DOSSIER */}
               {/* ============================================================================ */}
-              
+
               {/* STATUT: NOUVEAU - Dossier vient d'arriver, admin doit sélectionner un devis */}
               {dossier.status === 'nouveau' && (
                 <div className="bg-[#335FAD]/5 dark:bg-[#335FAD]/20 rounded-xl border border-[#335FAD]/20 dark:border-[#335FAD]/80 p-6">
@@ -1719,13 +2311,13 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                           Validé le {dossier.date_validation && formatDate(dossier.date_validation)}
                         </p>
                         {Array.isArray(devis) && devis.some((d: any) => d.statut === 'accepte') && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700 mt-4">
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700 mt-4">
                             <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Devis validé :</p>
                             <ul className="text-sm text-gray-700 dark:text-gray-300 list-disc pl-5">
                               {devis.filter((d: any) => d.statut === 'accepte').map((d: any) => (
-                      <li key={d.id} className="cursor-pointer" onClick={() => handleDevisRowClick(d as any)}>
-                        {d.numero_devis || d.id}
-                      </li>
+                                <li key={d.id} className="cursor-pointer" onClick={() => handleDevisRowClick(d as any)}>
+                                  {d.numero_devis || d.id}
+                                </li>
                               ))}
                             </ul>
                           </div>
@@ -1771,11 +2363,11 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                                       {d.numero_devis || d.id}
                                     </p>
                                     <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                                      motif : {d.motif_refus 
-                                        || (d as any)?.donnees_devis?.motif_refus 
-                                        || (d as any)?.commentaire_refus 
-                                        || (dossier as any)?.commentaire 
-                                        || (dossier as any)?.commentaire_refus 
+                                      motif : {d.motif_refus
+                                        || (d as any)?.donnees_devis?.motif_refus
+                                        || (d as any)?.commentaire_refus
+                                        || (dossier as any)?.commentaire
+                                        || (dossier as any)?.commentaire_refus
                                         || '—'}
                                     </p>
                                   </div>
@@ -1830,7 +2422,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                       Nom complet
                     </label>
                     <p className="text-gray-900 dark:text-white">
-                      {dossier.client_prenom} {dossier.client_nom}
+                      {dossier.client_civilite || ''} {dossier.client_prenom} {dossier.client_nom}
                     </p>
                   </div>
                   <div>
@@ -1868,9 +2460,25 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                         Nom complet
                       </label>
                       <p className="text-gray-900 dark:text-white">
-                        {dossier.conjoint_prenom} {dossier.conjoint_nom}
+                        {dossier.conjoint_civilite || ''} {dossier.conjoint_prenom} {dossier.conjoint_nom}
                       </p>
                     </div>
+                    {dossier.conjoint_email && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          Email
+                        </label>
+                        <p className="text-gray-900 dark:text-white">{dossier.conjoint_email}</p>
+                      </div>
+                    )}
+                    {dossier.conjoint_telephone && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          Téléphone
+                        </label>
+                        <p className="text-gray-900 dark:text-white">{dossier.conjoint_telephone}</p>
+                      </div>
+                    )}
                     {dossier.conjoint_date_naissance && (
                       <div>
                         <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -1881,20 +2489,12 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                         </p>
                       </div>
                     )}
-                    {dossier.conjoint_profession && (
+                    {(dossier.conjoint_categorie_professionnelle !== null && dossier.conjoint_categorie_professionnelle !== undefined && dossier.conjoint_categorie_professionnelle > 0) && (
                       <div>
                         <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          Profession
+                          Catégorie professionnelle
                         </label>
-                        <p className="text-gray-900 dark:text-white">{dossier.conjoint_profession}</p>
-                      </div>
-                    )}
-                    {dossier.conjoint_revenus && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          Revenus
-                        </label>
-                        <p className="text-gray-900 dark:text-white">{dossier.conjoint_revenus}€/mois</p>
+                        <p className="text-gray-900 dark:text-white">{getCategoryLabel(dossier.conjoint_categorie_professionnelle)}</p>
                       </div>
                     )}
                     <div>
@@ -1944,88 +2544,86 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                   <i className="ri-history-line mr-2"></i>
                   Historique des devis
                 </h3>
-                
+
                 {devisHistory && devisHistory.length > 0 ? (
                   <div className="space-y-3">
                     {devisHistory.map((d, index) => (
-                        <div 
-                          key={`${d.devis_id}-${d.action_type}-${index}`}
-                          className={`p-4 rounded-lg border transition-colors cursor-pointer ${
-                            d.action_type === 'accepte'
-                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
-                              : d.action_type === 'renvoye'
-                              ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700'
-                              : d.action_type === 'refuse'
+                      <div
+                        key={`${d.devis_id}-${d.action_type}-${index}`}
+                        className={`p-4 rounded-lg border transition-colors cursor-pointer ${d.action_type === 'accepte'
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                          : d.action_type === 'renvoye'
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700'
+                            : d.action_type === 'refuse'
                               ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
                               : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                           }`}
-                          onClick={() => {
-                            // Trouver le devis correspondant dans la liste des devis pour la modale
-                            const devisForModal = devis.find(devisItem => devisItem.id === d.devis_id);
-                            if (devisForModal) {
-                              setSelectedDevisDetail(devisForModal);
-                              setShowDevisModal(true);
-                            }
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-3 h-3 rounded-full ${
-                                d.action_type === 'accepte'
-                                  ? 'bg-green-500'
-                                  : d.action_type === 'renvoye'
-                                  ? 'bg-orange-500'
-                                  : d.action_type === 'refuse'
+                        onClick={() => {
+                          // Trouver le devis correspondant dans la liste des devis pour la modale
+                          const devisForModal = devis.find(devisItem => devisItem.id === d.devis_id);
+                          if (devisForModal) {
+                            setSelectedDevisDetail(devisForModal);
+                            setShowDevisModal(true);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-3 h-3 rounded-full ${d.action_type === 'accepte'
+                              ? 'bg-green-500'
+                              : d.action_type === 'renvoye'
+                                ? 'bg-orange-500'
+                                : d.action_type === 'refuse'
                                   ? 'bg-red-500'
                                   : 'bg-gray-400'
                               }`}></div>
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                  {d.compagnie} - {d.numero_devis}
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {d.compagnie} - {d.numero_devis}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {formatCurrency(d.cout_mensuel)}/mois • {formatCurrency(d.cout_total)} total
+                              </p>
+                              {d.action_date && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                  {d.action_type === 'renvoye' ? 'Renvoyé le' :
+                                    d.action_type === 'refuse' ? 'Refusé le' :
+                                      d.action_type === 'accepte' ? 'Accepté le' : 'Le'} {formatDate(d.action_date)}
                                 </p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  {formatCurrency(d.cout_mensuel)}/mois • {formatCurrency(d.cout_total)} total
-                                </p>
-                                {d.action_date && (
-                                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                                    {d.action_type === 'renvoye' ? 'Renvoyé le' :
-                                     d.action_type === 'refuse' ? 'Refusé le' :
-                                     d.action_type === 'accepte' ? 'Accepté le' : 'Le'} {formatDate(d.action_date)}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2">
-                              {d.action_type === 'accepte' && (
-                                <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs font-medium">
-                                  Accepté
-                                </span>
                               )}
-                              {d.action_type === 'renvoye' && (
-                                <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-full text-xs font-medium">
-                                  Renvoyé
-                                </span>
-                              )}
-                              {d.action_type === 'refuse' && (
-                                <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium">
-                                  Refusé
-                                </span>
-                              )}
-                              <i className="ri-arrow-right-s-line text-gray-400"></i>
                             </div>
                           </div>
-                          
-                          {/* Affichage du motif de refus si le devis est refusé */}
-                          {d.action_type === 'refuse' && d.motif_refus && (
-                            <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
-                              <p className="text-sm text-red-700 dark:text-red-300">
-                                <span className="font-medium">motif :</span> {d.motif_refus}
-                              </p>
-                            </div>
-                          )}
+
+                          <div className="flex items-center space-x-2">
+                            {d.action_type === 'accepte' && (
+                              <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs font-medium">
+                                Accepté
+                              </span>
+                            )}
+                            {d.action_type === 'renvoye' && (
+                              <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-full text-xs font-medium">
+                                Renvoyé
+                              </span>
+                            )}
+                            {d.action_type === 'refuse' && (
+                              <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium">
+                                Refusé
+                              </span>
+                            )}
+                            <i className="ri-arrow-right-s-line text-gray-400"></i>
+                          </div>
                         </div>
-                      ))
+
+                        {/* Affichage du motif de refus si le devis est refusé */}
+                        {d.action_type === 'refuse' && d.motif_refus && (
+                          <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
+                            <p className="text-sm text-red-700 dark:text-red-300">
+                              <span className="font-medium">motif :</span> {d.motif_refus}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))
                     }
                   </div>
                 ) : (
@@ -2043,12 +2641,230 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                Données client - Issues du formulaire et de l'IA
-              </h3>
-              
-              {/* Desktop - bouton à côté du titre */}
-              <div className="hidden sm:flex">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Données client - Issues du formulaire et de l'IA
+                </h3>
+
+                {/* Desktop - bouton à côté du titre */}
+                <div className="hidden sm:flex">
+                  {!isEditingClient ? (
+                    <button
+                      onClick={handleStartEditClient}
+                      className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                    >
+                      <i className="ri-edit-line mr-2"></i>
+                      Modifier
+                    </button>
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleSaveClientData}
+                        className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                      >
+                        <i className="ri-save-line mr-2"></i>
+                        Sauvegarder
+                      </button>
+                      <button
+                        onClick={() => setIsEditingClient(false)}
+                        className="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Form fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Civilité
+                  </label>
+                  {isEditingClient ? (
+                    <Select
+                      value={editedClientData.client_civilite || ''}
+                      onValueChange={(v) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_civilite: v }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="M">M.</SelectItem>
+                        <SelectItem value="Mme">Mme</SelectItem>
+                        <SelectItem value="Mlle">Mlle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_civilite || '-'}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Prénom
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="text"
+                      value={editedClientData.client_prenom}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_prenom: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_prenom}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Nom
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="text"
+                      value={editedClientData.client_nom}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_nom: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_nom}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Date de naissance
+                  </label>
+                  {isEditingClient ? (
+                    <DatePicker
+                      value={editedClientData.client_date_naissance}
+                      onChange={(value) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_date_naissance: value }))}
+                      placeholder="Sélectionner une date de naissance"
+                      className="w-full"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {new Date(dossier.client_date_naissance).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Statut fumeur
+                  </label>
+                  {isEditingClient ? (
+                    <Select
+                      value={editedClientData.client_fumeur ? 'true' : 'false'}
+                      onValueChange={(v) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_fumeur: v === 'true' }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="false">Non-fumeur</SelectItem>
+                        <SelectItem value="true">Fumeur</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_fumeur ? 'Fumeur' : 'Non-fumeur'}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Catégorie professionnelle
+                  </label>
+                  {isEditingClient ? (
+                    <Select
+                      value={String(editedClientData.client_categorie_professionnelle || 0)}
+                      onValueChange={(v) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_categorie_professionnelle: parseInt(v) }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionnez" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {getCategoryLabel(dossier.client_categorie_professionnelle)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Adresse
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="text"
+                      value={editedClientData.client_adresse}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_adresse: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_adresse}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Email
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="email"
+                      value={editedClientData.client_email}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_email: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_email}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Téléphone
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="tel"
+                      value={editedClientData.client_telephone}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_telephone: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_telephone}
+                    </p>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Mobile - bouton en bas à droite */}
+              <div className="sm:hidden mt-6 flex justify-end">
                 {!isEditingClient ? (
                   <button
                     onClick={handleStartEditClient}
@@ -2076,190 +2892,6 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 )}
               </div>
             </div>
-            
-            {/* Form fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Prénom
-                </label>
-                {isEditingClient ? (
-                  <input
-                    type="text"
-                    value={editedClientData.client_prenom}
-                    onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_prenom: e.target.value }))}
-                    className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_prenom}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Nom
-                </label>
-                {isEditingClient ? (
-                  <input
-                    type="text"
-                    value={editedClientData.client_nom}
-                    onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_nom: e.target.value }))}
-                    className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_nom}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Date de naissance
-                </label>
-                {isEditingClient ? (
-                  <DatePicker
-                    value={editedClientData.client_date_naissance}
-                    onChange={(value) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_date_naissance: value }))}
-                    placeholder="Sélectionner une date de naissance"
-                    className="w-full"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {new Date(dossier.client_date_naissance).toLocaleDateString('fr-FR')}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Statut fumeur
-                </label>
-                {isEditingClient ? (
-                  <Select
-                    value={editedClientData.client_fumeur ? 'true' : 'false'}
-                    onValueChange={(v) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_fumeur: v === 'true' }))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="false">Non-fumeur</SelectItem>
-                      <SelectItem value="true">Fumeur</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_fumeur ? 'Fumeur' : 'Non-fumeur'}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Profession
-                </label>
-                {isEditingClient ? (
-                  <input
-                    type="text"
-                    value={editedClientData.client_profession}
-                    onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_profession: e.target.value }))}
-                    className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_profession}
-                  </p>
-                )}
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Adresse
-                </label>
-                {isEditingClient ? (
-                  <input
-                    type="text"
-                    value={editedClientData.client_adresse}
-                    onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_adresse: e.target.value }))}
-                    className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_adresse}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Email
-                </label>
-                {isEditingClient ? (
-                  <input
-                    type="email"
-                    value={editedClientData.client_email}
-                    onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_email: e.target.value }))}
-                    className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_email}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Téléphone
-                </label>
-                {isEditingClient ? (
-                  <input
-                    type="tel"
-                    value={editedClientData.client_telephone}
-                    onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_telephone: e.target.value }))}
-                    className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    {dossier.client_telephone}
-                  </p>
-                )}
-              </div>
-
-            </div>
-
-            {/* Mobile - bouton en bas à droite */}
-            <div className="sm:hidden mt-6 flex justify-end">
-              {!isEditingClient ? (
-                <button
-                  onClick={handleStartEditClient}
-                  className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                >
-                  <i className="ri-edit-line mr-2"></i>
-                  Modifier
-                </button>
-              ) : (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={handleSaveClientData}
-                    className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                  >
-                    <i className="ri-save-line mr-2"></i>
-                    Sauvegarder
-                  </button>
-                  <button
-                    onClick={() => setIsEditingClient(false)}
-                    className="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              )}
-            </div>
-            </div>
 
             {/* Card Informations du conjoint (si dossier couple) */}
             {dossier.type === 'couple' && (dossier.conjoint_nom || dossier.conjoint_prenom) && (
@@ -2268,7 +2900,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                     Informations du conjoint
                   </h3>
-                  
+
                   {/* Desktop - bouton à côté du titre */}
                   <div className="hidden sm:flex">
                     {!isEditingClient ? (
@@ -2299,7 +2931,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     )}
                   </div>
                 </div>
-                
+
                 {/* Mobile - bouton sous le titre */}
                 <div className="sm:hidden mb-6">
                   {!isEditingClient ? (
@@ -2331,6 +2963,32 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Civilité du conjoint */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      Civilité du conjoint
+                    </label>
+                    {isEditingClient ? (
+                      <Select
+                        value={editedClientData.conjoint_civilite || ''}
+                        onValueChange={(v) => setEditedClientData((prev: EditedClientData) => ({ ...prev, conjoint_civilite: v }))}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Sélectionner" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="M">M.</SelectItem>
+                          <SelectItem value="Mme">Mme</SelectItem>
+                          <SelectItem value="Mlle">Mlle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        {dossier.conjoint_civilite || '-'}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Nom du conjoint */}
                   <div>
                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
@@ -2387,17 +3045,28 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                   {/* Profession du conjoint */}
                   <div>
                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                      Profession du conjoint
+                      Catégorie professionnelle du conjoint
                     </label>
                     {isEditingClient ? (
-                      <input
-                        type="text"
-                        value={editedClientData.conjoint_profession}
-                        onChange={(e) => setEditedClientData(prev => ({ ...prev, conjoint_profession: e.target.value }))}
-                        className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                      />
+                      <Select
+                        value={String(editedClientData.conjoint_categorie_professionnelle || 0)}
+                        onValueChange={(v) => setEditedClientData(prev => ({ ...prev, conjoint_categorie_professionnelle: parseInt(v) }))}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Sélectionnez" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORY_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : (
-                      <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">{dossier.conjoint_profession || 'Non renseignée'}</p>
+                      <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        {getCategoryLabel(dossier.conjoint_categorie_professionnelle)}
+                      </p>
                     )}
                   </div>
 
@@ -2423,6 +3092,42 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                       <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">{dossier.conjoint_fumeur ? 'Fumeur' : 'Non fumeur'}</p>
                     )}
                   </div>
+
+                  {/* Email du conjoint */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      Email du conjoint
+                    </label>
+                    {isEditingClient ? (
+                      <input
+                        type="email"
+                        value={editedClientData.conjoint_email}
+                        onChange={(e) => setEditedClientData(prev => ({ ...prev, conjoint_email: e.target.value }))}
+                        className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                        placeholder="email@exemple.fr"
+                      />
+                    ) : (
+                      <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">{dossier.conjoint_email || 'Non renseigné'}</p>
+                    )}
+                  </div>
+
+                  {/* Téléphone du conjoint */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      Téléphone du conjoint
+                    </label>
+                    {isEditingClient ? (
+                      <input
+                        type="tel"
+                        value={editedClientData.conjoint_telephone}
+                        onChange={(e) => setEditedClientData(prev => ({ ...prev, conjoint_telephone: e.target.value }))}
+                        className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                        placeholder="06 12 34 56 78"
+                      />
+                    ) : (
+                      <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">{dossier.conjoint_telephone || 'Non renseigné'}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -2439,9 +3144,18 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Informations du prêt - Extraites par l'IA
                 </h3>
-                
-                {/* Desktop - bouton à côté du titre */}
-                <div className="hidden sm:flex">
+
+                {/* Desktop - boutons à côté du titre */}
+                <div className="hidden sm:flex space-x-2">
+                  <button
+                    onClick={handleRefreshExtraction}
+                    disabled={isExtracting}
+                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    <i className={`ri-refresh-line ${isExtracting ? 'animate-spin' : ''}`}></i>
+                    <span>{isExtracting ? 'Extraction...' : 'Actualiser'}</span>
+                  </button>
+
                   {!isEditingPret ? (
                     <button
                       onClick={() => setIsEditingPret(true)}
@@ -2469,7 +3183,27 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                   )}
                 </div>
               </div>
-              
+
+              {/* Affichage du résultat d'extraction */}
+              {extractionResult && (
+                <div className="mb-6">
+                  <ExtractionResult extractionData={extractionResult} />
+                </div>
+              )}
+
+              {/* Affichage des erreurs d'extraction */}
+              {extractionError && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center">
+                    <i className="ri-error-warning-line text-red-500 mr-2"></i>
+                    <div>
+                      <h4 className="text-sm font-medium text-red-800">Erreur d'extraction</h4>
+                      <p className="text-sm text-red-700 mt-1">{extractionError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Form fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -2489,7 +3223,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                     Montant du capital emprunté
@@ -2507,7 +3241,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                     Durée du prêt (mois)
@@ -2525,26 +3259,62 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                     Type de prêt
                   </label>
                   {isEditingPret ? (
-                    <input
-                      type="text"
-                      value={editedPretData.type_pret}
-                      onChange={(e) => setEditedPretData((prev: EditedPretData) => ({ ...prev, type_pret: e.target.value }))}
-                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
-                    />
+                    <Select
+                      value={String(editedPretData.type_pret_code || 1)}
+                      onValueChange={(v) => setEditedPretData((prev: EditedPretData) => ({ ...prev, type_pret_code: parseInt(v) }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionnez un type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TYPE_PRET_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <p className="text-gray-900 dark:text-white p-3 bg-[#335FAD]/5 dark:bg-[#335FAD]/20 rounded-lg border border-[#335FAD]/20 dark:border-[#335FAD]/80">
-                      {dossier.infos_pret.type_pret}
+                      {getTypePretLabel(dossier.infos_pret.type_pret_code)}
                     </p>
                   )}
                 </div>
-                
-                <div className="md:col-span-2">
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Objet du financement
+                  </label>
+                  {isEditingPret ? (
+                    <Select
+                      value={String(editedPretData.objet_financement_code || 1)}
+                      onValueChange={(v) => setEditedPretData((prev: EditedPretData) => ({ ...prev, objet_financement_code: parseInt(v) }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionnez un objet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OBJET_FINANCEMENT_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-[#335FAD]/5 dark:bg-[#335FAD]/20 rounded-lg border border-[#335FAD]/20 dark:border-[#335FAD]/80">
+                      {getObjetFinancementLabel(dossier.infos_pret.objet_financement_code)}
+                    </p>
+                  )}
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                     Coût de l'assurance banque (mensuel)
                   </label>
@@ -2562,10 +3332,129 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     </p>
                   )}
                 </div>
+
+                {/* Fractionnement de l'assurance - Prime unique vs Mensuel */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Paiement de l'assurance
+                  </label>
+                  {isEditingPret ? (
+                    <Select
+                      value={String(editedPretData.frac_assurance || 12)}
+                      onValueChange={(v) => setEditedPretData((prev: EditedPretData) => ({ ...prev, frac_assurance: parseInt(v) }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionnez un type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FRAC_ASSURANCE_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={String(option.value)}>
+                            <div className="flex flex-col">
+                              <span>{option.label}</span>
+                              <span className="text-xs text-gray-500">{option.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-[#335FAD]/5 dark:bg-[#335FAD]/20 rounded-lg border border-[#335FAD]/20 dark:border-[#335FAD]/80">
+                      {dossier.infos_pret.frac_assurance === 10 ? 'Prime unique' : 'Mensuel'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Informations supplémentaires extraites par l'IA */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Date de début du prêt
+                  </label>
+                  <p className={`p-3 rounded-lg border ${dossier.infos_pret.date_debut
+                    ? 'bg-[#335FAD]/5 dark:bg-[#335FAD]/20 border-[#335FAD]/20 dark:border-[#335FAD]/80 text-gray-900 dark:text-white'
+                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {dossier.infos_pret.date_debut ? formatDate(dossier.infos_pret.date_debut) : 'Non extraite'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Date de fin du prêt
+                  </label>
+                  <p className={`p-3 rounded-lg border ${dossier.infos_pret.date_fin
+                    ? 'bg-[#335FAD]/5 dark:bg-[#335FAD]/20 border-[#335FAD]/20 dark:border-[#335FAD]/80 text-gray-900 dark:text-white'
+                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {dossier.infos_pret.date_fin ? formatDate(dossier.infos_pret.date_fin) : 'Non extraite'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Taux nominal
+                  </label>
+                  <p className={`p-3 rounded-lg border ${dossier.infos_pret.taux_nominal
+                    ? 'bg-[#335FAD]/5 dark:bg-[#335FAD]/20 border-[#335FAD]/20 dark:border-[#335FAD]/80 text-gray-900 dark:text-white'
+                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {dossier.infos_pret.taux_nominal ? `${dossier.infos_pret.taux_nominal}%` : 'Non extrait'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Date de début effective (calculée)
+                  </label>
+                  <p className={`p-3 rounded-lg border ${dossier.infos_pret.date_debut_effective
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-400'
+                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {dossier.infos_pret.date_debut_effective ? formatDate(dossier.infos_pret.date_debut_effective) : 'Non calculée'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Durée restante (calculée)
+                  </label>
+                  <p className={`p-3 rounded-lg border ${dossier.infos_pret.duree_restante_mois
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-400'
+                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {dossier.infos_pret.duree_restante_mois
+                      ? `${dossier.infos_pret.duree_restante_mois} mois (${Math.round(dossier.infos_pret.duree_restante_mois / 12)} ans)`
+                      : 'Non calculée'
+                    }
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Capital restant dû (calculé)
+                  </label>
+                  <p className={`p-3 rounded-lg border ${dossier.infos_pret.capital_restant_du
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-400'
+                    : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {dossier.infos_pret.capital_restant_du
+                      ? formatCurrency(dossier.infos_pret.capital_restant_du)
+                      : 'Non calculé'
+                    }
+                  </p>
+                </div>
               </div>
 
               {/* Mobile - bouton en bas à droite */}
-              <div className="sm:hidden mt-6 flex justify-end">
+              <div className="sm:hidden mt-6 flex justify-end space-x-2">
+                <button
+                  onClick={handleRefreshExtraction}
+                  disabled={isExtracting}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  <i className={`ri-refresh-line ${isExtracting ? 'animate-spin' : ''}`}></i>
+                  <span>{isExtracting ? 'Extraction...' : 'Actualiser'}</span>
+                </button>
+
                 {!isEditingPret ? (
                   <button
                     onClick={() => setIsEditingPret(true)}
@@ -2612,23 +3501,20 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
               {/* Grille des documents */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Offre de Prêt */}
-                <div className={`border-2 rounded-lg p-4 ${
-                  dossier.documents.offre_pret 
-                    ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20' 
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
-                }`}>
+                <div className={`border-2 rounded-lg p-4 ${dossier.documents.offre_pret
+                  ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
+                  : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
+                  }`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        dossier.documents.offre_pret 
-                          ? 'bg-green-100 dark:bg-green-900/30' 
-                          : 'bg-gray-100 dark:bg-gray-600'
-                      }`}>
-                        <i className={`ri-file-text-line text-sm ${
-                          dossier.documents.offre_pret 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-gray-400 dark:text-gray-500'
-                        }`}></i>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dossier.documents.offre_pret
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-gray-100 dark:bg-gray-600'
+                        }`}>
+                        <i className={`ri-file-text-line text-sm ${dossier.documents.offre_pret
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-400 dark:text-gray-500'
+                          }`}></i>
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm">
@@ -2643,17 +3529,14 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     {dossier.documents.offre_pret && (
                       <div className="flex items-center space-x-1 flex-shrink-0">
                         <button
-                          onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.offre_pret.url))}
+                          onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.offre_pret.url), dossier.documents.offre_pret.nom, 'pdf')}
                           className="p-1.5 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 hover:bg-[#335FAD]/20 dark:hover:bg-[#335FAD]/50 text-[#335FAD] dark:text-[#335FAD] rounded-md transition-colors cursor-pointer"
                           title="Voir le document"
                         >
                           <i className="ri-eye-line text-xs"></i>
                         </button>
                         <button
-                          onClick={() => {
-                            setDocumentToDelete('offre_pret');
-                            setShowDeleteDocModal(true);
-                          }}
+                          onClick={() => openDeleteModal(dossier.documents.offre_pret.id, dossier.documents.offre_pret.nom)}
                           className="p-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-md transition-colors cursor-pointer"
                           title="Supprimer le document"
                         >
@@ -2680,23 +3563,20 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
 
                 {/* Tableau d'Amortissement */}
-                <div className={`border-2 rounded-lg p-4 ${
-                  dossier.documents.tableau_amortissement 
-                    ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20' 
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
-                }`}>
+                <div className={`border-2 rounded-lg p-4 ${dossier.documents.tableau_amortissement
+                  ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
+                  : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
+                  }`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        dossier.documents.tableau_amortissement 
-                          ? 'bg-green-100 dark:bg-green-900/30' 
-                          : 'bg-gray-100 dark:bg-gray-600'
-                      }`}>
-                        <i className={`ri-table-line text-sm ${
-                          dossier.documents.tableau_amortissement 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-gray-400 dark:text-gray-500'
-                        }`}></i>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dossier.documents.tableau_amortissement
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-gray-100 dark:bg-gray-600'
+                        }`}>
+                        <i className={`ri-table-line text-sm ${dossier.documents.tableau_amortissement
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-400 dark:text-gray-500'
+                          }`}></i>
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm">
@@ -2711,17 +3591,14 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     {dossier.documents.tableau_amortissement && (
                       <div className="flex items-center space-x-1 flex-shrink-0">
                         <button
-                          onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.tableau_amortissement.url))}
+                          onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.tableau_amortissement.url), dossier.documents.tableau_amortissement.nom, 'pdf')}
                           className="p-1.5 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 hover:bg-[#335FAD]/20 dark:hover:bg-[#335FAD]/50 text-[#335FAD] dark:text-[#335FAD] rounded-md transition-colors cursor-pointer"
                           title="Voir le document"
                         >
                           <i className="ri-eye-line text-xs"></i>
                         </button>
                         <button
-                          onClick={() => {
-                            setDocumentToDelete('tableau_amortissement');
-                            setShowDeleteDocModal(true);
-                          }}
+                          onClick={() => openDeleteModal(dossier.documents.tableau_amortissement.id, dossier.documents.tableau_amortissement.nom)}
                           className="p-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-md transition-colors cursor-pointer"
                           title="Supprimer le document"
                         >
@@ -2748,23 +3625,20 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
 
                 {/* Carte d'Identité Emprunteur */}
-                <div className={`border-2 rounded-lg p-4 ${
-                  dossier.documents.carte_identite 
-                    ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20' 
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
-                }`}>
+                <div className={`border-2 rounded-lg p-4 ${dossier.documents.carte_identite
+                  ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
+                  : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
+                  }`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        dossier.documents.carte_identite 
-                          ? 'bg-green-100 dark:bg-green-900/30' 
-                          : 'bg-gray-100 dark:bg-gray-600'
-                      }`}>
-                        <i className={`ri-id-card-line text-sm ${
-                          dossier.documents.carte_identite 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-gray-400 dark:text-gray-500'
-                        }`}></i>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dossier.documents.carte_identite
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-gray-100 dark:bg-gray-600'
+                        }`}>
+                        <i className={`ri-id-card-line text-sm ${dossier.documents.carte_identite
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-400 dark:text-gray-500'
+                          }`}></i>
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm">
@@ -2779,17 +3653,14 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     {dossier.documents.carte_identite && (
                       <div className="flex items-center space-x-1 flex-shrink-0">
                         <button
-                          onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.carte_identite.url))}
+                          onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.carte_identite.url), dossier.documents.carte_identite.nom, 'image')}
                           className="p-1.5 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 hover:bg-[#335FAD]/20 dark:hover:bg-[#335FAD]/50 text-[#335FAD] dark:text-[#335FAD] rounded-md transition-colors cursor-pointer"
                           title="Voir le document"
                         >
                           <i className="ri-eye-line text-xs"></i>
                         </button>
                         <button
-                          onClick={() => {
-                            setDocumentToDelete('carte_identite');
-                            setShowDeleteDocModal(true);
-                          }}
+                          onClick={() => openDeleteModal(dossier.documents.carte_identite.id, dossier.documents.carte_identite.nom)}
                           className="p-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-md transition-colors cursor-pointer"
                           title="Supprimer le document"
                         >
@@ -2817,23 +3688,20 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
 
                 {/* Carte d'Identité Conjoint - CONDITIONNEL */}
                 {dossier.type === 'couple' && (
-                  <div className={`border-2 rounded-lg p-4 ${
-                    dossier.documents.carte_identite_conjoint 
-                      ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20' 
-                      : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
-                  }`}>
+                  <div className={`border-2 rounded-lg p-4 ${dossier.documents.carte_identite_conjoint
+                    ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 border-dashed'
+                    }`}>
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          dossier.documents.carte_identite_conjoint 
-                            ? 'bg-green-100 dark:bg-green-900/30' 
-                            : 'bg-gray-100 dark:bg-gray-600'
-                        }`}>
-                          <i className={`ri-id-card-line text-sm ${
-                            dossier.documents.carte_identite_conjoint 
-                              ? 'text-green-600 dark:text-green-400' 
-                              : 'text-gray-400 dark:text-gray-500'
-                          }`}></i>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dossier.documents.carte_identite_conjoint
+                          ? 'bg-green-100 dark:bg-green-900/30'
+                          : 'bg-gray-100 dark:bg-gray-600'
+                          }`}>
+                          <i className={`ri-id-card-line text-sm ${dossier.documents.carte_identite_conjoint
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-gray-400 dark:text-gray-500'
+                            }`}></i>
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white text-sm">
@@ -2848,17 +3716,14 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                       {dossier.documents.carte_identite_conjoint && (
                         <div className="flex items-center space-x-1 flex-shrink-0">
                           <button
-                            onClick={() => handleViewDocument(dossier.documents.carte_identite_conjoint.url)}
+                            onClick={() => handleViewDocument(buildPublicUrl(dossier.documents.carte_identite_conjoint.url), dossier.documents.carte_identite_conjoint.nom, 'image')}
                             className="p-1.5 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 hover:bg-[#335FAD]/20 dark:hover:bg-[#335FAD]/50 text-[#335FAD] dark:text-[#335FAD] rounded-md transition-colors cursor-pointer"
                             title="Voir le document"
                           >
                             <i className="ri-eye-line text-xs"></i>
                           </button>
                           <button
-                            onClick={() => {
-                              setDocumentToDelete('carte_identite_conjoint');
-                              setShowDeleteDocModal(true);
-                            }}
+                            onClick={() => openDeleteModal(dossier.documents.carte_identite_conjoint.id, dossier.documents.carte_identite_conjoint.nom)}
                             className="p-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-md transition-colors cursor-pointer"
                             title="Supprimer le document"
                           >
@@ -2885,127 +3750,229 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                   </div>
                 )}
               </div>
+
+              {/* Section Autres Documents */}
+              {dossier.documents.autres && dossier.documents.autres.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-base font-medium text-gray-900 dark:text-white mb-4">
+                    Autres documents ({dossier.documents.autres.length})
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    {dossier.documents.autres.map((doc: any, index: number) => (
+                      <div
+                        key={doc.id || index}
+                        className="border-2 border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-100 dark:bg-gray-600">
+                              <i className="ri-file-line text-sm text-gray-600 dark:text-gray-400"></i>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate" title={doc.nom}>
+                                {doc.nom}
+                              </h4>
+                              <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <span>{doc.taille}</span>
+                                {doc.type && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="capitalize">{getDocumentTypeLabel(doc.type)}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                            <button
+                              onClick={() => handleViewDocument(buildPublicUrl(doc.url), doc.nom, doc.type || '', doc.id)}
+                              className="p-1.5 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 hover:bg-[#335FAD]/20 dark:hover:bg-[#335FAD]/50 text-[#335FAD] dark:text-[#335FAD] rounded-md transition-colors cursor-pointer"
+                              title="Voir le document"
+                            >
+                              <i className="ri-eye-line text-xs"></i>
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(doc.id, doc.nom)}
+                              className="p-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-md transition-colors cursor-pointer"
+                              title="Supprimer le document"
+                            >
+                              <i className="ri-delete-bin-line text-xs"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Tab Devis Comparatif */}
         {activeTab === 'devis' && (
+          <>
+            {/* Card d'optimisation intelligente des commissions */}
+            <CommissionRecommendationCard
+              dossierId={dossierId}
+              coutAssuranceBanque={dossier.infos_pret?.cout_assurance_banque || dossier.cout_assurance_banque}
+              onSelectCommission={(tarifId, code) => {
+                console.log('Commission sélectionnée:', { tarifId, code });
+                // Trouver le devis correspondant et ouvrir la modale
+                const devisCorrespondant = devis.find(d => d.id_tarif === tarifId);
+                if (devisCorrespondant) {
+                  setSelectedDevisDetail(devisCorrespondant);
+                  setShowDevisModal(true);
+                }
+              }}
+              compact={false}
+            />
+
+            {/* Panneau de configuration des commissions (paramètres détaillés) */}
+            {currentBrokerId && (
+              <DevisCommissionPanel
+                dossierId={dossierId}
+                selectedDevisId={selectedDevisDetail?.id || devis.find(d => d.selected)?.id || null}
+                selectedDevisCoutTotal={selectedDevisDetail?.cout_total || devis.find(d => d.selected)?.cout_total || 0}
+                apporteurId={dossier.apporteur_id || null}
+                brokerId={currentBrokerId}
+                onRefreshDevis={handleRefreshDevis}
+              />
+            )}
+
+            {/* Liste des devis avec vue hybride tableau/grille */}
+            <DevisListView
+              devis={devis}
+              coutAssuranceBanque={dossier.infos_pret?.cout_assurance_banque || dossier.cout_assurance_banque}
+              onDevisClick={(devisItem) => {
+                setSelectedDevisDetail(devisItem);
+                setShowDevisModal(true);
+              }}
+              onRefreshDevis={handleRefreshDevis}
+              isRefreshing={isRefreshingDevis}
+            />
+          </>
+        )}
+
+        {/* Tab Réglages */}
+        {activeTab === 'reglages' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
-              Devis comparatif - Solutions d'assurance emprunteur
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+              <i className="ri-settings-3-line text-[#335FAD]"></i>
+              Réglages du dossier
             </h3>
-            
-            {/* Tableau des devis */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Compagnie
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Produit
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Coût Mensuel
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Coût Total
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Économie Estimée
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Formalités
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {devis.map((devisItem) => {
-                    const economieCalculee = calculateEconomie(devisItem.cout_total, dossier.infos_pret.cout_assurance_banque);
-                    return (
-                      <tr 
-                        key={devisItem.id} 
-                        className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer ${
-                          devisItem.selected ? 'ring-2 ring-[#335FAD] dark:ring-[#335FAD]/80 bg-[#335FAD]/5 dark:bg-[#335FAD]/10' : ''
-                        }`}
-                        onClick={() => handleDevisRowClick(devisItem)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{devisItem.compagnie}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">{devisItem.produit}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">{formatCurrency(devisItem.cout_mensuel)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(devisItem.cout_total)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm font-medium ${
-                            (economieCalculee?.economie || devisItem.economie_estimee || 0) > 0 
-                              ? 'text-green-600 dark:text-green-400' 
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {formatCurrency(economieCalculee?.economie || devisItem.economie_estimee || 0)}
-                            {economieCalculee && (
-                              <span className="text-xs ml-1">
-                                ({economieCalculee.pourcentage.toFixed(1)}%)
-                              </span>
-                            )}
+
+            {/* Section Type de dossier */}
+            <div className="space-y-6">
+              <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
+                <h4 className="text-base font-medium text-gray-900 dark:text-white mb-4">
+                  Type de dossier
+                </h4>
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Type actuel : <span className="text-[#335FAD] font-semibold">{dossier.is_couple ? 'Couple' : 'Emprunteur seul'}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Modifiez le type du dossier si nécessaire (emprunteur seul ↔ couple)
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const newType = dossier.is_couple ? 'seul' : 'couple';
+                      const confirmMsg = `Voulez-vous vraiment changer le type du dossier vers "${newType === 'couple' ? 'Couple' : 'Emprunteur seul'}" ?${newType === 'seul' ? '\n\n⚠️ ATTENTION : Les données du conjoint seront supprimées.' : ''}`;
+
+                      if (confirm(confirmMsg)) {
+                        try {
+                          await DossiersService.changeDossierType(dossierId, newType);
+                          await loadDossierData();
+                          alert(`Type de dossier changé avec succès vers "${newType === 'couple' ? 'Couple' : 'Emprunteur seul'}"`);
+                        } catch (error: unknown) {
+                          console.error('Erreur changement type:', error);
+                          const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+                          alert(`Erreur lors du changement de type de dossier: ${errorMsg}`);
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 bg-[#335FAD] hover:bg-[#2a4d8f] text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                  >
+                    <i className="ri-repeat-line"></i>
+                    Changer vers {dossier.is_couple ? 'Emprunteur seul' : 'Couple'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Section Extraction */}
+              {extractionResult && (
+                <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
+                  <h4 className="text-base font-medium text-gray-900 dark:text-white mb-4">
+                    Dernière extraction
+                  </h4>
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <i className="ri-checkbox-circle-line text-green-600 dark:text-green-400 text-xl mt-0.5"></i>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-green-900 dark:text-green-300 mb-1">
+                          {extractionResult.message}
+                        </p>
+                        <p className="text-xs text-green-700 dark:text-green-400">
+                          Confiance : {Math.round(extractionResult.confidence * 100)}%
+                        </p>
+                        {extractionResult.warnings && extractionResult.warnings.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1">Avertissements :</p>
+                            <ul className="text-xs text-green-600 dark:text-green-500 list-disc list-inside">
+                              {extractionResult.warnings.map((warning: string, idx: number) => (
+                                <li key={idx}>{warning}</li>
+                              ))}
+                            </ul>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {(devisItem.formalites_medicales || []).join(', ')}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {devisItem.statut === 'accepte' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                              <i className="ri-check-double-line mr-1"></i>
-                              Accepté
-                            </span>
-                          ) : devisItem.statut === 'envoye' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
-                              <i className="ri-send-plane-line mr-1"></i>
-                              Envoyé
-                            </span>
-                          ) : devisItem.selected && !devisItem.refused ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                              <i className="ri-check-line mr-1"></i>
-                              Sélectionné
-                            </span>
-                          ) : devisItem.refused ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                              <i className="ri-close-line mr-1"></i>
-                              <span className="font-medium text-red-800 dark:text-red-400">Refusé</span>
-                            </span>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedDevisDetail(devisItem);
-                                setShowDevisModal(true);
-                              }}
-                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#335FAD] dark:hover:text-[#335FAD] transition-colors cursor-pointer"
-                              title="Voir les détails du devis"
-                            >
-                              <i className="ri-eye-line text-sm"></i>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Section Suppression du dossier */}
+              <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
+                <h4 className="text-base font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <i className="ri-delete-bin-line text-red-600"></i>
+                  Zone dangereuse
+                </h4>
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-900 dark:text-red-300 mb-1">
+                        Supprimer définitivement ce dossier
+                      </p>
+                      <p className="text-xs text-red-700 dark:text-red-400">
+                        ⚠️ Cette action est irréversible. Toutes les données associées (client, prêt, devis, documents) seront supprimées.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleDeleteDossier}
+                      className="ml-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                    >
+                      <i className="ri-delete-bin-line"></i>
+                      Supprimer le dossier
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <i className="ri-information-line text-blue-600 dark:text-blue-400 text-xl mt-0.5"></i>
+                  <div className="flex-1">
+                    <p className="text-sm text-blue-900 dark:text-blue-300">
+                      Après chaque extraction automatique, si des différences sont détectées entre les données extraites et les données actuelles,
+                      une fenêtre de comparaison s'ouvrira automatiquement pour vous permettre de sélectionner les changements à appliquer.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -3079,255 +4046,104 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         </div>
       )}
 
-      {/* MODAL DÉTAIL DEVIS */}
-      {showDevisModal && selectedDevisDetail && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowDevisModal(false)}></div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-2xl w-full p-6 max-h-[90vh] my-[5vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-medium text-gray-900 dark:text-white">
-                  Détails du devis
-                </h3>
-                <button
-                  onClick={() => setShowDevisModal(false)}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
-                >
-                  <i className="ri-close-line text-xl"></i>
-                </button>
-              </div>
+      {/* MODAL DÉTAIL DEVIS - Nouvelle modale premium */}
+      <DevisDetailModal
+        isOpen={showDevisModal}
+        onClose={() => setShowDevisModal(false)}
+        devis={selectedDevisDetail}
+        coutAssuranceBanque={dossier?.infos_pret?.cout_assurance_banque || dossier?.cout_assurance_banque}
+        onRecalculateDevis={async (devisId, idTarif, commissionCode, fraisCourtierCentimes) => {
+          try {
+            console.log('[AdminDetail] Recalcul devis ciblé:', { devisId, idTarif, commissionCode, fraisCourtierCentimes });
+            
+            // Appel API Exade avec id_tarif spécifique et nouveau code commission
+            const response = await fetch('/api/exade/tarifs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                broker_id: currentBrokerId,
+                clientInfo: dossier,
+                pretData: dossier?.infos_pret,
+                idTarif: idTarif,
+                commission: {
+                  frais_adhesion_apporteur: fraisCourtierCentimes,
+                  commissionnement: commissionCode || undefined
+                }
+              })
+            });
 
-              <div className="space-y-6">
-                {/* Informations principales */}
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                  <h4 className="font-medium text-[#335FAD] dark:text-[#335FAD]/80 mb-2">
-                    {selectedDevisDetail.compagnie} - {selectedDevisDetail.produit}
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Coût mensuel
-                      </label>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(selectedDevisDetail.cout_mensuel)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Coût total
-                      </label>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(selectedDevisDetail.cout_total)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Économie estimée
-                      </label>
-                      <p className={`text-lg font-medium ${
-                        selectedDevisDetail.economie_estimee && selectedDevisDetail.economie_estimee > 0 
-                          ? 'text-green-600 dark:text-green-400' 
-                          : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {formatCurrency(selectedDevisDetail.economie_estimee || 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            const payload = await response.json();
 
-                {/* Détails du prêt */}
-                <div className="bg-[#335FAD]/5 dark:bg-[#335FAD]/20 rounded-lg p-4 border border-[#335FAD]/20 dark:border-[#335FAD]/80">
-                  <h4 className="font-medium text-[#335FAD] dark:text-[#335FAD]/80 mb-3">
-                    <i className="ri-file-text-line mr-2"></i>
-                    Détails du prêt
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-[#335FAD]/80 dark:text-[#335FAD] mb-1">
-                        Capital
-                      </label>
-                      <p className="text-[#335FAD] dark:text-[#335FAD]/80">
-                        {formatCurrency(selectedDevisDetail.detail_pret.capital)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[#335FAD]/80 dark:text-[#335FAD] mb-1">
-                        Durée
-                      </label>
-                      <p className="text-[#335FAD] dark:text-[#335FAD]/80">
-                        {selectedDevisDetail.detail_pret.duree} mois
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[#335FAD]/80 dark:text-[#335FAD] mb-1">
-                        Taux d'assurance
-                      </label>
-                      <p className="text-[#335FAD] dark:text-[#335FAD]/80">
-                        {selectedDevisDetail.detail_pret.taux_assurance}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            if (!response.ok) {
+              throw new Error(payload?.error || 'Erreur lors du recalcul');
+            }
 
-                {/* Formalités médicales */}
-                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
-                  <h4 className="font-medium text-orange-900 dark:text-orange-200 mb-3">
-                    <i className="ri-heart-pulse-line mr-2"></i>
-                    Formalités médicales
-                  </h4>
-                  {selectedDevisDetail.formalites_detaillees.map((formalite, index) => (
-                    <div key={index} className="flex items-start mb-2 last:mb-0">
-                      <i className="ri-arrow-right-s-line text-orange-600 dark:text-orange-400 mt-0.5"></i>
-                      <p className="text-orange-800 dark:text-orange-300 ml-2">{formalite}</p>
-                    </div>
-                  ))}
-                </div>
+            const tarifs = payload?.tarifs || [];
 
-                {/* Couverture */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-shield-check-line mr-2 text-green-500"></i>
-                    Couverture
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedDevisDetail.couverture.map((item, index) => (
-                      <div key={index} className="flex items-center bg-green-50 dark:bg-green-900/20 rounded p-3 border border-green-200 dark:border-green-800">
-                        <i className="ri-check-line text-green-600 dark:text-green-400 mr-2"></i>
-                        <p className="text-green-800 dark:text-green-300">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            if (tarifs.length > 0) {
+              const tarifRecalcule = tarifs[0];
+              
+              // Mettre à jour le devis avec les nouvelles données
+              await DevisService.updateSingleDevis(
+                devisId,
+                {
+                  cout_total: tarifRecalcule.cout_total,
+                  cout_mensuel: tarifRecalcule.mensualite,
+                  frais_adhesion: tarifRecalcule.frais_adhesion,
+                  frais_adhesion_apporteur: tarifRecalcule.frais_adhesion_apporteur,
+                  frais_frac: tarifRecalcule.frais_frac,
+                  frais_courtier: fraisCourtierCentimes,
+                  commission_exade_code: commissionCode,
+                  taux_capital_assure: tarifRecalcule.taux_capital_assure,
+                  compatible_lemoine: tarifRecalcule.compatible_lemoine,
+                  formalites_medicales: tarifRecalcule.formalites_medicales,
+                  type_tarif: tarifRecalcule.type_tarif,
+                  erreurs: tarifRecalcule.erreurs
+                },
+                dossier?.infos_pret?.cout_assurance_banque || dossier?.cout_assurance_banque
+              );
 
-                {/* Exclusions */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-error-warning-line mr-2 text-amber-500"></i>
-                    Exclusions et limitations
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedDevisDetail.exclusions.map((item, index) => (
-                      <div key={index} className="flex items-center bg-amber-50 dark:bg-amber-900/20 rounded p-3 border border-amber-200 dark:border-amber-800">
-                        <i className="ri-close-line text-amber-600 dark:text-amber-400 mr-2"></i>
-                        <p className="text-amber-800 dark:text-amber-300">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Avantages */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-star-line mr-2 text-[#335FAD]"></i>
-                    Avantages spécifiques
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedDevisDetail.avantages.map((item, index) => (
-                      <div key={index} className="flex items-center bg-[#335FAD]/5 dark:bg-[#335FAD]/10 rounded p-3 border border-[#335FAD]/20 dark:border-[#335FAD]/30">
-                        <i className="ri-star-fill text-[#335FAD] dark:text-[#335FAD]/80 mr-2"></i>
-                        <p className="text-[#335FAD] dark:text-[#335FAD]/80">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Frais */}
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-money-euro-circle-line mr-2 text-gray-500"></i>
-                    Frais associés
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Frais d'adhésion
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {formatCurrency(selectedDevisDetail.frais_adhesion)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Frais de fractionnement
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {formatCurrency(selectedDevisDetail.frais_frac)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Coût total
-                      </label>
-                      <p className="text-gray-900 dark:text-white font-medium">
-                        {formatCurrency(selectedDevisDetail.cout_total_tarif)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer avec bouton */}
-                <div className="mt-6">
-                  {!selectedDevisDetail.selected && !selectedDevisDetail.refused && selectedDevisDetail.statut !== 'envoye' && (
-                    <button
-                      onClick={() => {
-                        handleChoisirDevis(selectedDevisDetail.id);
-                        setShowDevisModal(false);
-                      }}
-                      className="w-full bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-3 rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center"
-                    >
-                      <i className="ri-check-line mr-2"></i>
-                      Choisir ce devis
-                    </button>
-                  )}
-                  
-                  {selectedDevisDetail.statut === 'accepte' && (
-                    <div className="text-center py-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-lg border border-green-200 dark:border-green-800">
-                      <i className="ri-check-double-line mr-2"></i>
-                      Devis accepté par le client
-                    </div>
-                  )}
-                  
-                  {selectedDevisDetail.statut === 'envoye' && (
-                    <div className="text-center py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300 rounded-lg border border-orange-200 dark:border-orange-800">
-                      <i className="ri-send-plane-line mr-2"></i>
-                      Devis envoyé à l'apporteur
-                    </div>
-                  )}
-                  
-                  {selectedDevisDetail.selected && !selectedDevisDetail.refused && selectedDevisDetail.statut !== 'envoye' && selectedDevisDetail.statut !== 'accepte' && (
-                    <div className="text-center py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <i className="ri-check-line mr-2"></i>
-                      Devis sélectionné pour validation client
-                    </div>
-                  )}
-                  
-                  {selectedDevisDetail.refused && (
-                    <div className="space-y-3">
-                      <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800 p-3 text-center">
-                        <i className="ri-close-line mr-2"></i>
-                        <span className="font-medium">Refusé par le client</span>
-                        <p className="text-sm mt-1">
-                          motif : {selectedDevisDetail.motif_refus || '—'}
-                        </p>
-                      </div>
-                      
-                      <button
-                        onClick={() => handleRenvoyerDevis(selectedDevisDetail.id)}
-                        className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white px-4 py-3 rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center"
-                      >
-                        <i className="ri-send-plane-line mr-2"></i>
-                        Renvoyer le devis
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+              // Recharger les données
+              await loadDossierData();
+              
+              // Fermer la modale et informer l'utilisateur
+              setShowDevisModal(false);
+              alert('Devis recalculé avec succès !');
+            } else {
+              throw new Error('Aucun tarif retourné par Exade');
+            }
+          } catch (error) {
+            console.error('[AdminDetail] Erreur recalcul devis:', error);
+            alert('Erreur lors du recalcul du devis. Veuillez réessayer.');
+          }
+        }}
+        onSelectDevis={(devisId) => {
+          handleChoisirDevis(devisId);
+          setShowDevisModal(false);
+        }}
+        onResendDevis={(devisId) => {
+          handleRenvoyerDevis(devisId);
+          setShowDevisModal(false);
+        }}
+        dossierStatut={dossier?.statut_canon}
+        onPushToExade={async (devisId) => {
+          if (!currentBrokerId) {
+            alert('Erreur: ID du courtier non trouvé');
+            return;
+          }
+          
+          const result = await ExadePushService.pushDevisToExade(devisId, currentBrokerId);
+          
+          if (result.success) {
+            alert(`✅ Devis envoyé sur Exade avec succès !\n\nID Simulation: ${result.simulation_id}\n\nRendez-vous sur www.exade.fr pour finaliser le contrat.`);
+            // Recharger les données pour afficher le badge "Verrouillé"
+            await loadDossierData();
+            setShowDevisModal(false);
+          } else {
+            alert(`❌ Erreur: ${result.error}`);
+          }
+        }}
+      />
 
       {/* MODAL AJOUT DOCUMENT */}
       {showDocumentModal && (
@@ -3346,59 +4162,92 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                   <i className="ri-close-line text-xl"></i>
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Type de document
                   </label>
-                  <Select>
+                  <Select value={newDocumentType} onValueChange={setNewDocumentType}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Sélectionner un type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="offre_pret">Offre de Prêt</SelectItem>
-                      <SelectItem value="tableau_amortissement">Tableau d'Amortissement</SelectItem>
-                      <SelectItem value="carte_identite">Carte d'Identité (Emprunteur)</SelectItem>
+                      <SelectItem value="offrePret">Offre de Prêt</SelectItem>
+                      <SelectItem value="tableauAmortissement">Tableau d'Amortissement</SelectItem>
+                      <SelectItem value="carteIdentite">Carte d'Identité (Emprunteur)</SelectItem>
                       {dossier.type === 'couple' && (
-                        <SelectItem value="carte_identite_conjoint">Carte d'Identité (Conjoint)</SelectItem>
+                        <SelectItem value="carteIdentiteConjoint">Carte d'Identité (Conjoint)</SelectItem>
                       )}
-                      <SelectItem value="bulletin_de_paie">Bulletin de Paie</SelectItem>
-                      <SelectItem value="avis_imposition">Avis d'Imposition</SelectItem>
-                      <SelectItem value="contrat_travail">Contrat de Travail</SelectItem>
+                      <SelectItem value="bulletinDePaie">Bulletin de Paie</SelectItem>
+                      <SelectItem value="avisImposition">Avis d'Imposition</SelectItem>
+                      <SelectItem value="contratTravail">Contrat de Travail</SelectItem>
                       <SelectItem value="autre">Autre Document</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Fichier
                   </label>
                   <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
+                    <label
+                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      onDragOver={handleDragOver}
+                      onDragEnter={handleDragEnter}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <i className="ri-upload-cloud-line text-gray-500 dark:text-gray-400 text-2xl mb-2"></i>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           <span className="font-medium text-[#335FAD] dark:text-[#335FAD]/80">Cliquez pour télécharger</span> ou glissez-déposez
                         </p>
+                        {newDocumentFile && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            ✓ {newDocumentFile.name}
+                          </p>
+                        )}
                       </div>
-                      <input type="file" className="hidden" />
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileChange}
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      />
                     </label>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
-                    onClick={() => setShowDocumentModal(false)}
-                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                    onClick={() => {
+                      setShowDocumentModal(false);
+                      setNewDocumentType('');
+                      setNewDocumentFile(null);
+                    }}
+                    disabled={isUploadingDocument}
+                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Annuler
                   </button>
                   <button
-                    className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                    onClick={handleUploadDocument}
+                    disabled={!newDocumentType || !newDocumentFile || isUploadingDocument}
+                    className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
-                    Ajouter le document
+                    {isUploadingDocument ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin"></i>
+                        <span>Upload en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="ri-upload-line"></i>
+                        <span>Ajouter le document</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -3431,7 +4280,11 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     Annuler
                   </button>
                   <button
-                    onClick={() => handleDeleteDocument(documentToDelete || '')}
+                    onClick={() => {
+                      if (documentToDelete) {
+                        handleDeleteDocument(documentToDelete, 'document');
+                      }
+                    }}
                     className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
                   >
                     Supprimer
@@ -3442,6 +4295,142 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           </div>
         </div>
       )}
+
+      {/* MODAL COMPARAISON DE DONNÉES */}
+      {showComparisonModal && diffReport && (
+        <DataComparisonModal
+          isOpen={showComparisonModal}
+          onClose={async () => {
+            // Marquer la modale comme vue dans la DB
+            try {
+              const { error } = await supabase
+                .from('dossiers')
+                .update({ comparison_modal_seen: true })
+                .eq('id', dossierId);
+
+              if (error) {
+                console.error('[AdminDetail] Erreur marquage modale vue:', error);
+              }
+            } catch (err) {
+              console.error('[AdminDetail] Erreur marquage modale:', err);
+            }
+
+            setShowComparisonModal(false);
+            setDiffReport(null);
+            setExtractedClientData(null);
+          }}
+          diffReport={diffReport}
+          onApplyChanges={handleApplyDataChanges}
+        />
+      )}
+
+      {/* MODAL SUPPRESSION DOSSIER */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 py-6">
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+              onClick={() => setShowDeleteModal(false)}
+            ></div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-lg w-full p-6 relative z-10 my-8 max-h-[90vh] overflow-y-auto">
+              {/* Header avec icône de danger */}
+              <div className="text-center mb-6">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                  <i className="ri-delete-bin-line text-red-600 dark:text-red-400 text-3xl"></i>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  Supprimer le dossier {dossier.numero_dossier}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Cette action est irréversible et supprimera définitivement :
+                </p>
+              </div>
+
+              {/* Liste des éléments qui seront supprimés */}
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                <ul className="space-y-2 text-sm text-red-900 dark:text-red-300">
+                  <li className="flex items-start">
+                    <i className="ri-close-circle-line text-red-600 dark:text-red-400 mr-2 mt-0.5"></i>
+                    <span>Le dossier et toutes ses métadonnées</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-close-circle-line text-red-600 dark:text-red-400 mr-2 mt-0.5"></i>
+                    <span>Les informations client (principal et conjoint)</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-close-circle-line text-red-600 dark:text-red-400 mr-2 mt-0.5"></i>
+                    <span>Les données de prêt</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-close-circle-line text-red-600 dark:text-red-400 mr-2 mt-0.5"></i>
+                    <span>Tous les devis générés</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-close-circle-line text-red-600 dark:text-red-400 mr-2 mt-0.5"></i>
+                    <span>Tous les documents associés</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Champ de confirmation */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Pour confirmer, tapez <span className="font-bold text-red-600 dark:text-red-400">SUPPRIMER</span>
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmInput}
+                  onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                  placeholder="Tapez SUPPRIMER"
+                  className="w-full px-4 py-3 border-2 border-red-300 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white transition-colors"
+                  autoFocus
+                />
+              </div>
+
+              {/* Warning final */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-6">
+                <div className="flex items-start">
+                  <i className="ri-alert-line text-amber-600 dark:text-amber-400 mr-2 mt-0.5"></i>
+                  <p className="text-xs text-amber-800 dark:text-amber-300">
+                    <strong>Attention :</strong> Cette action ne peut pas être annulée. Toutes les données seront perdues définitivement.
+                  </p>
+                </div>
+              </div>
+
+              {/* Boutons d'action */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmInput('');
+                  }}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmDeleteDossier}
+                  disabled={deleteConfirmInput !== 'SUPPRIMER'}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <i className="ri-delete-bin-line"></i>
+                  Supprimer définitivement
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Visualiseur de Document */}
+      <DocumentViewerModal
+        isOpen={showDocModal}
+        onClose={() => setShowDocModal(false)}
+        documentUrl={currentDocUrl}
+        documentId={currentDocId}
+        documentTitle={currentDocTitle}
+        documentType={currentDocType}
+      />
     </div>
   );
 }

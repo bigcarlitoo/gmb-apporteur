@@ -1,0 +1,1647 @@
+[
+  {
+    "scenario": {
+      "name": "TEST_1_SANS_CODE_COURTIER",
+      "description": "Appel API SANS code_courtier du tout",
+      "question": "Est-ce que l'API retourne des tarifs sans code_courtier ?",
+      "impactSiOui": "On peut tarifer en \"brouillon\" sans créer de simulation sur Exade → Push seulement après acceptation",
+      "impactSiNon": "Les simulations sont créées dès la tarification, on doit l'accepter",
+      "codeCourtier": ""
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846932",
+      "tarifs": [
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2",
+          "cout_total": 6117.88,
+          "cout_premieres_annees": 3826.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V4",
+          "cout_total": 7268.96,
+          "cout_premieres_annees": 2930.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "cout_premieres_annees": 2666.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "cout_premieres_annees": 2262.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "cout_premieres_annees": 2799.77,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6247.95,
+          "cout_premieres_annees": 3655.14,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1512
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "cout_premieres_annees": 4678.12,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "cout_premieres_annees": 3159.87,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1",
+          "cout_total": 4630.6,
+          "cout_premieres_annees": 3429.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "cout_premieres_annees": 2437.36,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "cout_premieres_annees": 2653,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "cout_premieres_annees": 2442.16,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "cout_premieres_annees": 2423.92,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5084.73,
+          "cout_premieres_annees": 2827.19,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.09,
+          "cout_premieres_annees": 2630.79,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4676.9,
+          "cout_premieres_annees": 2911.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "cout_premieres_annees": 3256.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "cout_premieres_annees": 4134.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "cout_premieres_annees": 2766.18,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "cout_premieres_annees": 3252.52,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4946.59,
+          "cout_premieres_annees": 3430.86,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1187
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.21,
+          "cout_premieres_annees": 2110.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4282.93,
+          "cout_premieres_annees": 2755.68,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1021
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4440.6,
+          "cout_premieres_annees": 3335.64,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.96,
+          "cout_premieres_annees": 2930.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "cout_premieres_annees": 3826.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V10",
+          "cout_total": 7775.4,
+          "cout_premieres_annees": 3132.91,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1894
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE GROS CAP ASSUREA",
+          "cout_total": 6334.08,
+          "cout_premieres_annees": 3419.76,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1584
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "",
+          "nom": "",
+          "cout_total": 0,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0
+        }
+      ],
+      "erreurs": [
+        "L'objet de financement #1: \"Acquisition Résidence Principale (RP)\" est incompatible."
+      ],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846932</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>17</id_tarif>\n      <nom>MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>MAIF VIE</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>611788</cout_total_tarif>\n      <cout_premieres_annees_tarif>382648</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1482</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1529</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé simplifié   </formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>17460</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>23292</cout>\n          <crd>19356423</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28020</cout>\n          <crd>18630422</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28272</cout>\n          <crd>17878599</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28248</cout>\n          <crd>17100035</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>27876</cout>\n          <crd>16293780</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>26148</cout>\n          <crd>15458851</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>24300</cout>\n          <crd>14594223</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>22452</cout>\n          <crd>13698843</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20652</cout>\n          <crd>12771621</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360322</periode>\n          <nom>..."
+    },
+    "duration": 31106,
+    "reponse": "✅ OUI - On peut tarifer SANS code courtier!"
+  },
+  {
+    "scenario": {
+      "name": "TEST_2_AVEC_FRAIS_APPORTEUR",
+      "description": "Avec frais_adhesion_apporteur = 200€",
+      "question": "Est-ce que frais_adhesion_apporteur est bien RETOURNÉ dans la réponse ?",
+      "impactSiOui": "On peut lire les frais courtier depuis la réponse API pour calculer la commission plateforme",
+      "impactSiNon": "On devra stocker les frais qu'on a envoyé car l'API ne les retourne pas",
+      "fraisAdhesionApporteur": 20000
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846933",
+      "tarifs": [
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2",
+          "cout_total": 6317.88,
+          "cout_premieres_annees": 4026.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V4",
+          "cout_total": 7468.96,
+          "cout_premieres_annees": 3130.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6822,
+          "cout_premieres_annees": 2866.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5811.6,
+          "cout_premieres_annees": 2462.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 7142.53,
+          "cout_premieres_annees": 2999.77,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6447.95,
+          "cout_premieres_annees": 3855.14,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1512
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7941.96,
+          "cout_premieres_annees": 4878.12,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 8039.81,
+          "cout_premieres_annees": 3359.87,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1",
+          "cout_total": 4830.6,
+          "cout_premieres_annees": 3629.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6248.4,
+          "cout_premieres_annees": 2637.36,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5275.8,
+          "cout_premieres_annees": 2853,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6260.4,
+          "cout_premieres_annees": 2642.16,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6214.8,
+          "cout_premieres_annees": 2623.92,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5284.73,
+          "cout_premieres_annees": 3027.19,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6720.09,
+          "cout_premieres_annees": 2830.79,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4876.9,
+          "cout_premieres_annees": 3111.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 8035.44,
+          "cout_premieres_annees": 3456.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10491.6,
+          "cout_premieres_annees": 4334.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 7058.54,
+          "cout_premieres_annees": 2966.18,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5709.6,
+          "cout_premieres_annees": 3452.52,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 5146.59,
+          "cout_premieres_annees": 3630.86,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1187
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5419.21,
+          "cout_premieres_annees": 2310.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4482.93,
+          "cout_premieres_annees": 2955.68,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1021
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4640.6,
+          "cout_premieres_annees": 3535.64,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7468.96,
+          "cout_premieres_annees": 3130.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6317.88,
+          "cout_premieres_annees": 4026.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V10",
+          "cout_total": 7975.4,
+          "cout_premieres_annees": 3332.91,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1894
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE GROS CAP ASSUREA",
+          "cout_total": 6534.08,
+          "cout_premieres_annees": 3619.76,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 200,
+          "taux_capital_assure": 0.1584
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "",
+          "nom": "",
+          "cout_total": 0,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0
+        }
+      ],
+      "erreurs": [
+        "L'objet de financement #1: \"Acquisition Résidence Principale (RP)\" est incompatible."
+      ],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846933</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>17</id_tarif>\n      <nom>MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>MAIF VIE</compagnie>\n      <frais_adhesion_apporteur>20000</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>631788</cout_total_tarif>\n      <cout_premieres_annees_tarif>402648</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1482</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1579</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé simplifié   </formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>17460</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>23292</cout>\n          <crd>19356423</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28020</cout>\n          <crd>18630422</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28272</cout>\n          <crd>17878599</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28248</cout>\n          <crd>17100035</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>27876</cout>\n          <crd>16293780</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>26148</cout>\n          <crd>15458851</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>24300</cout>\n          <crd>14594223</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>22452</cout>\n          <crd>13698843</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20652</cout>\n          <crd>12771621</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360322</periode>\n          <..."
+    },
+    "duration": 25823,
+    "reponse": "✅ OUI - frais_adhesion_apporteur est bien retourné!"
+  },
+  {
+    "scenario": {
+      "name": "TEST_3_COUT_PREMIERES_ANNEES",
+      "description": "Vérifier si cout_premieres_annees_tarif est présent",
+      "question": "Est-ce que cout_premieres_annees_tarif (8 premières années) est retourné ?",
+      "impactSiOui": "On peut approximer la commission Exade 1ère année en divisant par 8",
+      "impactSiNon": "On ne peut pas calculer la commission 1ère année, on devra se baser sur le relevé",
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846934",
+      "tarifs": [
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2",
+          "cout_total": 6117.88,
+          "cout_premieres_annees": 3826.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V4",
+          "cout_total": 7268.96,
+          "cout_premieres_annees": 2930.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "cout_premieres_annees": 2666.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "cout_premieres_annees": 2262.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "cout_premieres_annees": 2799.77,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6247.95,
+          "cout_premieres_annees": 3655.14,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1512
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "cout_premieres_annees": 4678.12,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "cout_premieres_annees": 3159.87,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1",
+          "cout_total": 4630.6,
+          "cout_premieres_annees": 3429.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "cout_premieres_annees": 2437.36,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "cout_premieres_annees": 2653,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "cout_premieres_annees": 2442.16,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "cout_premieres_annees": 2423.92,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5084.73,
+          "cout_premieres_annees": 2827.19,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.09,
+          "cout_premieres_annees": 2630.79,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4676.9,
+          "cout_premieres_annees": 2911.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "cout_premieres_annees": 3256.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "cout_premieres_annees": 4134.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "cout_premieres_annees": 2766.18,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "cout_premieres_annees": 3252.52,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4946.59,
+          "cout_premieres_annees": 3430.86,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1187
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.21,
+          "cout_premieres_annees": 2110.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4282.93,
+          "cout_premieres_annees": 2755.68,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1021
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4440.6,
+          "cout_premieres_annees": 3335.64,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.96,
+          "cout_premieres_annees": 2930.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "cout_premieres_annees": 3826.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V10",
+          "cout_total": 7775.4,
+          "cout_premieres_annees": 3132.91,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1894
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE GROS CAP ASSUREA",
+          "cout_total": 6334.08,
+          "cout_premieres_annees": 3419.76,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1584
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "",
+          "nom": "",
+          "cout_total": 0,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0
+        }
+      ],
+      "erreurs": [
+        "L'objet de financement #1: \"Acquisition Résidence Principale (RP)\" est incompatible."
+      ],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846934</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>17</id_tarif>\n      <nom>MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>MAIF VIE</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>611788</cout_total_tarif>\n      <cout_premieres_annees_tarif>382648</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1482</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1529</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé simplifié   </formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>17460</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>23292</cout>\n          <crd>19356423</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28020</cout>\n          <crd>18630422</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28272</cout>\n          <crd>17878599</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28248</cout>\n          <crd>17100035</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>27876</cout>\n          <crd>16293780</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>26148</cout>\n          <crd>15458851</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>24300</cout>\n          <crd>14594223</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>22452</cout>\n          <crd>13698843</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20652</cout>\n          <crd>12771621</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360322</periode>\n          <nom>..."
+    },
+    "duration": 29214,
+    "reponse": "✅ OUI - cout_premieres_annees_tarif est présent!"
+  },
+  {
+    "scenario": {
+      "name": "TEST_4A_FRAC_MENSUEL",
+      "description": "frac_assurance = 12 (mensuel)",
+      "question": "Quelle différence de prix entre mensuel et annuel ?",
+      "impactSiOui": "L'app doit permettre au courtier de choisir",
+      "impactSiNon": "Le fractionnement n'impacte pas le prix, pas besoin de l'option",
+      "fracAssurance": 12,
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846935",
+      "tarifs": [
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2",
+          "cout_total": 6117.88,
+          "cout_premieres_annees": 3826.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V4",
+          "cout_total": 7268.96,
+          "cout_premieres_annees": 2930.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6622,
+          "cout_premieres_annees": 2666.8,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.6,
+          "cout_premieres_annees": 2262.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "cout_premieres_annees": 2799.77,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6247.95,
+          "cout_premieres_annees": 3655.14,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1512
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.96,
+          "cout_premieres_annees": 4678.12,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7839.81,
+          "cout_premieres_annees": 3159.87,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1",
+          "cout_total": 4630.6,
+          "cout_premieres_annees": 3429.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6048.4,
+          "cout_premieres_annees": 2437.36,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.8,
+          "cout_premieres_annees": 2653,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6060.4,
+          "cout_premieres_annees": 2442.16,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1468
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6014.8,
+          "cout_premieres_annees": 2423.92,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1456
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5084.73,
+          "cout_premieres_annees": 2827.19,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6520.09,
+          "cout_premieres_annees": 2630.79,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1581
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4676.9,
+          "cout_premieres_annees": 2911.4,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.44,
+          "cout_premieres_annees": 3256.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10291.6,
+          "cout_premieres_annees": 4134.64,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2525
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6858.54,
+          "cout_premieres_annees": 2766.18,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.6,
+          "cout_premieres_annees": 3252.52,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4946.59,
+          "cout_premieres_annees": 3430.86,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1187
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.21,
+          "cout_premieres_annees": 2110.45,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4282.93,
+          "cout_premieres_annees": 2755.68,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1021
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4440.6,
+          "cout_premieres_annees": 3335.64,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.96,
+          "cout_premieres_annees": 2930.34,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.88,
+          "cout_premieres_annees": 3826.48,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V10",
+          "cout_total": 7775.4,
+          "cout_premieres_annees": 3132.91,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1894
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE GROS CAP ASSUREA",
+          "cout_total": 6334.08,
+          "cout_premieres_annees": 3419.76,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1584
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "",
+          "nom": "",
+          "cout_total": 0,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0
+        }
+      ],
+      "erreurs": [
+        "L'objet de financement #1: \"Acquisition Résidence Principale (RP)\" est incompatible."
+      ],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846935</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>17</id_tarif>\n      <nom>MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>MAIF VIE</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>611788</cout_total_tarif>\n      <cout_premieres_annees_tarif>382648</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1482</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1529</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé simplifié   </formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>17460</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>23292</cout>\n          <crd>19356423</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28020</cout>\n          <crd>18630422</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28272</cout>\n          <crd>17878599</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28248</cout>\n          <crd>17100035</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>27876</cout>\n          <crd>16293780</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>26148</cout>\n          <crd>15458851</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>24300</cout>\n          <crd>14594223</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>22452</cout>\n          <crd>13698843</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20652</cout>\n          <crd>12771621</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360322</periode>\n          <nom>..."
+    },
+    "duration": 26178,
+    "reponse": "⚠️ À ANALYSER"
+  },
+  {
+    "scenario": {
+      "name": "TEST_4B_FRAC_ANNUEL",
+      "description": "frac_assurance = 1 (annuel)",
+      "question": "Quelle différence de prix entre mensuel et annuel ?",
+      "impactSiOui": "L'app doit permettre au courtier de choisir",
+      "impactSiNon": "Le fractionnement n'impacte pas le prix, pas besoin de l'option",
+      "fracAssurance": 1,
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846936",
+      "tarifs": [
+        {
+          "id_tarif": "17",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2",
+          "cout_total": 6117.44,
+          "cout_premieres_annees": 3826.31,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "10",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V4",
+          "cout_total": 7268.4,
+          "cout_premieres_annees": 2923.92,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "18",
+          "compagnie": "SURAVENIR",
+          "nom": "SURAVENIR ASSUREA PLATINUM V2",
+          "cout_total": 6621,
+          "cout_premieres_annees": 2666.4,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1608
+        },
+        {
+          "id_tarif": "6",
+          "compagnie": "AXA",
+          "nom": "ASSUREA DIGITAL CI - 4044/2000",
+          "cout_total": 5611.8,
+          "cout_premieres_annees": 2262.72,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1355
+        },
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6941.6,
+          "cout_premieres_annees": 2793.2,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        },
+        {
+          "id_tarif": "8",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 CRD V8",
+          "cout_total": 6248.83,
+          "cout_premieres_annees": 3648.36,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1513
+        },
+        {
+          "id_tarif": "5",
+          "compagnie": "AXA",
+          "nom": "AXA 4044/0000 V2",
+          "cout_total": 7741.66,
+          "cout_premieres_annees": 4677.91,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1888
+        },
+        {
+          "id_tarif": "3",
+          "compagnie": "MNCAP",
+          "nom": "MNCAP ASSUREA ALTERNATIVE 1350 - 1 V3",
+          "cout_total": 7840.6,
+          "cout_premieres_annees": 3154,
+          "frais_adhesion": 200,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.191
+        },
+        {
+          "id_tarif": "19",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1",
+          "cout_total": 4630.45,
+          "cout_premieres_annees": 3429.51,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "20",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CI-1",
+          "cout_total": 6049.8,
+          "cout_premieres_annees": 2437.92,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1465
+        },
+        {
+          "id_tarif": "2",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CRD L1047/0001-1 V4",
+          "cout_total": 5075.7,
+          "cout_premieres_annees": 2652.92,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1221
+        },
+        {
+          "id_tarif": "13",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE ASSUREA PREMIUM 2 CI L1047/0001-1 V3",
+          "cout_total": 6059.6,
+          "cout_premieres_annees": 2441.84,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1467
+        },
+        {
+          "id_tarif": "12",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200164-1 V4",
+          "cout_total": 6016.4,
+          "cout_premieres_annees": 2424.56,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1457
+        },
+        {
+          "id_tarif": "23",
+          "compagnie": "GROUPAMA GAN VIE",
+          "nom": "ASSUREA PERFORMANCE 6092/200171-1 CRD V1",
+          "cout_total": 5085.76,
+          "cout_premieres_annees": 2820.47,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1222
+        },
+        {
+          "id_tarif": "14",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CI V3",
+          "cout_total": 6519.2,
+          "cout_premieres_annees": 2624.24,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.158
+        },
+        {
+          "id_tarif": "9",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN EMPRUNTEUR CRD V5",
+          "cout_total": 4677.56,
+          "cout_premieres_annees": 2904.81,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.112
+        },
+        {
+          "id_tarif": "31",
+          "compagnie": "ORADEA VIE",
+          "nom": "ASSUREA ESSENTIEL 90.275 CRD V1",
+          "cout_total": 7835.46,
+          "cout_premieres_annees": 3256.66,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1911
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP A215W V3",
+          "cout_total": 10292.4,
+          "cout_premieres_annees": 4134.96,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2526
+        },
+        {
+          "id_tarif": "26",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CI V1",
+          "cout_total": 6859.2,
+          "cout_premieres_annees": 2760.23,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1665
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "CNP ASSURANCES",
+          "nom": "CNP 2901D V6",
+          "cout_total": 5509.29,
+          "cout_premieres_annees": 3252.31,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.133
+        },
+        {
+          "id_tarif": "25",
+          "compagnie": "HARMONIE MUTUELLE",
+          "nom": "ASSUREA OPEN PLUS CRD V1",
+          "cout_total": 4947.89,
+          "cout_premieres_annees": 3424.58,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1187
+        },
+        {
+          "id_tarif": "29",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CI QUA25G00501E V3",
+          "cout_total": 5219.8,
+          "cout_premieres_annees": 2104.48,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1255
+        },
+        {
+          "id_tarif": "30",
+          "compagnie": "MALAKOFF HUMANIS",
+          "nom": "MALAKOFF HUMANIS ASSUREA LATITUDE EMPRUNTEUR CRD QUA25G00502E V1",
+          "cout_total": 4283.81,
+          "cout_premieres_annees": 2748.97,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1021
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "PREVOIR",
+          "nom": "ASSUREA SERENITE CRD-1 V2",
+          "cout_total": 4440.45,
+          "cout_premieres_annees": 3335.51,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.111
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA V5",
+          "cout_total": 7268.4,
+          "cout_premieres_annees": 2923.92,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1768
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "MAIF VIE",
+          "nom": "MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V3",
+          "cout_total": 6117.44,
+          "cout_premieres_annees": 3826.31,
+          "frais_adhesion": 190,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1482
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V10",
+          "cout_total": 7774,
+          "cout_premieres_annees": 3126.15,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1894
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "SWISS LIFE",
+          "nom": "SWISS LIFE GROS CAP ASSUREA",
+          "cout_total": 6334.02,
+          "cout_premieres_annees": 3419.89,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1584
+        },
+        {
+          "id_tarif": "",
+          "compagnie": "",
+          "nom": "",
+          "cout_total": 0,
+          "frais_adhesion": 0,
+          "frais_adhesion_apporteur": 0
+        }
+      ],
+      "erreurs": [
+        "Le fractionnement annuel est incompatible."
+      ],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846936</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>17</id_tarif>\n      <nom>MAIF AVANTAGE EMPRUNTEUR ASSUREA CRD V2</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>MAIF VIE</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19000</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>611744</cout_total_tarif>\n      <cout_premieres_annees_tarif>382631</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1482</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1529</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de santé simplifié   </formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>17456</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>23291</cout>\n          <crd>19356423</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28020</cout>\n          <crd>18630422</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28277</cout>\n          <crd>17878599</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>28247</cout>\n          <crd>17100035</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>27878</cout>\n          <crd>16293780</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>26147</cout>\n          <crd>15458851</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>24298</cout>\n          <crd>14594223</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>22446</cout>\n          <crd>13698843</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20649</cout>\n          <crd>12771621</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360322</periode>\n          <nom>..."
+    },
+    "duration": 25404,
+    "reponse": "⚠️ À ANALYSER"
+  },
+  {
+    "scenario": {
+      "name": "TEST_5A_CODE_BAS",
+      "description": "Code commission bas (1T1 = ~0%)",
+      "question": "Le prix total varie-t-il selon le code commission ?",
+      "impactSiOui": "Le client paie plus cher si le courtier prend plus de commission",
+      "impactSiNon": "La commission courtier n'affecte pas le prix client",
+      "commissionnement": "1T1",
+      "idTarif": 1
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846937",
+      "tarifs": [
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 5768.84,
+          "cout_premieres_annees": 2330.3,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1393
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846937</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>576884</cout_total_tarif>\n      <cout_premieres_annees_tarif>233030</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1393</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1442</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>12874</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>16560</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360101</periode>\n          <nom>DC</nom>\n          <tax..."
+    },
+    "duration": 2004,
+    "reponse": "⚠️ À ANALYSER"
+  },
+  {
+    "scenario": {
+      "name": "TEST_5B_CODE_HAUT",
+      "description": "Code commission haut (1T10 = ~40%)",
+      "question": "Le prix total varie-t-il selon le code commission ?",
+      "impactSiOui": "Le client paie plus cher si le courtier prend plus de commission",
+      "impactSiNon": "La commission courtier n'affecte pas le prix client",
+      "commissionnement": "1T10",
+      "idTarif": 1
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846938",
+      "tarifs": [
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 11846.14,
+          "cout_premieres_annees": 4761.19,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.2912
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846938</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>1184614</cout_total_tarif>\n      <cout_premieres_annees_tarif>476119</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>2912</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>2962</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>26923</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>34632</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360101</periode>\n          <nom>DC</nom>\n          <ta..."
+    },
+    "duration": 2369,
+    "reponse": "⚠️ À ANALYSER"
+  },
+  {
+    "scenario": {
+      "name": "TEST_6_TARIF_SPECIFIQUE",
+      "description": "Demander un seul tarif (id_tarif = 1 GENERALI)",
+      "question": "Est-ce que l'API retourne uniquement ce tarif ?",
+      "impactSiOui": "On peut optimiser les appels en ne demandant qu'un tarif quand on régénère",
+      "impactSiNon": "On reçoit toujours tous les tarifs, pas d'optimisation possible",
+      "idTarif": 1,
+      "commissionnement": "1T4"
+    },
+    "result": {
+      "success": true,
+      "id_simulation": "22846939",
+      "tarifs": [
+        {
+          "id_tarif": "1",
+          "compagnie": "GENERALI",
+          "nom": "GENERALI 7301 - 1 V9",
+          "cout_total": 6942.53,
+          "cout_premieres_annees": 2799.77,
+          "frais_adhesion": 198,
+          "frais_adhesion_apporteur": 0,
+          "taux_capital_assure": 0.1686
+        }
+      ],
+      "erreurs": [],
+      "rawXml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<simulation>\n  <id_simulation>22846939</id_simulation>\n  <assure>\n    <id_assure>1</id_assure>\n    <tarif>\n      <id_tarif>1</id_tarif>\n      <nom>GENERALI 7301 - 1 V9</nom>\n      <type_tarif>NON REVISABLE</type_tarif>\n      <compagnie>GENERALI</compagnie>\n      <frais_adhesion_apporteur>0</frais_adhesion_apporteur>\n      <frais_adhesion>19800</frais_adhesion>\n      <frais_frac>0</frais_frac>\n      <cout_total_tarif>694253</cout_total_tarif>\n      <cout_premieres_annees_tarif>279977</cout_premieres_annees_tarif>\n      <taux_capital_assure_tarif>1686</taux_capital_assure_tarif>\n      <taux_capital_assure_tarif_avec_frais>1736</taux_capital_assure_tarif_avec_frais>\n      <formalite>Questionnaire de Santé Simplifié</formalite>\n      <compatible_adhesion_en_ligne>O</compatible_adhesion_en_ligne>\n      <compatible_lemoine>0</compatible_lemoine>\n      <pret>\n        <id_pret>1</id_pret>\n        <garantie_pret>\n          <periode>20260322</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>15588</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20270101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20280101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20290101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20300101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20310101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20320101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20330101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20340101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20350101</periode>\n          <nom>DC</nom>\n          <taxe>O</taxe>\n          <cout>20052</cout>\n          <crd>20000000</crd>\n        </garantie_pret>\n        <garantie_pret>\n          <periode>20360101</periode>\n          <nom>DC</nom>\n          <tax..."
+    },
+    "duration": 2571,
+    "reponse": "✅ OUI - Un seul tarif retourné!"
+  }
+]

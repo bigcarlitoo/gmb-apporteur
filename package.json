@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:extraction": "node scripts/test-extraction.js",
+    "test:exade": "npx tsx scripts/test-exade-connection.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.25.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
@@ -17,6 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "fast-xml-parser": "^4.5.3",
     "lucide-react": "^0.544.0",
     "next": "15.3.2",

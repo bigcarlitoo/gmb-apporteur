@@ -5,8 +5,21 @@ import { useRouter } from 'next/navigation';
 import AdminHeader from '../../../components/AdminHeader';
 import AdminProfileInfo from './AdminProfileInfo';
 import AdminNotificationSettings from './AdminNotificationSettings';
+import { ExadeConfiguration } from '@/components/features/exade/ExadeConfiguration';
+import { BrokerCommissionSettings } from '@/components/features/commission/BrokerCommissionSettings';
+import { useAuth } from '@/components/AuthProvider';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
+import { supabase } from '@/lib/supabase';
 
-// TODO: SUPABASE INTEGRATION
+// Interface pour les données du header (simplifiée)
+interface AdminHeaderData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  initials: string;
+  role: string;
+}
+
 // Interface pour les données administrateur depuis Supabase
 interface AdminData {
   id: string;
@@ -50,22 +63,82 @@ export default function AdminProfilPage() {
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [activeSection, setActiveSection] = useState<'profile' | 'notifications'>('profile');
+  const [activeSection, setActiveSection] = useState<'profile' | 'notifications' | 'commissions' | 'exade'>('profile');
+  const [loading, setLoading] = useState(true);
+  
+  // ✅ Récupération de l'utilisateur connecté et du broker
+  const { user } = useAuth();
+  const { currentBrokerId } = useBrokerContext();
 
-  // TODO: SUPABASE - Remplacer par les données réelles de l'administrateur connecté
+  // ✅ Données du header depuis l'utilisateur connecté (cohérent avec le dashboard)
+  const adminHeaderData = useMemo<AdminHeaderData>(() => {
+    const firstName = user?.user_metadata?.prenom || 'Admin';
+    const lastName = user?.user_metadata?.nom || '';
+    return {
+      id: user?.id || 'admin1',
+      firstName,
+      lastName,
+      initials: `${firstName.charAt(0)}${lastName.charAt(0) || ''}`.toUpperCase(),
+      role: 'Administrateur'
+    };
+  }, [user]);
+
+  // Données du profil (peuvent être éditées séparément)
   const [adminData, setAdminData] = useState<AdminData>({
-    id: '1',
-    firstName: 'Sophie',
-    lastName: 'Martin',
-    initials: 'SM',
-    role: 'Administrateur Principal',
-    companyName: 'GMB Courtage',
-    privateEmail: 'sophie.martin@personal.com',
-    contactEmail: 'contact@gmb-courtage.fr',
-    privatePhone: '06 12 34 56 78',
-    professionalPhone: '01 23 45 67 89',
+    id: '',
+    firstName: '',
+    lastName: '',
+    initials: '',
+    role: 'Administrateur',
+    companyName: '',
+    privateEmail: '',
+    contactEmail: '',
+    privatePhone: '',
+    professionalPhone: '',
     useSamePhone: false
   });
+
+  // ✅ Charger les données complètes depuis la DB
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user || !currentBrokerId) return;
+      
+      setLoading(true);
+      try {
+        // Récupérer les données du broker
+        const { data: brokerData, error: brokerError } = await supabase
+          .from('brokers')
+          .select('name, billing_email, billing_address')
+          .eq('id', currentBrokerId)
+          .single();
+
+        if (brokerError) {
+          console.error('Erreur lors de la récupération du broker:', brokerError);
+        }
+
+        // Mettre à jour les données admin avec les infos de la DB
+        setAdminData({
+          id: user.id,
+          firstName: user.user_metadata?.prenom || '',
+          lastName: user.user_metadata?.nom || '',
+          initials: `${(user.user_metadata?.prenom || 'A').charAt(0)}${(user.user_metadata?.nom || '').charAt(0)}`.toUpperCase(),
+          role: 'Administrateur',
+          companyName: brokerData?.name || '',
+          privateEmail: user.email || '',
+          contactEmail: brokerData?.billing_email || user.email || '',
+          privatePhone: user.user_metadata?.telephone || '',
+          professionalPhone: '',
+          useSamePhone: true
+        });
+      } catch (error) {
+        console.error('Erreur lors du chargement du profil:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [user, currentBrokerId]);
 
   // TODO: SUPABASE - Remplacer par les préférences réelles depuis la base de données
   const [notificationPreferences, setNotificationPreferences] = useState<AdminNotificationPreferences>({
@@ -76,75 +149,48 @@ export default function AdminProfilPage() {
     monthlyReport: { email: true, app: false }
   });
 
-  // TODO: SUPABASE INTEGRATION FUNCTIONS
-  // Fonction pour récupérer les données administrateur
-  const fetchAdminData = async () => {
-    try {
-      // const { data, error } = await supabase
-      //   .from('admin_profiles')
-      //   .select('*')
-      //   .eq('user_id', userId)
-      //   .single();
-      // 
-      // if (error) throw error;
-      // setAdminData({
-      //   id: data.user_id,
-      //   firstName: data.prenom,
-      //   lastName: data.nom,
-      //   initials: `${data.prenom[0]}${data.nom[0]}`,
-      //   role: data.role || 'Administrateur',
-      //   companyName: data.company_name,
-      //   privateEmail: data.private_email,
-      //   contactEmail: data.contact_email,
-      //   privatePhone: data.private_phone,
-      //   professionalPhone: data.professional_phone,
-      //   useSamePhone: data.use_same_phone
-      // });
-    } catch (error) {
-      console.error('Erreur lors du chargement des données administrateur:', error);
-    }
-  };
-
-  // Fonction pour récupérer les préférences de notification
-  const fetchNotificationPreferences = async () => {
-    try {
-      // const { data, error } = await supabase
-      //   .from('admin_notification_preferences')
-      //   .select('*')
-      //   .eq('user_id', userId)
-      //   .single();
-      // 
-      // if (error) throw error;
-      // setNotificationPreferences(data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des préférences:', error);
-    }
-  };
-
-  // Fonction pour sauvegarder les données administrateur
+  // ✅ Fonction pour sauvegarder les données administrateur dans la DB
   const saveAdminData = async (updatedData: Partial<AdminData>) => {
+    if (!currentBrokerId) {
+      return { success: false, error: 'Broker non trouvé' };
+    }
+
     try {
-      // const { error } = await supabase
-      //   .from('admin_profiles')
-      //   .update({
-      //     company_name: updatedData.companyName,
-      //     private_email: updatedData.privateEmail,
-      //     contact_email: updatedData.contactEmail,
-      //     private_phone: updatedData.privatePhone,
-      //     professional_phone: updatedData.professionalPhone,
-      //     use_same_phone: updatedData.useSamePhone,
-      //     updated_at: new Date().toISOString()
-      //   })
-      //   .eq('user_id', adminData.id);
-      // 
-      // if (error) throw error;
-      
+      // Mettre à jour les données du broker (nom société, email contact)
+      const { error: brokerError } = await supabase
+        .from('brokers')
+        .update({
+          name: updatedData.companyName,
+          billing_email: updatedData.contactEmail,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentBrokerId);
+
+      if (brokerError) {
+        console.error('Erreur lors de la mise à jour du broker:', brokerError);
+        throw brokerError;
+      }
+
+      // Mettre à jour les métadonnées utilisateur (téléphone) si nécessaire
+      if (updatedData.privatePhone) {
+        const { error: userError } = await supabase.auth.updateUser({
+          data: {
+            telephone: updatedData.privatePhone
+          }
+        });
+
+        if (userError) {
+          console.error('Erreur lors de la mise à jour du téléphone:', userError);
+          // Ne pas bloquer si l'update user échoue
+        }
+      }
+
       // Mettre à jour l'état local
       setAdminData(prev => ({ ...prev, ...updatedData }));
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la sauvegarde:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erreur inconnue' };
     }
   };
 
@@ -169,27 +215,27 @@ export default function AdminProfilPage() {
       //   });
       // 
       // if (error) throw error;
-      
+
       setNotificationPreferences(preferences);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la sauvegarde des préférences:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erreur inconnue' };
     }
   };
 
-  // Fonction pour changer le mot de passe
+  // ✅ Fonction pour changer le mot de passe via Supabase Auth
   const changePassword = async (currentPassword: string, newPassword: string) => {
     try {
-      // const { error } = await supabase.auth.updateUser({
-      //   password: newPassword
-      // });
-      // 
-      // if (error) throw error;
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors du changement de mot de passe:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erreur inconnue' };
     }
   };
 
@@ -198,13 +244,13 @@ export default function AdminProfilPage() {
     if (typeof window !== 'undefined' && !isInitialized) {
       const savedDarkMode = localStorage.getItem('darkMode') === 'true';
       setDarkMode(savedDarkMode);
-      
+
       if (savedDarkMode) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
-      
+
       setIsInitialized(true);
     }
   }, [isInitialized]);
@@ -212,7 +258,7 @@ export default function AdminProfilPage() {
   // Gestionnaire du mode sombre
   const handleDarkModeToggle = (newDarkMode: boolean) => {
     setDarkMode(newDarkMode);
-    
+
     if (typeof window !== 'undefined') {
       if (newDarkMode) {
         document.documentElement.classList.add('dark');
@@ -237,25 +283,40 @@ export default function AdminProfilPage() {
       label: 'Préférences de notification',
       icon: 'ri-notification-3-line',
       description: 'Contrôlez les alertes administrateur'
+    },
+    {
+      id: 'commissions' as const,
+      label: 'Commissions & Apporteurs',
+      icon: 'ri-percent-line',
+      description: 'Définissez les taux de commission'
+    },
+    {
+      id: 'exade' as const,
+      label: 'Configuration Exade',
+      icon: 'ri-plug-line',
+      description: 'Gérez la connexion au tarificateur'
     }
   ];
 
-  if (!isInitialized) {
+  if (!isInitialized || loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-500 dark:text-gray-400">Chargement du profil...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-      <AdminHeader 
-        darkMode={darkMode} 
+      <AdminHeader
+        darkMode={darkMode}
         setDarkMode={handleDarkModeToggle}
-        adminData={adminData}
+        adminData={adminHeaderData}
       />
-      
+
       {/* Hero Section */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-4 sm:px-8 py-8 sm:py-12 max-w-7xl mx-auto">
@@ -279,17 +340,16 @@ export default function AdminProfilPage() {
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
                 Navigation
               </h3>
-              
+
               <nav className="space-y-2">
                 {sections.map((section) => (
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`w-full text-left p-3 rounded-xl transition-colors cursor-pointer ${
-                      activeSection === section.id
-                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#335FAD] dark:text-[#335FAD]/80 border border-indigo-200 dark:border-indigo-700'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
+                    className={`w-full text-left p-3 rounded-xl transition-colors cursor-pointer ${activeSection === section.id
+                      ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#335FAD] dark:text-[#335FAD]/80 border border-indigo-200 dark:border-indigo-700'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
                   >
                     <div className="flex items-center space-x-3">
                       <i className={`${section.icon} text-lg`}></i>
@@ -315,12 +375,20 @@ export default function AdminProfilPage() {
                 onChangePassword={changePassword}
               />
             )}
-            
+
             {activeSection === 'notifications' && (
               <AdminNotificationSettings
                 preferences={notificationPreferences}
                 onSave={saveNotificationPreferences}
               />
+            )}
+
+            {activeSection === 'commissions' && currentBrokerId && (
+              <BrokerCommissionSettings brokerId={currentBrokerId} />
+            )}
+
+            {activeSection === 'exade' && (
+              <ExadeConfiguration />
             )}
           </div>
         </div>

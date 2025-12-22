@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
           .from('dossiers')
           .update({
             devis_selectionne_id: selectedDevis.id,
-            statut: 'devis_envoye'
+            statut_canon: 'devis_disponible'
           })
           .eq('id', dossierId)
 

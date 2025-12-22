@@ -1,16 +1,17 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ApporteurHeader from '../components/ApporteurHeader';
 import ApporteurStatsCards from '../components/ApporteurStatsCards';
 import ApporteurActivity from '../components/ApporteurActivity';
-import ApporteurRanking from '../components/ApporteurRanking';
+import { useTheme } from '@/lib/hooks/useTheme';
+import { useAuth } from '@/components/AuthProvider';
+import { api } from '@/services/api';
 import { ApporteursService } from '@/lib/services/apporteurs';
 
-// TODO: SUPABASE INTEGRATION
-// Interface pour les données utilisateur depuis Supabase
+// Interface pour les données utilisateur
 interface UserData {
   id: string;
   firstName: string;
@@ -19,90 +20,83 @@ interface UserData {
   role: string;
 }
 
-// Interface pour les statistiques depuis Supabase
+// Interface pour les statistiques
 interface UserStats {
   dossiersEnvoyes: number;
   economiesGenerees: number;
-  classement: number;
   totalApporteurs: number;
   progressionDossiers: number;
   progressionEconomies: number;
-  progressionClassement: string;
 }
+
+// Fonction pour obtenir le message de salutation en fonction de l'heure locale
+const getGreeting = (date: Date): string => {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) return 'Bonjour';
+  if (hour >= 12 && hour < 18) return 'Bon après-midi';
+  return 'Bonsoir';
+};
 
 export default function ApporteurDashboard() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [darkMode, setDarkMode] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // ✅ Utilisation du hook centralisé pour le dark mode
+  const { darkMode, isInitialized, toggleDarkMode } = useTheme();
+  
   // États pour les données utilisateur et statistiques
   const [userData, setUserData] = useState<UserData>({
-    id: '1',
-    firstName: 'Marie',
-    lastName: 'Dubois',
-    initials: 'MD',
-    role: 'Apporteur Premium'
+    id: '',
+    firstName: '',
+    lastName: '',
+    initials: '',
+    role: 'Apporteur'
   });
 
   const [userStats, setUserStats] = useState<UserStats>({
     dossiersEnvoyes: 0,
     economiesGenerees: 0,
-    classement: 0,
     totalApporteurs: 0,
     progressionDossiers: 0,
-    progressionEconomies: 0,
-    progressionClassement: ''
+    progressionEconomies: 0
   });
 
-  // Fonction pour récupérer les données utilisateur
+  // Fonction pour récupérer les données utilisateur connecté
   const fetchUserData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      console.log('🚀 fetchUserData - Début du chargement');
+      // Récupérer le profil apporteur de l'utilisateur connecté
+      const apporteur = await api.getCurrentApporteurProfile();
       
-      // Utiliser le premier apporteur comme utilisateur connecté pour la démo
-      const apporteursData = await ApporteursService.getAllApporteurs();
-      console.log('👥 fetchUserData - Apporteurs récupérés:', apporteursData?.length);
-      
-      if (apporteursData && apporteursData.length > 0) {
-        const apporteur = apporteursData[0];
-        console.log('👤 fetchUserData - Apporteur sélectionné:', apporteur.prenom, apporteur.nom);
-        
+      if (apporteur) {
         setUserData({
           id: apporteur.id,
           firstName: apporteur.prenom,
           lastName: apporteur.nom,
           initials: `${apporteur.prenom.charAt(0)}${apporteur.nom.charAt(0)}`,
-          role: 'Apporteur Premium'
+          role: 'Apporteur'
         });
         
         // Récupérer les statistiques
-        console.log('📊 fetchUserData - Récupération des stats pour:', apporteur.id);
         const stats = await ApporteursService.getApporteurStats(apporteur.id);
-        console.log('📈 fetchUserData - Stats récupérées:', stats);
         
         setUserStats({
           dossiersEnvoyes: stats.totalDossiers,
           economiesGenerees: stats.economiesGenerees,
-          classement: stats.classement,
-          totalApporteurs: stats.totalApporteurs || apporteursData.length,
+          totalApporteurs: stats.totalApporteurs || 0,
           progressionDossiers: stats.progressionDossiers,
-          progressionEconomies: stats.progressionEconomies,
-          progressionClassement: stats.progressionClassement
+          progressionEconomies: stats.progressionEconomies
         });
       } else {
-        console.warn('⚠️ fetchUserData - Aucun apporteur trouvé');
-        setError('Aucun apporteur trouvé');
+        setError('Profil apporteur non trouvé. Contactez votre administrateur.');
       }
     } catch (error) {
-      console.error('❌ fetchUserData - Erreur détaillée:', error);
-      console.error('❌ fetchUserData - Type d\'erreur:', typeof error);
-      console.error('❌ fetchUserData - Stack:', error instanceof Error ? error.stack : 'Pas de stack');
+      console.error('Erreur lors du chargement des données:', error);
       setError(`Erreur lors du chargement des données: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setLoading(false);
@@ -117,44 +111,20 @@ export default function ApporteurDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Initialisation unique du mode sombre et chargement des données
+  // ✅ Le dark mode est géré par le hook useTheme
+  // Chargement initial des données quand l'auth est terminée
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialized) {
-      const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-      setDarkMode(savedDarkMode);
-      
-      if (savedDarkMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      setIsInitialized(true);
+    if (isInitialized && !authLoading && user) {
       fetchUserData();
     }
-  }, [isInitialized]);
-
-  // Gestionnaire du mode sombre
-  const handleDarkModeToggle = (newDarkMode: boolean) => {
-    setDarkMode(newDarkMode);
-    
-    if (typeof window !== 'undefined') {
-      if (newDarkMode) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('darkMode', 'true');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('darkMode', 'false');
-      }
-    }
-  };
+  }, [isInitialized, authLoading, user]);
 
   // Gestionnaire pour le bouton Nouveau Dossier
   const handleNouveauDossier = () => {
     router.push('/nouveau-dossier');
   };
 
-  if (!isInitialized || loading) {
+  if (!isInitialized || authLoading || loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -187,7 +157,7 @@ export default function ApporteurDashboard() {
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
       <ApporteurHeader 
         darkMode={darkMode} 
-        setDarkMode={handleDarkModeToggle}
+        setDarkMode={toggleDarkMode}
         userData={userData}
       />
       
@@ -207,11 +177,11 @@ export default function ApporteurDashboard() {
                 </p>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-light text-gray-900 dark:text-white mb-4 text-center lg:text-left">
-                Bonjour, <span className="font-medium text-[#335FAD] dark:text-[#335FAD]">{userData.firstName}</span>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-light text-gray-900 dark:text-white mb-4 text-center lg:text-left" suppressHydrationWarning>
+                {getGreeting(currentTime)}, <span className="font-medium text-[#335FAD] dark:text-[#335FAD]">{userData.firstName}</span>
               </h1>
               <p className="text-lg text-gray-600 dark:text-gray-400 text-center lg:text-left">
-                Bienvenue sur votre tableau de bord
+                Voici votre tableau de bord
               </p>
             </div>
 
@@ -264,15 +234,10 @@ export default function ApporteurDashboard() {
         <ApporteurStatsCards userStats={userStats} />
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-8">
+        <div className="grid grid-cols-1 gap-8 mt-8">
           {/* Activité Récente */}
-          <div className="xl:col-span-2">
-            <ApporteurActivity userId={userData.id} />
-          </div>
-          
-          {/* Classement */}
           <div>
-            <ApporteurRanking userData={userData} userStats={userStats} />
+            <ApporteurActivity userId={userData.id} />
           </div>
         </div>
       </main>

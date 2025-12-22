@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ActivitiesService } from '@/lib/services/activities';
+import { ActivityReadStatusCache } from '@/lib/services/activity-read-status-cache';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // Interface pour les activités depuis Supabase
 interface Activity {
@@ -42,8 +44,20 @@ export default function ApporteurActivity({ userId }: ApporteurActivityProps) {
     router.push('/activites');
   };
 
+  // Fonction pour marquer une activité comme lue (optimiste)
+  const markActivityAsRead = (activityId: string) => {
+    // Mise à jour optimiste immédiate
+    setActivities(prev => prev.map(activity => 
+      activity.id === activityId ? { ...activity, is_read: true } : activity
+    ));
+    
+    // Ajouter au cache pour synchronisation en arrière-plan
+    ActivityReadStatusCache.markAsReadOptimistic(activityId);
+  };
+
   // Navigation vers le détail d'un dossier
   const handleActivityClick = (activity: Activity) => {
+    // Naviguer vers le dossier
     if (activity.dossier_id) {
       router.push(`/dossier/${activity.dossier_id}`);
     }
@@ -58,8 +72,19 @@ export default function ApporteurActivity({ userId }: ApporteurActivityProps) {
       const data = await ActivitiesService.getActivitiesByUserId(userId);
       console.log('📊 fetchActivities - Données récupérées:', data?.length);
       
-      // Formater les données pour l'affichage
-      const formattedActivities = data?.map(activity => formatActivityForDisplay(activity)) || [];
+      // Formater les données et fusionner avec le cache local
+      const formattedActivities = data?.map(activity => {
+        const formatted = formatActivityForDisplay(activity);
+        // Priorité au cache local
+        const cachedStatus = ActivityReadStatusCache.getReadStatus(activity.id);
+        const finalIsRead = cachedStatus !== null ? cachedStatus : activity.is_read;
+        
+        return {
+          ...formatted,
+          is_read: finalIsRead
+        };
+      }).slice(0, 6) || [];
+      
       setActivities(formattedActivities);
     } catch (error) {
       console.error('❌ Erreur lors du chargement des activités:', error);
@@ -84,34 +109,54 @@ export default function ApporteurActivity({ userId }: ApporteurActivityProps) {
     let status = '';
     
     switch (activity.activity_type) {
-      case 'dossier_finalise':
-        type = 'success';
-        icon = 'ri-checkbox-circle-line';
-        amount = activityData.economie_generee ? `Économie : ${Number(activityData.economie_generee).toLocaleString()}€` : '';
+      case 'dossier_created':
+        type = 'info';
+        icon = 'ri-file-add-line';
+        status = 'Nouveau dossier';
         break;
+        
+      case 'dossier_attribue':
+        type = 'info';
+        icon = 'ri-user-received-line';
+        status = 'Attribué par l\'admin';
+        break;
+        
+      case 'devis_envoye':
+        type = 'info';
+        icon = 'ri-send-plane-line';
+        status = 'Devis envoyé au client';
+        break;
+        
       case 'devis_accepte':
         type = 'success';
         icon = 'ri-check-double-line';
         amount = activityData.economie_generee ? `Économie : ${Number(activityData.economie_generee).toLocaleString()}€` : '';
+        status = 'Devis accepté';
         break;
-      case 'devis_envoye':
-        type = 'info';
-        icon = 'ri-send-plane-line';
-        status = 'En cours de traitement';
+        
+      case 'dossier_finalise':
+        type = 'success';
+        icon = 'ri-checkbox-circle-line';
+        amount = activityData.economie_generee ? `Économie : ${Number(activityData.economie_generee).toLocaleString()}€` : '';
+        status = 'Dossier finalisé';
         break;
-      case 'dossier_created':
-        type = 'info';
-        icon = 'ri-file-add-line';
-        status = 'Nouveau';
+        
+      case 'dossier_supprime':
+        type = 'error';
+        icon = 'ri-delete-bin-line';
+        status = 'Supprimé par l\'admin';
         break;
-      case 'dossier_updated':
+        
+      case 'classement_updated':
         type = 'warning';
-        icon = 'ri-edit-line';
-        status = 'Mis à jour';
+        icon = 'ri-trophy-line';
+        status = 'Classement mis à jour';
         break;
+        
       default:
         type = 'info';
         icon = 'ri-file-line';
+        status = 'Activité';
     }
 
     return {
@@ -121,7 +166,7 @@ export default function ApporteurActivity({ userId }: ApporteurActivityProps) {
       amount,
       status,
       time: formatTimeAgo(activity.created_at),
-      client_name: activityData.client_prenom && activityData.client_nom 
+      client_name: activityData.client_nom && activityData.client_prenom 
         ? `${activityData.client_prenom} ${activityData.client_nom}`
         : undefined,
       dossier_number: activityData.numero_dossier
@@ -216,16 +261,24 @@ export default function ApporteurActivity({ userId }: ApporteurActivityProps) {
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#335FAD] dark:border-[#335FAD]"></div>
         </div>
+      ) : activities.length === 0 ? (
+        <EmptyState
+          icon="ri-time-line"
+          title="Pas encore d'activité"
+          description="Votre historique est vide. Les actions sur vos dossiers apparaîtront ici."
+          variant="compact"
+        />
       ) : (
         <div className="space-y-3 sm:space-y-4">
           {activities.map((activity) => {
-            const styles = getActivityStyles(activity.type);
+            const styles = getActivityStyles(activity.type || 'info');
             
             return (
               <div key={activity.id} className="group">
                 <div 
                   className={`flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors duration-200 border border-gray-100 dark:border-gray-700 ${activity.dossier_number ? 'cursor-pointer' : ''}`}
                   onClick={() => handleActivityClick(activity)}
+                  onMouseEnter={() => !activity.is_read && markActivityAsRead(activity.id)}
                 >
                   {/* Icon */}
                   <div className={`w-10 h-10 sm:w-12 sm:h-12 ${styles.bg} ${styles.border} border rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0`}>

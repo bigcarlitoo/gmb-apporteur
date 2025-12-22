@@ -13,28 +13,36 @@ import {
 // SUPPRESSION DU HEADER ADMIN - Gardé seulement le header de base
 import DossierTypeSelection from '../../../components/DossierTypeSelection';
 import ClientInfoForm from '../../../components/ClientInfoForm';
+import { formatCurrency } from '@/lib/utils/formatters';
 import DocumentUpload from '../../../components/DocumentUpload';
 import DossierProgress from '../../../components/DossierProgress';
+import { useAuth } from '@/components/AuthProvider';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
+import { ClientLockService, ClientLockResult } from '@/lib/services/client-lock';
+import { ApporteursService } from '@/lib/services/apporteurs';
 
 // Types pour le dossier admin
 export type DossierType = 'seul' | 'couple';
 
 export interface ClientInfo {
+  civilite: string;
   nom: string;
   prenom: string;
+  nom_naissance: string;
   dateNaissance: string;
-  profession: string;
+  categorie_professionnelle: number;
   revenus: string;
   fumeur: boolean;
   email: string;
   telephone: string;
   adresse: string;
   conjoint?: {
+    civilite: string;
     nom: string;
     prenom: string;
+    nom_naissance: string;
     dateNaissance: string;
-    profession: string;
-    revenus: string;
+    categorie_professionnelle: number;
     fumeur: boolean;
   };
 }
@@ -99,6 +107,12 @@ function AdminNouveauDossierContent() {
   const [darkMode, setDarkMode] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   
+  // États pour la vérification du client lock (anti-contournement)
+  const [showClientLockModal, setShowClientLockModal] = useState(false);
+  const [clientLockResult, setClientLockResult] = useState<ClientLockResult | null>(null);
+  const [isCheckingClientLock, setIsCheckingClientLock] = useState(false);
+  const [pendingClientInfo, setPendingClientInfo] = useState<ClientInfo | null>(null);
+  
   const [dossierData, setDossierData] = useState<AdminDossierData>({
     type: 'seul',
     clientInfo: null,
@@ -111,103 +125,54 @@ function AdminNouveauDossierContent() {
     devisGeneres: [],
     devisSelectionne: undefined
   });
+  
+  const { user } = useAuth();
+  const { currentBrokerId } = useBrokerContext();
 
-  // Données admin simulées
-  const adminData = useMemo<AdminData>(() => ({
-    id: 'admin1',
-    firstName: 'Alexandre',
-    lastName: 'Martin',
-    initials: 'AM',
-    role: 'Administrateur'
-  }), []);
+  // ✅ Données admin depuis l'utilisateur connecté
+  const adminData = useMemo<AdminData>(() => {
+    const firstName = user?.user_metadata?.prenom || 'Admin';
+    const lastName = user?.user_metadata?.nom || '';
+    return {
+      id: user?.id || '',
+      firstName,
+      lastName,
+      initials: `${firstName.charAt(0)}${lastName.charAt(0) || ''}`.toUpperCase(),
+      role: 'Administrateur'
+    };
+  }, [user]);
 
-  // Liste des apporteurs disponibles (TODO: récupérer depuis Supabase)
-  const apporteurs = useMemo(() => [
-    { id: 'ap1', nom: 'Dubois', prenom: 'Marie', email: 'marie.dubois@email.com' },
-    { id: 'ap2', nom: 'Leclerc', prenom: 'Jean', email: 'jean.leclerc@email.com' },
-    { id: 'ap3', nom: 'Martin', prenom: 'Paul', email: 'paul.martin@email.com' },
-    { id: 'ap4', nom: 'Bernard', prenom: 'Sophie', email: 'sophie.bernard@email.com' }
-  ], []);
+  // Liste des apporteurs disponibles depuis Supabase
+  const [apporteurs, setApporteurs] = useState<{ id: string; nom: string; prenom: string; email: string }[]>([]);
+  const [isLoadingApporteurs, setIsLoadingApporteurs] = useState(true);
 
-  // MOCK DATA ENRICHI - Devis simulés pour tester le workflow complet
-  // TODO: INTÉGRATION API EXADE - Remplacer par l'appel réel à l'API de génération de devis
-  const mockDevis = useMemo<DevisAPI[]>(() => [
-    {
-      id: 'devis1',
-      compagnie: 'Generali',
-      produit: 'ASSUREA PRET 7301 CI',
-      cout_mensuel: 95.50,
-      cout_total: 22920,
-      economie_estimee: 44280,
-      formalites_medicales: ['Questionnaire de santé simplifié', 'Examen médical si capital > 300k€'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT'],
-      exclusions: ['Sports extrêmes', 'Guerre', 'Suicide 1ère année'],
-      avantages: ['Remboursement anticipé sans frais', 'Garantie chômage optionnelle', 'Téléconsultation médicale gratuite'],
-      taux_assurance: 0.33,
-      frais_adhesion: 30,
-      frais_frac: 20
-    },
-    {
-      id: 'devis2',
-      compagnie: 'Swisslife',
-      produit: 'EMPRUNTEUR SECURITE PLUS',
-      cout_mensuel: 102.30,
-      cout_total: 24552,
-      economie_estimee: 42648,
-      formalites_medicales: ['Questionnaire de santé détaillé', 'Téléconsultation médicale obligatoire'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT', 'IPP 33%'],
-      exclusions: ['Maladies préexistantes non déclarées', 'Sports à risque', 'Alcoolisme chronique'],
-      avantages: ['Franchise ITT réduite à 30 jours', 'Prise en charge psychologique', 'Second avis médical gratuit'],
-      taux_assurance: 0.39,
-      frais_adhesion: 45,
-      frais_frac: 12
-    },
-    {
-      id: 'devis3',
-      compagnie: 'Allianz',
-      produit: 'ALLIANZ EMPRUNTEUR OPTIMAL',
-      cout_mensuel: 89.75,
-      cout_total: 21540,
-      economie_estimee: 45660,
-      formalites_medicales: ['Questionnaire de santé en ligne', 'Téléconsultation médicale gratuite'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT', 'Invalidité permanente'],
-      exclusions: ['Suicide 1ère année', 'Alcoolisme', 'Usage de stupéfiants'],
-      avantages: ['Souscription 100% digitale', 'Tarif préférentiel non-fumeur', 'Application mobile dédiée'],
-      taux_assurance: 0.31,
-      frais_adhesion: 25,
-      frais_frac: 8
-    },
-    {
-      id: 'devis4',
-      compagnie: 'Axa',
-      produit: 'AXA EMPRUNTEUR SERENITE',
-      cout_mensuel: 98.20,
-      cout_total: 23568,
-      economie_estimee: 43632,
-      formalites_medicales: ['Questionnaire médical standard', 'Examen médical selon montant'],
-      couverture: ['Décès', 'PTIA', 'ITT 100%', 'IPT 66%'],
-      exclusions: ['Pratique de sports aériens', 'Conflits armés', 'Catastrophes naturelles'],
-      avantages: ['Garantie dépendance incluse', 'Assistance juridique', 'Service de conciergerie'],
-      taux_assurance: 0.35,
-      frais_adhesion: 35,
-      frais_frac: 15
-    },
-    {
-      id: 'devis5',
-      compagnie: 'MAIF',
-      produit: 'MAIF PRET HABITATION+',
-      cout_mensuel: 87.90,
-      cout_total: 21096,
-      economie_estimee: 46104,
-      formalites_medicales: ['Déclaration de santé simplifiée', 'Examen médical si nécessaire'],
-      couverture: ['Décès', 'PTIA', 'ITT', 'IPT', 'Maladies graves'],
-      exclusions: ['Sports extrêmes', 'Tentative de suicide', 'Faute intentionnelle'],
-      avantages: ['Tarification solidaire', 'Accompagnement personnalisé', 'Garantie fidélité'],
-      taux_assurance: 0.30,
-      frais_adhesion: 20,
-      frais_frac: 10
-    }
-  ], []);
+  // Charger les apporteurs depuis Supabase
+  useEffect(() => {
+    const loadApporteurs = async () => {
+      if (!currentBrokerId) return;
+      
+      try {
+        setIsLoadingApporteurs(true);
+        const data = await ApporteursService.getAllApporteurs(currentBrokerId);
+        setApporteurs(data.map((ap: any) => ({
+          id: ap.id,
+          nom: ap.nom || '',
+          prenom: ap.prenom || '',
+          email: ap.email || ''
+        })));
+      } catch (error) {
+        console.error('Erreur chargement apporteurs:', error);
+        setApporteurs([]);
+      } finally {
+        setIsLoadingApporteurs(false);
+      }
+    };
+
+    loadApporteurs();
+  }, [currentBrokerId]);
+
+  // État pour l'erreur de génération de devis
+  const [devisError, setDevisError] = useState<string | null>(null);
 
   // Initialisation du mode sombre
   useEffect(() => {
@@ -276,13 +241,64 @@ function AdminNouveauDossierContent() {
     nextStep();
   };
 
-  // Mise à jour des informations client
-  const handleClientInfoUpdate = (clientInfo: ClientInfo) => {
+  // Mise à jour des informations client avec vérification anti-contournement
+  const handleClientInfoUpdate = async (clientInfo: ClientInfo) => {
+    // Vérifier si le client est déjà verrouillé (anti-contournement)
+    if (currentBrokerId && clientInfo.nom && clientInfo.prenom && clientInfo.dateNaissance) {
+      setIsCheckingClientLock(true);
+      setPendingClientInfo(clientInfo);
+      
+      try {
+        const lockResult = await ClientLockService.checkClientLock(
+          currentBrokerId,
+          clientInfo.nom,
+          clientInfo.prenom,
+          clientInfo.dateNaissance
+        );
+        
+        if (lockResult.is_locked) {
+          // Client déjà verrouillé - afficher la modale
+          setClientLockResult(lockResult);
+          setShowClientLockModal(true);
+          setIsCheckingClientLock(false);
+          return; // Ne pas continuer vers l'étape suivante
+        }
+      } catch (error) {
+        console.error('Erreur vérification client lock:', error);
+        // En cas d'erreur, on continue (fail-open pour UX)
+      } finally {
+        setIsCheckingClientLock(false);
+      }
+    }
+    
+    // Pas de lock ou erreur - continuer normalement
     setDossierData(prev => ({
       ...prev,
       clientInfo
     }));
     nextStep();
+  };
+
+  // Confirmer le passage malgré le client lock (pour le même apporteur)
+  const handleConfirmClientLockContinue = () => {
+    if (pendingClientInfo) {
+      setDossierData(prev => ({
+        ...prev,
+        clientInfo: pendingClientInfo
+      }));
+      setShowClientLockModal(false);
+      setClientLockResult(null);
+      setPendingClientInfo(null);
+      nextStep();
+    }
+  };
+
+  // Rediriger vers le dossier existant
+  const handleRedirectToExistingDossier = () => {
+    if (clientLockResult?.dossier_id) {
+      router.push(`/admin/dossiers/${clientLockResult.dossier_id}`);
+    }
+    setShowClientLockModal(false);
   };
 
   // Mise à jour des documents SANS passage automatique à l'étape suivante
@@ -326,12 +342,13 @@ function AdminNouveauDossierContent() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            broker_id: currentBrokerId,
             client: {
               nom: data.clientInfo?.nom,
               prenom: data.clientInfo?.prenom,
               dateNaissance: data.clientInfo?.dateNaissance,
               fumeur: data.clientInfo?.fumeur,
-              profession: data.clientInfo?.profession,
+              categorie_professionnelle: data.clientInfo?.categorie_professionnelle,
               revenus: parseFloat(data.clientInfo?.revenus || '0')
             },
             pret: {
@@ -344,8 +361,7 @@ function AdminNouveauDossierContent() {
               prenom: data.clientInfo?.conjoint?.prenom,
               dateNaissance: data.clientInfo?.conjoint?.dateNaissance,
               fumeur: data.clientInfo?.conjoint?.fumeur,
-              profession: data.clientInfo?.conjoint?.profession,
-              revenus: parseFloat(data.clientInfo?.conjoint?.revenus || '0')
+              categorie_professionnelle: data.clientInfo?.conjoint?.categorie_professionnelle
             } : null
           })
         });
@@ -379,25 +395,18 @@ function AdminNouveauDossierContent() {
           console.log('📋 Nombre de devis API:', devisFromAPI.length);
           return;
         }
-      } catch (apiError) {
-        console.warn('⚠️ API EXADE non disponible, utilisation des données mock:', apiError);
+      } catch (apiError: any) {
+        console.error('❌ Erreur API EXADE:', apiError);
+        const errorMessage = apiError?.message || 'Erreur inconnue lors de la génération des devis';
+        setDevisError(errorMessage);
+        alert(`Erreur lors de la génération des devis : ${errorMessage}`);
       }
 
-      // Fallback vers les données mock si l'API échoue
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setDossierData(prev => ({
-        ...prev,
-        devisGeneres: mockDevis
-      }));
-
-      console.log('✅ Devis générés avec succès (simulation)');
-      console.log('📋 Nombre de devis:', mockDevis.length);
-      console.log('💰 Meilleure économie:', Math.max(...mockDevis.map(d => d.economie_estimee || 0)), '€');
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erreur génération devis:', error);
-      alert('Erreur lors de la génération des devis');
+      const errorMessage = error?.message || 'Erreur lors de la génération des devis';
+      setDevisError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsGeneratingDevis(false);
     }
@@ -410,21 +419,31 @@ function AdminNouveauDossierContent() {
     if (!currentData.clientInfo) return false;
     
     const clientInfo = currentData.clientInfo;
-    const requiredClientFields = ['nom', 'prenom', 'dateNaissance', 'profession', 'email', 'telephone'];
+    const requiredClientFields = ['civilite', 'nom', 'prenom', 'nom_naissance', 'dateNaissance', 'email', 'telephone'];
     
     for (const field of requiredClientFields) {
       if (!clientInfo[field as keyof ClientInfo] || String(clientInfo[field as keyof ClientInfo]).trim() === '') {
         return false;
       }
     }
+    
+    // Vérifier categorie_professionnelle
+    if (!clientInfo.categorie_professionnelle || clientInfo.categorie_professionnelle === 0) {
+      return false;
+    }
 
     if (currentData.type === 'couple' && clientInfo.conjoint) {
-      const requiredConjointFields = ['nom', 'prenom', 'dateNaissance', 'profession'];
+      const requiredConjointFields = ['civilite', 'nom', 'prenom', 'nom_naissance', 'dateNaissance'];
       for (const field of requiredConjointFields) {
         if (!clientInfo.conjoint[field as keyof typeof clientInfo.conjoint] || 
             String(clientInfo.conjoint[field as keyof typeof clientInfo.conjoint]).trim() === '') {
           return false;
         }
+      }
+      
+      // Vérifier categorie_professionnelle du conjoint
+      if (!clientInfo.conjoint.categorie_professionnelle || clientInfo.conjoint.categorie_professionnelle === 0) {
+        return false;
       }
     }
 
@@ -607,13 +626,7 @@ function AdminNouveauDossierContent() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2
-    }).format(amount);
-  };
+  // ✅ Utilisation du formatter centralisé depuis lib/utils/formatters.ts
 
   if (!isInitialized) {
     return (
@@ -828,19 +841,25 @@ function AdminNouveauDossierContent() {
                         <div>
                           <span className="text-gray-500 dark:text-gray-400">Meilleur tarif :</span>
                           <span className="ml-2 font-medium text-green-600 dark:text-green-400">
-                            {formatCurrency(Math.min(...mockDevis.map(d => d.cout_total)))}
+                            {dossierData.devisGeneres.length > 0 
+                              ? formatCurrency(Math.min(...dossierData.devisGeneres.map(d => d.cout_total)))
+                              : '-'}
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-500 dark:text-gray-400">Économie max :</span>
                           <span className="ml-2 font-medium text-green-600 dark:text-green-400">
-                            {formatCurrency(Math.max(...mockDevis.map(d => d.economie_estimee || 0)))}
+                            {dossierData.devisGeneres.length > 0 
+                              ? formatCurrency(Math.max(...dossierData.devisGeneres.map(d => d.economie_estimee || 0)))
+                              : '-'}
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-500 dark:text-gray-400">Taux moyen :</span>
                           <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                            {(mockDevis.reduce((acc, d) => acc + d.taux_assurance, 0) / mockDevis.length).toFixed(2)}%
+                            {dossierData.devisGeneres.length > 0 
+                              ? (dossierData.devisGeneres.reduce((acc, d) => acc + (d.taux_assurance || 0), 0) / dossierData.devisGeneres.length).toFixed(2)
+                              : '-'}%
                           </span>
                         </div>
                       </div>
@@ -1138,6 +1157,89 @@ function AdminNouveauDossierContent() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale Client Lock - Anti-contournement */}
+      {showClientLockModal && clientLockResult && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowClientLockModal(false)}></div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-lg w-full p-6 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mr-3">
+                    <i className="ri-alert-line text-amber-600 dark:text-amber-400 text-xl"></i>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Client déjà référencé
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowClientLockModal(false)}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                >
+                  <i className="ri-close-line text-xl"></i>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    Ce client est déjà associé à un dossier existant, géré par{' '}
+                    <strong>{clientLockResult.apporteur_prenom} {clientLockResult.apporteur_nom}</strong>.
+                  </p>
+                  {clientLockResult.locked_at && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                      Dossier créé le {new Date(clientLockResult.locked_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="mb-2">Vous pouvez :</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Consulter et modifier le dossier existant</li>
+                    <li>Ou créer quand même un nouveau dossier (déconseillé)</li>
+                  </ul>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+                  <button
+                    onClick={() => setShowClientLockModal(false)}
+                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleConfirmClientLockContinue}
+                    className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                  >
+                    Créer quand même
+                  </button>
+                  {clientLockResult.dossier_id && (
+                    <button
+                      onClick={handleRedirectToExistingDossier}
+                      className="bg-[#335FAD] hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center"
+                    >
+                      <i className="ri-folder-open-line mr-2"></i>
+                      Voir le dossier existant
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Indicateur de vérification client lock */}
+      {isCheckingClientLock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center space-x-4">
+            <i className="ri-loader-4-line text-2xl text-[#335FAD] animate-spin"></i>
+            <span className="text-gray-700 dark:text-gray-300">Vérification du client...</span>
           </div>
         </div>
       )}

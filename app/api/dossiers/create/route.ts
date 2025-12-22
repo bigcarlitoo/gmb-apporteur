@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { AnalyticsService } from '@/lib/services/analytics'
 
 export const runtime = 'nodejs'
 
@@ -113,6 +114,40 @@ export async function POST(request: NextRequest) {
     
     console.log('[API] Validation OK')
 
+    // Récupérer le broker_id depuis le FormData si fourni
+    const brokerId = formData.get('broker_id') as string | null
+
+    // Vérifier le client lock avant création (anti-contournement)
+    if (brokerId && dossierData.clientInfo?.nom && dossierData.clientInfo?.prenom && dossierData.clientInfo?.dateNaissance) {
+      try {
+        console.log('[API] Vérification du client lock...')
+        const { data: lockResult, error: lockError } = await supabaseClient.rpc('check_client_lock', {
+          p_broker_id: brokerId,
+          p_nom: dossierData.clientInfo.nom,
+          p_prenom: dossierData.clientInfo.prenom,
+          p_date_naissance: dossierData.clientInfo.dateNaissance
+        })
+
+        if (!lockError && lockResult) {
+          const result = Array.isArray(lockResult) ? lockResult[0] : lockResult
+          if (result?.is_locked && result?.dossier_id) {
+            console.log('[API] Client déjà locké, dossier existant:', result.dossier_id)
+            return NextResponse.json({
+              error: 'client_locked',
+              message: 'Ce client est déjà associé à un dossier existant.',
+              existing_dossier_id: result.dossier_id,
+              apporteur_nom: result.apporteur_nom,
+              apporteur_prenom: result.apporteur_prenom,
+              locked_at: result.locked_at
+            }, { status: 409 }) // 409 Conflict
+          }
+        }
+      } catch (lockCheckError) {
+        console.warn('[API] Erreur vérification client lock (non bloquant):', lockCheckError)
+        // En cas d'erreur, on continue (fail-open pour UX)
+      }
+    }
+
     // TODO: Gérer les brouillons si nécessaire
     // if (dossierData.isDraft && dossierData.draftId) {
     //   await supabaseClient
@@ -190,25 +225,48 @@ export async function POST(request: NextRequest) {
     const dossierId = createdDossier.id
     console.log('[API] Dossier créé avec ID:', dossierId)
     
-    // Créer les informations client
+    // Créer les informations client avec tous les champs codes Exade
     console.log('[API] Création des informations client...')
     const { error: clientError } = await supabaseClient
       .from('client_infos')
       .insert({
         dossier_id: dossierId,
+        // Identité principal
+        client_civilite: dossierData.clientInfo?.civilite || null,
         client_nom: dossierData.clientInfo?.nom,
         client_prenom: dossierData.clientInfo?.prenom,
+        client_nom_naissance: dossierData.clientInfo?.nom_naissance || dossierData.clientInfo?.nom || null,
         client_date_naissance: dossierData.clientInfo?.dateNaissance,
-        client_profession: dossierData.clientInfo?.profession || null,
-        client_fumeur: dossierData.clientInfo?.fumeur ?? false,
+        client_lieu_naissance: dossierData.clientInfo?.lieu_naissance || null,
+        // Adresse principal
+        client_adresse: dossierData.clientInfo?.adresse || null,
+        client_complement_adresse: dossierData.clientInfo?.complement_adresse || null,
+        client_code_postal: dossierData.clientInfo?.code_postal || null,
+        client_ville: dossierData.clientInfo?.ville || null,
+        // Contact principal
         client_email: dossierData.clientInfo?.email,
         client_telephone: dossierData.clientInfo?.telephone || null,
-        client_adresse: dossierData.clientInfo?.adresse || null,
+        // Professionnel principal - codes Exade
+        client_profession: dossierData.clientInfo?.profession || null,
+        categorie_professionnelle: dossierData.clientInfo?.categorie_professionnelle || null,
+        // Santé/Risques principal - codes Exade
+        client_fumeur: dossierData.clientInfo?.fumeur ?? false,
+        client_deplacement_pro: dossierData.clientInfo?.deplacement_pro ?? 1,
+        client_travaux_manuels: dossierData.clientInfo?.travaux_manuels ?? 0,
+        // Conjoint - Identité
+        conjoint_civilite: dossierData.clientInfo?.conjoint?.civilite || null,
         conjoint_nom: dossierData.clientInfo?.conjoint?.nom || null,
         conjoint_prenom: dossierData.clientInfo?.conjoint?.prenom || null,
+        conjoint_nom_naissance: dossierData.clientInfo?.conjoint?.nom_naissance || dossierData.clientInfo?.conjoint?.nom || null,
         conjoint_date_naissance: dossierData.clientInfo?.conjoint?.dateNaissance || null,
+        conjoint_lieu_naissance: dossierData.clientInfo?.conjoint?.lieu_naissance || null,
+        // Conjoint - Professionnel - codes Exade
         conjoint_profession: dossierData.clientInfo?.conjoint?.profession || null,
-        conjoint_fumeur: dossierData.clientInfo?.conjoint?.fumeur ?? null
+        conjoint_categorie_professionnelle: dossierData.clientInfo?.conjoint?.categorie_professionnelle || null,
+        // Conjoint - Santé/Risques - codes Exade
+        conjoint_fumeur: dossierData.clientInfo?.conjoint?.fumeur ?? null,
+        conjoint_deplacement_pro: dossierData.clientInfo?.conjoint?.deplacement_pro ?? null,
+        conjoint_travaux_manuels: dossierData.clientInfo?.conjoint?.travaux_manuels ?? null
       })
 
     if (clientError) {
@@ -335,31 +393,40 @@ export async function POST(request: NextRequest) {
       // Pour l'instant, on peut juste marquer qu'un devis est sélectionné
     }
 
-    // Créer une activité
-    try {
-      console.log('[API] Création de l\'activité...')
-      const targetUserId = dossierData.createdByAdmin ? (dossierData as any).apporteurId || user?.id : user?.id
-      
-      await supabaseClient
-        .from('activities')
-        .insert({
-          user_id: targetUserId,
-          dossier_id: dossierId,
-          activity_type: 'dossier_created',
-          activity_title: dossierData.createdByAdmin ? 'Dossier assigné' : 'Nouveau dossier créé',
-          activity_description: dossierData.createdByAdmin 
-            ? `Un nouveau dossier ${numeroDossier} vous a été assigné par l'administrateur.`
-            : `Vous avez créé un nouveau dossier ${numeroDossier}.`,
-          activity_data: {
-            dossier_numero: numeroDossier,
-            dossier_type: dossierData.type,
-            created_by_admin: dossierData.createdByAdmin || false,
-            action: 'dossier_created'
-          }
-        })
-      console.log('[API] Activité créée avec succès')
-    } catch (error) {
-      console.warn('[API] Erreur non critique avec activité:', error)
+    // Note: Les activités sont maintenant créées automatiquement par le trigger trigger_dossier_activity
+    // Le trigger inclut désormais le broker_id et gère les deux cas (création apporteur ou admin)
+    // On garde ce bloc uniquement pour le cas spécial "dossier_attribue" quand un admin crée pour un apporteur
+    if (dossierData.createdByAdmin && (dossierData as any).apporteurId) {
+      try {
+        console.log('[API] Création activité dossier_attribue pour apporteur...')
+        const targetApporteurId = (dossierData as any).apporteurId
+        const clientNom = dossierData.clientInfo?.prenom && dossierData.clientInfo?.nom 
+          ? `${dossierData.clientInfo.prenom} ${dossierData.clientInfo.nom}` 
+          : null
+        
+        await supabaseClient
+          .from('activities')
+          .insert({
+            user_id: targetApporteurId,
+            dossier_id: dossierId,
+            broker_id: createdDossier.broker_id,
+            activity_type: 'dossier_attribue',
+            activity_title: 'Nouveau dossier attribué',
+            activity_description: clientNom 
+              ? `Un nouveau dossier pour ${clientNom} vous a été attribué par l'administrateur.`
+              : `Un nouveau dossier ${numeroDossier} vous a été attribué par l'administrateur.`,
+            activity_data: {
+              dossier_numero: numeroDossier,
+              dossier_type: dossierData.type,
+              client_nom: clientNom,
+              created_by_admin: true,
+              action: 'dossier_attribue'
+            }
+          })
+        console.log('[API] Activité dossier_attribue créée avec succès')
+      } catch (error) {
+        console.warn('[API] Erreur non critique avec activité dossier_attribue:', error)
+      }
     }
 
     // Créer une notification
@@ -379,6 +446,18 @@ export async function POST(request: NextRequest) {
       console.log('[API] Notification créée avec succès')
     } catch (error) {
       console.warn('[API] Erreur non critique avec notification:', error)
+    }
+
+    // Tracking analytics
+    try {
+      await AnalyticsService.trackDossierCreated(
+        dossierId,
+        createdDossier.broker_id || undefined,
+        apporteurId || undefined,
+        dossierData.createdByAdmin ? 'admin' : 'apporteur'
+      );
+    } catch (analyticsError) {
+      console.warn('[API] Erreur non critique analytics:', analyticsError);
     }
 
     return NextResponse.json({

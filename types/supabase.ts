@@ -48,15 +48,49 @@ export type Database = {
           is_read?: boolean | null
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "activities_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          broker_id: string | null
+          created_at: string
+          devis_id: string | null
+          dossier_id: string | null
+          duration_ms: number | null
+          event_category: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          user_id: string | null
+          user_type: string | null
+        }
+        Insert: {
+          broker_id?: string | null
+          created_at?: string
+          devis_id?: string | null
+          dossier_id?: string | null
+          duration_ms?: number | null
+          event_category: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          user_id?: string | null
+          user_type?: string | null
+        }
+        Update: {
+          broker_id?: string | null
+          created_at?: string
+          devis_id?: string | null
+          dossier_id?: string | null
+          duration_ms?: number | null
+          event_category?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          user_id?: string | null
+          user_type?: string | null
+        }
+        Relationships: []
       }
       apporteur_profiles: {
         Row: {
@@ -64,10 +98,10 @@ export type Database = {
           created_at: string | null
           email: string
           id: string
+          last_login_at: string | null
           nom: string
           prenom: string
-          siret: string | null
-          statut: string | null
+          statut: Database["public"]["Enums"]["apporteur_statut"]
           telephone: string | null
           updated_at: string | null
           user_id: string | null
@@ -77,10 +111,10 @@ export type Database = {
           created_at?: string | null
           email: string
           id?: string
+          last_login_at?: string | null
           nom: string
           prenom: string
-          siret?: string | null
-          statut?: string | null
+          statut?: Database["public"]["Enums"]["apporteur_statut"]
           telephone?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -90,415 +124,709 @@ export type Database = {
           created_at?: string | null
           email?: string
           id?: string
+          last_login_at?: string | null
           nom?: string
           prenom?: string
-          siret?: string | null
-          statut?: string | null
+          statut?: Database["public"]["Enums"]["apporteur_statut"]
           telephone?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
       }
-      client_infos: {
+      broker_apporteurs: {
         Row: {
-          client_adresse: string | null
-          client_date_naissance: string
-          client_email: string
-          client_fumeur: boolean | null
-          client_nom: string
-          client_prenom: string
-          client_profession: string | null
-          client_telephone: string | null
-          conjoint_date_naissance: string | null
-          conjoint_email: string | null
-          conjoint_fumeur: boolean | null
-          conjoint_nom: string | null
-          conjoint_prenom: string | null
-          conjoint_profession: string | null
-          conjoint_telephone: string | null
-          created_at: string | null
-          dossier_id: string | null
+          apporteur_profile_id: string
+          broker_id: string
+          created_at: string
+          custom_exade_share_pct: number | null
+          custom_fixed_amount: number | null
+          custom_share_pct: number | null
+          default_commission_rule_id: string | null
           id: string
-          updated_at: string | null
+          status: Database["public"]["Enums"]["broker_apporteur_status"]
+          updated_at: string
         }
         Insert: {
-          client_adresse?: string | null
-          client_date_naissance: string
-          client_email: string
-          client_fumeur?: boolean | null
-          client_nom: string
-          client_prenom: string
-          client_profession?: string | null
-          client_telephone?: string | null
-          conjoint_date_naissance?: string | null
-          conjoint_email?: string | null
-          conjoint_fumeur?: boolean | null
-          conjoint_nom?: string | null
-          conjoint_prenom?: string | null
-          conjoint_profession?: string | null
-          conjoint_telephone?: string | null
-          created_at?: string | null
-          dossier_id?: string | null
+          apporteur_profile_id: string
+          broker_id: string
+          created_at?: string
+          custom_exade_share_pct?: number | null
+          custom_fixed_amount?: number | null
+          custom_share_pct?: number | null
+          default_commission_rule_id?: string | null
           id?: string
-          updated_at?: string | null
+          status?: Database["public"]["Enums"]["broker_apporteur_status"]
+          updated_at?: string
         }
         Update: {
-          client_adresse?: string | null
-          client_date_naissance?: string
-          client_email?: string
-          client_fumeur?: boolean | null
-          client_nom?: string
-          client_prenom?: string
-          client_profession?: string | null
-          client_telephone?: string | null
-          conjoint_date_naissance?: string | null
-          conjoint_email?: string | null
-          conjoint_fumeur?: boolean | null
-          conjoint_nom?: string | null
-          conjoint_prenom?: string | null
-          conjoint_profession?: string | null
-          conjoint_telephone?: string | null
-          created_at?: string | null
-          dossier_id?: string | null
+          apporteur_profile_id?: string
+          broker_id?: string
+          created_at?: string
+          custom_exade_share_pct?: number | null
+          custom_fixed_amount?: number | null
+          custom_share_pct?: number | null
+          default_commission_rule_id?: string | null
           id?: string
-          updated_at?: string | null
+          status?: Database["public"]["Enums"]["broker_apporteur_status"]
+          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "client_infos_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      broker_commission_settings: {
+        Row: {
+          broker_id: string
+          created_at: string
+          default_apporteur_exade_share_pct: number | null
+          default_apporteur_fixed_amount: number | null
+          default_apporteur_share_pct: number
+          default_commission_exade_code: string | null
+          default_frais_courtier: number
+          id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_expires_at: string | null
+          subscription_plan: string
+          subscription_started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          broker_id: string
+          created_at?: string
+          default_apporteur_exade_share_pct?: number | null
+          default_apporteur_fixed_amount?: number | null
+          default_apporteur_share_pct?: number
+          default_commission_exade_code?: string | null
+          default_frais_courtier?: number
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_expires_at?: string | null
+          subscription_plan?: string
+          subscription_started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          broker_id?: string
+          created_at?: string
+          default_apporteur_exade_share_pct?: number | null
+          default_apporteur_fixed_amount?: number | null
+          default_apporteur_share_pct?: number
+          default_commission_exade_code?: string | null
+          default_frais_courtier?: number
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_expires_at?: string | null
+          subscription_plan?: string
+          subscription_started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      brokers: {
+        Row: {
+          billing_address: string | null
+          billing_email: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
+          created_at: string
+          exade_default_environment: Database["public"]["Enums"]["exade_environment"] | null
+          exade_request_email_sent_at: string | null
+          id: string
+          is_blocked: boolean
+          name: string
+          onboarding_completed_at: string | null
+          onboarding_status: Database["public"]["Enums"]["broker_onboarding_status"]
+          orias_number: string | null
+          pending_validations_count: number
+          siret_number: string | null
+          status: Database["public"]["Enums"]["broker_status"]
+          updated_at: string
+        }
+        Insert: {
+          billing_address?: string | null
+          billing_email?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          exade_default_environment?: Database["public"]["Enums"]["exade_environment"] | null
+          exade_request_email_sent_at?: string | null
+          id?: string
+          is_blocked?: boolean
+          name: string
+          onboarding_completed_at?: string | null
+          onboarding_status?: Database["public"]["Enums"]["broker_onboarding_status"]
+          orias_number?: string | null
+          pending_validations_count?: number
+          siret_number?: string | null
+          status?: Database["public"]["Enums"]["broker_status"]
+          updated_at?: string
+        }
+        Update: {
+          billing_address?: string | null
+          billing_email?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          exade_default_environment?: Database["public"]["Enums"]["exade_environment"] | null
+          exade_request_email_sent_at?: string | null
+          id?: string
+          is_blocked?: boolean
+          name?: string
+          onboarding_completed_at?: string | null
+          onboarding_status?: Database["public"]["Enums"]["broker_onboarding_status"]
+          orias_number?: string | null
+          pending_validations_count?: number
+          siret_number?: string | null
+          status?: Database["public"]["Enums"]["broker_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      client_locks: {
+        Row: {
+          apporteur_id: string
+          broker_id: string
+          client_hash: string
+          created_at: string
+          dossier_id: string | null
+          expires_at: string
+          id: string
+        }
+        Insert: {
+          apporteur_id: string
+          broker_id: string
+          client_hash: string
+          created_at?: string
+          dossier_id?: string | null
+          expires_at?: string
+          id?: string
+        }
+        Update: {
+          apporteur_id?: string
+          broker_id?: string
+          client_hash?: string
+          created_at?: string
+          dossier_id?: string | null
+          expires_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      dossiers: {
+        Row: {
+          admin_id: string | null
+          apporteur_amount: number | null
+          apporteur_id: string | null
+          broker_amount: number | null
+          broker_id: string
+          commentaire: string | null
+          commentaire_refus: string | null
+          commission_status: string | null
+          comparison_modal_seen: boolean | null
+          created_at: string | null
+          date_creation: string | null
+          date_finalisation: string | null
+          date_paiement_apporteur: string | null
+          date_validation: string | null
+          devis_selectionne_id: string | null
+          economie_generee: number | null
+          extracted_client_data: Json | null
+          frais_courtage: number | null
+          id: string
+          insurance_product_id: string
+          is_couple: boolean | null
+          is_read: boolean | null
+          last_extraction_at: string | null
+          montant_capital: number | null
+          notes_interne: string | null
+          numero_dossier: string
+          platform_fee: number | null
+          statut: string | null
+          statut_canon: Database["public"]["Enums"]["dossier_statut"]
+          type_dossier: string
+          updated_at: string | null
+          validated_at: string | null
+          validation_due_at: string | null
+          validation_reminder_sent_at: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          apporteur_amount?: number | null
+          apporteur_id?: string | null
+          broker_amount?: number | null
+          broker_id: string
+          commentaire?: string | null
+          commentaire_refus?: string | null
+          commission_status?: string | null
+          comparison_modal_seen?: boolean | null
+          created_at?: string | null
+          date_creation?: string | null
+          date_finalisation?: string | null
+          date_paiement_apporteur?: string | null
+          date_validation?: string | null
+          devis_selectionne_id?: string | null
+          economie_generee?: number | null
+          extracted_client_data?: Json | null
+          frais_courtage?: number | null
+          id?: string
+          insurance_product_id: string
+          is_couple?: boolean | null
+          is_read?: boolean | null
+          last_extraction_at?: string | null
+          montant_capital?: number | null
+          notes_interne?: string | null
+          numero_dossier: string
+          platform_fee?: number | null
+          statut?: string | null
+          statut_canon?: Database["public"]["Enums"]["dossier_statut"]
+          type_dossier: string
+          updated_at?: string | null
+          validated_at?: string | null
+          validation_due_at?: string | null
+          validation_reminder_sent_at?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          apporteur_amount?: number | null
+          apporteur_id?: string | null
+          broker_amount?: number | null
+          broker_id?: string
+          commentaire?: string | null
+          commentaire_refus?: string | null
+          commission_status?: string | null
+          comparison_modal_seen?: boolean | null
+          created_at?: string | null
+          date_creation?: string | null
+          date_finalisation?: string | null
+          date_paiement_apporteur?: string | null
+          date_validation?: string | null
+          devis_selectionne_id?: string | null
+          economie_generee?: number | null
+          extracted_client_data?: Json | null
+          frais_courtage?: number | null
+          id?: string
+          insurance_product_id?: string
+          is_couple?: boolean | null
+          is_read?: boolean | null
+          last_extraction_at?: string | null
+          montant_capital?: number | null
+          notes_interne?: string | null
+          numero_dossier?: string
+          platform_fee?: number | null
+          statut?: string | null
+          statut_canon?: Database["public"]["Enums"]["dossier_statut"]
+          type_dossier?: string
+          updated_at?: string | null
+          validated_at?: string | null
+          validation_due_at?: string | null
+          validation_reminder_sent_at?: string | null
+        }
+        Relationships: []
       }
       devis: {
         Row: {
+          apporteur_amount: number | null
+          apporteur_exade_amount: number | null
+          apporteur_exade_share_pct: number | null
+          apporteur_share_pct: number | null
+          commission_exade_amount: number | null
+          commission_exade_code: string | null
+          compagnie: string | null
+          courtier_net_amount: number | null
+          cout_mensuel: number | null
+          cout_total: number | null
           created_at: string | null
           date_acceptation: string | null
           date_envoi: string | null
           date_expiration: string | null
           date_generation: string | null
+          date_refus: string | null
           donnees_devis: Json
           dossier_id: string | null
+          economie_estimee: number | null
+          financial_calculated_at: string | null
+          frac_assurance: number | null
+          frais_courtier: number | null
           id: string
+          motif_refus: string | null
           numero_devis: string
           pdf_created_at: string | null
           pdf_url: string | null
+          platform_fee_amount: number | null
+          platform_fee_pct: number | null
+          produit: string | null
+          reference: string | null
           statut: string | null
           updated_at: string | null
         }
         Insert: {
+          apporteur_amount?: number | null
+          apporteur_exade_amount?: number | null
+          apporteur_exade_share_pct?: number | null
+          apporteur_share_pct?: number | null
+          commission_exade_amount?: number | null
+          commission_exade_code?: string | null
+          compagnie?: string | null
+          courtier_net_amount?: number | null
+          cout_mensuel?: number | null
+          cout_total?: number | null
           created_at?: string | null
           date_acceptation?: string | null
           date_envoi?: string | null
           date_expiration?: string | null
           date_generation?: string | null
+          date_refus?: string | null
           donnees_devis: Json
           dossier_id?: string | null
+          economie_estimee?: number | null
+          financial_calculated_at?: string | null
+          frac_assurance?: number | null
+          frais_courtier?: number | null
           id?: string
+          motif_refus?: string | null
           numero_devis: string
           pdf_created_at?: string | null
           pdf_url?: string | null
+          platform_fee_amount?: number | null
+          platform_fee_pct?: number | null
+          produit?: string | null
+          reference?: string | null
           statut?: string | null
           updated_at?: string | null
         }
         Update: {
+          apporteur_amount?: number | null
+          apporteur_exade_amount?: number | null
+          apporteur_exade_share_pct?: number | null
+          apporteur_share_pct?: number | null
+          commission_exade_amount?: number | null
+          commission_exade_code?: string | null
+          compagnie?: string | null
+          courtier_net_amount?: number | null
+          cout_mensuel?: number | null
+          cout_total?: number | null
           created_at?: string | null
           date_acceptation?: string | null
           date_envoi?: string | null
           date_expiration?: string | null
           date_generation?: string | null
+          date_refus?: string | null
           donnees_devis?: Json
           dossier_id?: string | null
+          economie_estimee?: number | null
+          financial_calculated_at?: string | null
+          frac_assurance?: number | null
+          frais_courtier?: number | null
           id?: string
+          motif_refus?: string | null
           numero_devis?: string
           pdf_created_at?: string | null
           pdf_url?: string | null
+          platform_fee_amount?: number | null
+          platform_fee_pct?: number | null
+          produit?: string | null
+          reference?: string | null
           statut?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "devis_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      documents: {
-        Row: {
-          created_at: string | null
-          document_name: string
-          document_type: string
-          dossier_id: string | null
-          file_size: number | null
-          id: string
-          mime_type: string | null
-          storage_bucket: string | null
-          storage_path: string
-          updated_at: string | null
-          uploaded_by: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          document_name: string
-          document_type: string
-          dossier_id?: string | null
-          file_size?: number | null
-          id?: string
-          mime_type?: string | null
-          storage_bucket?: string | null
-          storage_path: string
-          updated_at?: string | null
-          uploaded_by?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          document_name?: string
-          document_type?: string
-          dossier_id?: string | null
-          file_size?: number | null
-          id?: string
-          mime_type?: string | null
-          storage_bucket?: string | null
-          storage_path?: string
-          updated_at?: string | null
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "documents_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dossiers: {
-        Row: {
-          admin_id: string | null
-          apporteur_id: string | null
-          commentaire: string | null
-          created_at: string | null
-          date_cloture: string | null
-          date_creation: string | null
-          date_devis_accepte: string | null
-          date_devis_envoye: string | null
-          date_devis_genere: string | null
-          economie_generee: number | null
-          id: string
-          is_read: boolean | null
-          montant_capital: number | null
-          notes_interne: string | null
-          numero_dossier: string
-          statut: string | null
-          type_dossier: string
-          updated_at: string | null
-        }
-        Insert: {
-          admin_id?: string | null
-          apporteur_id?: string | null
-          commentaire?: string | null
-          created_at?: string | null
-          date_cloture?: string | null
-          date_creation?: string | null
-          date_devis_accepte?: string | null
-          date_devis_envoye?: string | null
-          date_devis_genere?: string | null
-          economie_generee?: number | null
-          id?: string
-          is_read?: boolean | null
-          montant_capital?: number | null
-          notes_interne?: string | null
-          numero_dossier: string
-          statut?: string | null
-          type_dossier: string
-          updated_at?: string | null
-        }
-        Update: {
-          admin_id?: string | null
-          apporteur_id?: string | null
-          commentaire?: string | null
-          created_at?: string | null
-          date_cloture?: string | null
-          date_creation?: string | null
-          date_devis_accepte?: string | null
-          date_devis_envoye?: string | null
-          date_devis_genere?: string | null
-          economie_generee?: number | null
-          id?: string
-          is_read?: boolean | null
-          montant_capital?: number | null
-          notes_interne?: string | null
-          numero_dossier?: string
-          statut?: string | null
-          type_dossier?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dossiers_apporteur_id_fkey"
-            columns: ["apporteur_id"]
-            isOneToOne: false
-            referencedRelation: "apporteur_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       pret_data: {
         Row: {
           apport_personnel: number | null
           banque_preteuse: string
+          capital_restant_du: number | null
           cout_assurance_banque: number | null
           created_at: string | null
+          date_debut: string | null
+          date_debut_effective: string | null
+          date_fin: string | null
           dossier_id: string | null
           duree_mois: number
+          duree_restante_mois: number | null
+          frac_assurance: number | null
           id: string
           montant_capital: number
+          objet_financement_code: number | null
+          taux_assurance: number | null
           taux_effectif: number | null
           taux_nominal: number | null
+          type_adhesion: number | null
+          type_credit: number | null
           type_garantie: string | null
           type_pret: string
+          type_pret_code: number | null
+          type_taux_code: number | null
           updated_at: string | null
         }
         Insert: {
           apport_personnel?: number | null
           banque_preteuse: string
+          capital_restant_du?: number | null
           cout_assurance_banque?: number | null
           created_at?: string | null
+          date_debut?: string | null
+          date_debut_effective?: string | null
+          date_fin?: string | null
           dossier_id?: string | null
           duree_mois: number
+          duree_restante_mois?: number | null
+          frac_assurance?: number | null
           id?: string
           montant_capital: number
+          objet_financement_code?: number | null
+          taux_assurance?: number | null
           taux_effectif?: number | null
           taux_nominal?: number | null
+          type_adhesion?: number | null
+          type_credit?: number | null
           type_garantie?: string | null
           type_pret: string
+          type_pret_code?: number | null
+          type_taux_code?: number | null
           updated_at?: string | null
         }
         Update: {
           apport_personnel?: number | null
           banque_preteuse?: string
+          capital_restant_du?: number | null
           cout_assurance_banque?: number | null
           created_at?: string | null
+          date_debut?: string | null
+          date_debut_effective?: string | null
+          date_fin?: string | null
           dossier_id?: string | null
           duree_mois?: number
+          duree_restante_mois?: number | null
+          frac_assurance?: number | null
           id?: string
           montant_capital?: number
+          objet_financement_code?: number | null
+          taux_assurance?: number | null
           taux_effectif?: number | null
           taux_nominal?: number | null
+          type_adhesion?: number | null
+          type_credit?: number | null
           type_garantie?: string | null
           type_pret?: string
+          type_pret_code?: number | null
+          type_taux_code?: number | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "pret_data_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      process_steps: {
+      wallet_accounts: {
         Row: {
-          completed_at: string | null
-          created_at: string | null
-          dossier_id: string | null
+          balance_available: number
+          balance_pending: number
+          broker_id: string
+          created_at: string
+          currency: string
           id: string
-          started_at: string | null
-          status: string | null
-          step_description: string | null
-          step_name: string
-          step_order: number
-          updated_at: string | null
+          owner_id: string | null
+          owner_type: Database["public"]["Enums"]["wallet_owner_type"]
+          updated_at: string
         }
         Insert: {
-          completed_at?: string | null
-          created_at?: string | null
-          dossier_id?: string | null
+          balance_available?: number
+          balance_pending?: number
+          broker_id: string
+          created_at?: string
+          currency?: string
           id?: string
-          started_at?: string | null
-          status?: string | null
-          step_description?: string | null
-          step_name: string
-          step_order: number
-          updated_at?: string | null
+          owner_id?: string | null
+          owner_type: Database["public"]["Enums"]["wallet_owner_type"]
+          updated_at?: string
         }
         Update: {
-          completed_at?: string | null
-          created_at?: string | null
+          balance_available?: number
+          balance_pending?: number
+          broker_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          owner_id?: string | null
+          owner_type?: Database["public"]["Enums"]["wallet_owner_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          broker_id: string
+          created_at: string
+          devis_id: string | null
+          dossier_id: string | null
+          id: string
+          label: string
+          meta: Json | null
+          status: Database["public"]["Enums"]["wallet_transaction_status"]
+          type: Database["public"]["Enums"]["wallet_transaction_type"]
+          wallet_account_id: string
+        }
+        Insert: {
+          amount: number
+          broker_id: string
+          created_at?: string
+          devis_id?: string | null
           dossier_id?: string | null
           id?: string
-          started_at?: string | null
-          status?: string | null
-          step_description?: string | null
-          step_name?: string
-          step_order?: number
-          updated_at?: string | null
+          label: string
+          meta?: Json | null
+          status?: Database["public"]["Enums"]["wallet_transaction_status"]
+          type: Database["public"]["Enums"]["wallet_transaction_type"]
+          wallet_account_id: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "process_steps_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Update: {
+          amount?: number
+          broker_id?: string
+          created_at?: string
+          devis_id?: string | null
+          dossier_id?: string | null
+          id?: string
+          label?: string
+          meta?: Json | null
+          status?: Database["public"]["Enums"]["wallet_transaction_status"]
+          type?: Database["public"]["Enums"]["wallet_transaction_type"]
+          wallet_account_id?: string
+        }
+        Relationships: []
+      }
+      validation_reminders: {
+        Row: {
+          apporteur_id: string | null
+          broker_id: string
+          dossier_id: string
+          id: string
+          metadata: Json | null
+          reminder_type: string
+          sent_at: string
+          sent_to: string
+          sent_via: string
+        }
+        Insert: {
+          apporteur_id?: string | null
+          broker_id: string
+          dossier_id: string
+          id?: string
+          metadata?: Json | null
+          reminder_type: string
+          sent_at?: string
+          sent_to: string
+          sent_via: string
+        }
+        Update: {
+          apporteur_id?: string | null
+          broker_id?: string
+          dossier_id?: string
+          id?: string
+          metadata?: Json | null
+          reminder_type?: string
+          sent_at?: string
+          sent_to?: string
+          sent_via?: string
+        }
+        Relationships: []
       }
     }
     Views: {
-      activities_view: {
+      apporteur_wallet_summary: {
         Row: {
-          activity_data: Json | null
-          activity_description: string | null
-          activity_title: string | null
-          activity_type: string | null
-          apporteur_nom: string | null
-          apporteur_prenom: string | null
-          created_at: string | null
-          dossier_id: string | null
-          dossier_statut: string | null
-          id: string | null
-          is_read: boolean | null
-          numero_dossier: string | null
-          user_id: string | null
+          apporteur_id: string | null
+          available_amount: number | null
+          available_transactions_count: number | null
+          broker_id: string | null
+          email: string | null
+          nom: string | null
+          pending_amount: number | null
+          pending_transactions_count: number | null
+          prenom: string | null
+          total_amount: number | null
+          total_paid_out: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "activities_dossier_id_fkey"
-            columns: ["dossier_id"]
-            isOneToOne: false
-            referencedRelation: "dossiers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
-      create_default_process_steps: {
-        Args: { dossier_uuid: string }
-        Returns: undefined
+      check_broker_blocking_status: {
+        Args: { p_broker_id: string }
+        Returns: Json
       }
-      generate_numero_devis: {
-        Args: Record<PropertyKey, never>
+      check_client_lock: {
+        Args: {
+          p_broker_id: string
+          p_date_naissance: string
+          p_nom: string
+          p_prenom: string
+        }
+        Returns: {
+          apporteur_id: string
+          apporteur_nom: string
+          apporteur_prenom: string
+          dossier_id: string
+          is_locked: boolean
+          locked_at: string
+        }[]
+      }
+      cleanup_expired_client_locks: { Args: never; Returns: number }
+      create_client_lock: {
+        Args: {
+          p_apporteur_id: string
+          p_broker_id: string
+          p_date_naissance: string
+          p_dossier_id: string
+          p_nom: string
+          p_prenom: string
+        }
         Returns: string
       }
-      generate_numero_dossier: {
-        Args: Record<PropertyKey, never>
-        Returns: string
+      get_wallet_summary: {
+        Args: {
+          p_broker_id: string
+          p_owner_id?: string
+          p_owner_type: Database["public"]["Enums"]["wallet_owner_type"]
+        }
+        Returns: {
+          balance_available: number
+          balance_pending: number
+          currency: string
+          last_transaction_at: string
+          transaction_count: number
+        }[]
+      }
+      get_pending_validations: {
+        Args: { p_broker_id: string }
+        Returns: {
+          apporteur_amount: number
+          client_nom: string
+          client_prenom: string
+          days_overdue: number
+          dossier_id: string
+          finalized_at: string
+          numero_dossier: string
+          validation_due_at: string
+        }[]
       }
     }
     Enums: {
-      [_ in never]: never
+      apporteur_statut: "actif" | "inactif" | "suspendu"
+      broker_apporteur_status: "actif" | "inactif" | "suspendu"
+      broker_invite_type: "apporteur" | "broker_user"
+      broker_onboarding_status: "created" | "exade_pending" | "ready"
+      broker_status: "actif" | "suspendu" | "inactif"
+      broker_user_role: "owner" | "admin" | "member"
+      commission_rule_scope: "default" | "apporteur_specific" | "product_specific"
+      document_source: "uploaded" | "exade_generated" | "system"
+      document_visibility: "apporteur" | "broker_only" | "admin_only"
+      dossier_statut: "en_attente" | "devis_disponible" | "devis_accepte" | "refuse" | "finalise"
+      exade_environment: "stage" | "prod"
+      payout_request_status: "requested" | "approved" | "rejected" | "paid"
+      wallet_owner_type: "apporteur" | "broker" | "platform"
+      wallet_transaction_status: "pending" | "available" | "cancelled"
+      wallet_transaction_type: "credit" | "debit" | "fee" | "payout" | "adjustment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -506,25 +834,23 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = Database["public"]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof Database
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -542,16 +868,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof Database
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -567,16 +893,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof Database
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -592,39 +918,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | { schema: keyof Database },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof Database
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const

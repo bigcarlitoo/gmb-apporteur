@@ -28,12 +28,19 @@ export class ClientInfosService {
    * Crée ou met à jour les informations client
    */
   static async upsertClientInfo(clientData: ClientInfoInsert) {
+    console.log('═══════════════════════════════════════════')
+    console.log('[ClientInfosService.upsert] 🔄 DÉBUT UPSERT')
+    
     // Logs de contexte
     const { data: authUser } = await supabase.auth.getUser()
-    console.log('[ClientInfosService.upsert] input', { clientData, authUser: authUser?.user?.id })
+    console.log('[ClientInfosService.upsert] User ID:', authUser?.user?.id)
+    console.log('[ClientInfosService.upsert] Dossier ID:', clientData.dossier_id)
+    console.log('[ClientInfosService.upsert] Payload:', JSON.stringify(clientData, null, 2))
+    console.log('[ClientInfosService.upsert] Nombre de champs:', Object.keys(clientData).length)
 
     // Certains environnements n'ont pas de contrainte unique sur dossier_id.
     // Éviter .single()/maybeSingle() qui peuvent retourner 406 s'il y a des doublons.
+    console.log('[ClientInfosService.upsert] 🔍 Vérification existence...')
     const { data: rows, error: selectError } = await supabase
       .from('client_infos')
       .select('id')
@@ -42,14 +49,18 @@ export class ClientInfosService {
       .limit(1)
 
     if (selectError) {
-      console.error('[ClientInfosService.upsert] select existing error', selectError)
+      console.error('[ClientInfosService.upsert] ❌ ERREUR select:', selectError)
+      console.error('[ClientInfosService.upsert] Code:', selectError.code)
+      console.error('[ClientInfosService.upsert] Message:', selectError.message)
+      console.error('[ClientInfosService.upsert] Details:', selectError.details)
       throw selectError
     }
 
     const existing = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+    console.log('[ClientInfosService.upsert] Enregistrement existant:', existing ? `Oui (ID: ${existing.id})` : 'Non')
 
     if (existing) {
-      console.log('[ClientInfosService.upsert] existing found', existing)
+      console.log('[ClientInfosService.upsert] 📝 MODE UPDATE')
       const { data, error } = await supabase
         .from('client_infos')
         .update({ ...(clientData as ClientInfoUpdate), updated_at: new Date().toISOString() })
@@ -58,19 +69,27 @@ export class ClientInfosService {
         .limit(1)
 
       if (error) {
-        console.error('[ClientInfosService.upsert] update error', error)
+        console.error('[ClientInfosService.upsert] ❌ ERREUR UPDATE:', error)
+        console.error('[ClientInfosService.upsert] Code:', error.code)
+        console.error('[ClientInfosService.upsert] Message:', error.message)
+        console.error('[ClientInfosService.upsert] Details:', error.details)
+        console.error('[ClientInfosService.upsert] Hint:', error.hint)
         throw error
       }
 
       if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.error('[ClientInfosService.upsert] ❌ Aucune ligne mise à jour (RLS bloqué?)')
         throw new Error('Aucune ligne mise à jour (RLS a probablement bloqué la requête)')
       }
 
       const updated = Array.isArray(data) ? data[0] : (data as any)
-      console.log('[ClientInfosService.upsert] update ok', updated)
+      console.log('[ClientInfosService.upsert] ✅ UPDATE réussi')
+      console.log('[ClientInfosService.upsert] Données mises à jour:', updated)
+      console.log('═══════════════════════════════════════════')
       return updated
     }
 
+    console.log('[ClientInfosService.upsert] ➕ MODE INSERT')
     const { data, error } = await supabase
       .from('client_infos')
       .insert({ ...clientData, updated_at: new Date().toISOString() })
@@ -78,16 +97,23 @@ export class ClientInfosService {
       .limit(1)
 
     if (error) {
-      console.error('[ClientInfosService.upsert] insert error', error)
+      console.error('[ClientInfosService.upsert] ❌ ERREUR INSERT:', error)
+      console.error('[ClientInfosService.upsert] Code:', error.code)
+      console.error('[ClientInfosService.upsert] Message:', error.message)
+      console.error('[ClientInfosService.upsert] Details:', error.details)
+      console.error('[ClientInfosService.upsert] Hint:', error.hint)
       throw error
     }
 
     if (!data || (Array.isArray(data) && data.length === 0)) {
+      console.error('[ClientInfosService.upsert] ❌ Aucune ligne insérée (RLS bloqué?)')
       throw new Error('Aucune ligne insérée (RLS a probablement bloqué la requête)')
     }
 
     const inserted = Array.isArray(data) ? data[0] : (data as any)
-    console.log('[ClientInfosService.upsert] insert ok', inserted)
+    console.log('[ClientInfosService.upsert] ✅ INSERT réussi')
+    console.log('[ClientInfosService.upsert] Données insérées:', inserted)
+    console.log('═══════════════════════════════════════════')
     return inserted
   }
 
@@ -138,7 +164,7 @@ export class ClientInfosService {
         dossiers (
           id,
           numero_dossier,
-          statut,
+          statut:statut_canon,
           type_dossier
         )
       `)
@@ -155,43 +181,31 @@ export class ClientInfosService {
   }
 
   /**
-   * Valide les données client avant sauvegarde
+   * Valide les données client avant sauvegarde (validation minimale, non bloquante)
    */
   static validateClientData(data: Partial<ClientInfoInsert>): string[] {
     const errors: string[] = []
 
+    // Validation uniquement pour les champs critiques de l'emprunteur principal
     if (!data.client_nom?.trim()) {
       errors.push('Le nom du client est requis')
     }
     if (!data.client_prenom?.trim()) {
       errors.push('Le prénom du client est requis')
     }
-    if (!data.client_email?.trim()) {
-      errors.push('L\'email du client est requis')
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email)) {
+    
+    // Validation email uniquement si fourni
+    if (data.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email)) {
       errors.push('L\'email du client n\'est pas valide')
     }
-    if (!data.client_date_naissance) {
-      errors.push('La date de naissance du client est requise')
+
+    // Validation email conjoint uniquement si fourni
+    if (data.conjoint_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.conjoint_email)) {
+      errors.push('L\'email du conjoint n\'est pas valide')
     }
 
-    // Validation optionnelle du conjoint si des données sont fournies
-    if (data.conjoint_nom || data.conjoint_prenom || data.conjoint_email) {
-      if (!data.conjoint_nom?.trim()) {
-        errors.push('Le nom du conjoint est requis si des informations conjoint sont fournies')
-      }
-      if (!data.conjoint_prenom?.trim()) {
-        errors.push('Le prénom du conjoint est requis si des informations conjoint sont fournies')
-      }
-      if (!data.conjoint_email?.trim()) {
-        errors.push('L\'email du conjoint est requis si des informations conjoint sont fournies')
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.conjoint_email)) {
-        errors.push('L\'email du conjoint n\'est pas valide')
-      }
-      if (!data.conjoint_date_naissance) {
-        errors.push('La date de naissance du conjoint est requise si des informations conjoint sont fournies')
-      }
-    }
+    // NOTE: Les autres champs sont optionnels pour permettre la modification partielle
+    // L'admin peut modifier n'importe quel champ sans être bloqué
 
     return errors
   }

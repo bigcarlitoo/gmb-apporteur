@@ -175,7 +175,7 @@ export default function AdminProfileInfo({ adminData, onSave, onChangePassword }
       professionalPhone: adminData.professionalPhone || '',
       useSamePhone: adminData.useSamePhone
     });
-    setFormErrors();
+    setFormErrors({});
     setIsEditing(false);
     setMessage(null);
   };
