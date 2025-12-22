@@ -30,20 +30,29 @@ export interface ClientInfo {
   prenom: string;
   nom_naissance: string;
   dateNaissance: string;
+  lieu_naissance: string;
+  adresse: string;
+  complement_adresse: string;
+  code_postal: string;
+  ville: string;
+  email: string;
+  telephone: string;
   categorie_professionnelle: number;
   revenus: string;
   fumeur: boolean;
-  email: string;
-  telephone: string;
-  adresse: string;
+  deplacement_pro: number;
+  travaux_manuels: number;
   conjoint?: {
     civilite: string;
     nom: string;
     prenom: string;
     nom_naissance: string;
     dateNaissance: string;
+    lieu_naissance: string;
     categorie_professionnelle: number;
     fumeur: boolean;
+    deplacement_pro: number;
+    travaux_manuels: number;
   };
 }
 

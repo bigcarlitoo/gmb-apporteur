@@ -86,8 +86,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const clientInfo = dossier.client_infos
-    const pretData = dossier.pret_data
+    const clientInfoArray = dossier.client_infos
+    const clientInfo = Array.isArray(clientInfoArray) ? clientInfoArray[0] : clientInfoArray
+    const pretDataArray = dossier.pret_data
+    const pretData = Array.isArray(pretDataArray) ? pretDataArray[0] : pretDataArray
 
     if (!clientInfo || !pretData) {
       return NextResponse.json(
@@ -99,7 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // ========================================================================
     // 2. Vérifier le coût d'assurance actuel
     // ========================================================================
-    const coutAssuranceActuelle = Number(pretData.cout_assurance_banque) || 0
+    const coutAssuranceActuelle = Number(pretData?.cout_assurance_banque) || 0
 
     if (coutAssuranceActuelle <= 0) {
       console.warn('[API analyze-commissions] Pas de coût assurance banque, analyse limitée')
@@ -251,6 +253,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     )
   }
 }
+
 
 
 

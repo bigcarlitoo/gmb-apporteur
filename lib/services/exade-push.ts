@@ -228,8 +228,9 @@ export class ExadePushService {
         return { canPush: false, reason: 'Devis déjà envoyé vers Exade' };
       }
 
-      const dossier = devis.dossier as { statut_canon: string };
-      if (dossier.statut_canon !== 'devis_accepte') {
+      const dossierData = devis.dossier;
+      const dossier = Array.isArray(dossierData) ? dossierData[0] : dossierData;
+      if (!dossier || dossier.statut_canon !== 'devis_accepte') {
         return { canPush: false, reason: 'Le dossier doit être au statut "devis_accepte"' };
       }
 

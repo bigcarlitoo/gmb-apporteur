@@ -452,7 +452,7 @@ export default function AdminApporteursPage() {
                         label: "Réinitialiser les filtres",
                         onClick: () => {
                           setSearchQuery('');
-                          setFilterStatut('tous');
+                          setStatusFilter('tous');
                         }
                       } : undefined}
                     />

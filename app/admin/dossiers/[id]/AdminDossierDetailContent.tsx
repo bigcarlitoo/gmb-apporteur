@@ -742,7 +742,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         type_pret: dossier.infos_pret.type_pret,
         type_pret_code: dossier.infos_pret.type_pret_code || 1,
         objet_financement_code: dossier.infos_pret.objet_financement_code || 1,
-        cout_assurance_banque: dossier.infos_pret.cout_assurance_banque
+        cout_assurance_banque: dossier.infos_pret.cout_assurance_banque,
+        frac_assurance: dossier.infos_pret.frac_assurance || 12
       });
       setDidInitForm(true);
     }
@@ -4125,7 +4126,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           handleRenvoyerDevis(devisId);
           setShowDevisModal(false);
         }}
-        dossierStatut={dossier?.statut_canon}
+        dossierStatut={dossier?.status}
         onPushToExade={async (devisId) => {
           if (!currentBrokerId) {
             alert('Erreur: ID du courtier non trouvé');

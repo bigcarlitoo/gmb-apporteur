@@ -193,10 +193,10 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
         } else if (brokerApporteur.custom_share_pct !== null) {
           type = 'percentage';
           value = brokerApporteur.custom_share_pct;
-        } else if (brokerSettings?.default_apporteur_fixed_amount !== null) {
+        } else if (brokerSettings?.default_apporteur_fixed_amount !== null && brokerSettings?.default_apporteur_fixed_amount !== undefined) {
           type = 'fixed';
           value = brokerSettings.default_apporteur_fixed_amount / 100;
-        } else if (brokerSettings?.default_apporteur_share_pct !== null) {
+        } else if (brokerSettings?.default_apporteur_share_pct !== null && brokerSettings?.default_apporteur_share_pct !== undefined) {
           type = 'percentage';
           value = brokerSettings.default_apporteur_share_pct;
         }

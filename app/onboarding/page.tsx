@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // Vérifier si on est en dev
 const isDev = process.env.NODE_ENV === 'development';
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
@@ -427,13 +427,28 @@ export default function OnboardingPage() {
               ) : (
                 <>
                   <span>Activer mon compte</span>
-                  <i className="ri-arrow-right-line"></i>
-                </>
-              )}
-            </button>
-          </div>
+                <i className="ri-arrow-right-line"></i>
+              </>
+            )}
+          </button>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
+  </div>
+);
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#335FAD] mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
   );
 }

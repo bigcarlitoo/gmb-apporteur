@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/services/api';
@@ -10,7 +10,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 type OnboardingStep = 'welcome' | 'exade' | 'invite' | 'complete';
 
-export default function AdminOnboardingPage() {
+function AdminOnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const forceShow = isDev && searchParams.get('force') === 'true';
@@ -690,5 +690,20 @@ Cordialement,
         )}
       </main>
     </div>
+  );
+}
+
+export default function AdminOnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#335FAD] mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <AdminOnboardingContent />
+    </Suspense>
   );
 }
