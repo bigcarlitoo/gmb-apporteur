@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { CommissionOptimizerService, CommissionAnalysisResult } from '@/lib/services/commission-optimizer'
 
-// Client Supabase avec service role pour bypasser RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 interface RouteContext {
   params: Promise<{ id: string }>
 }
@@ -20,6 +14,12 @@ interface RouteContext {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: dossierId } = await context.params
+
+  // Client Supabase avec service role pour bypasser RLS (créé dans la fonction pour éviter les erreurs au build)
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   try {
     console.log('[API analyze-commissions] Démarrage pour dossier:', dossierId)
@@ -206,6 +206,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id: dossierId } = await context.params
+
+  // Client Supabase avec service role pour bypasser RLS
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   try {
     // Récupérer les devis avec leur analyse de commission
