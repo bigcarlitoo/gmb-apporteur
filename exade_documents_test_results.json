@@ -1,0 +1,103 @@
+{
+  "timestamp": "2025-12-22T23:05:27.708Z",
+  "tests": [
+    {
+      "name": "liste_documents_type1",
+      "success": true,
+      "documents": [
+        {
+          "libelle": "Devis"
+        },
+        {
+          "libelle": "Conditions Générales"
+        },
+        {
+          "libelle": "Demande d'adhésion"
+        },
+        {
+          "libelle": "Fiche standardisée"
+        },
+        {
+          "libelle": "Documentation Aeras"
+        },
+        {
+          "libelle": "Questionnaire de santé simplifié"
+        }
+      ],
+      "tarifs": 1,
+      "errors": []
+    },
+    {
+      "name": "documents_complets_type2",
+      "success": true,
+      "documents": [
+        {
+          "libelle": "Devis",
+          "nom": "Devis_22846956_20251223-000536.pdf",
+          "type": "pdf",
+          "taille": "223714",
+          "encodage": "base64",
+          "hasData": true,
+          "dataLength": 298288,
+          "data": "[DONNÉES PRÉSENTES]"
+        },
+        {
+          "libelle": "Conditions Générales",
+          "nom": "Notice23122025-000537.pdf",
+          "type": "pdf",
+          "taille": "414881",
+          "encodage": "base64",
+          "hasData": true,
+          "dataLength": 553176,
+          "data": "[DONNÉES PRÉSENTES]"
+        },
+        {
+          "libelle": "Demande d'adhésion",
+          "nom": "DemAdh23122025-000537.pdf",
+          "type": "pdf",
+          "taille": "48470",
+          "encodage": "base64",
+          "hasData": true,
+          "dataLength": 64628,
+          "data": "[DONNÉES PRÉSENTES]"
+        },
+        {
+          "libelle": "Fiche standardisée",
+          "nom": "Fiche_Standardisee_20251223-000539.pdf",
+          "type": "pdf",
+          "taille": "213466",
+          "encodage": "base64",
+          "hasData": true,
+          "dataLength": 284624,
+          "data": "[DONNÉES PRÉSENTES]"
+        },
+        {
+          "libelle": "Documentation Aeras",
+          "nom": "DocumentationAeras23122025-000539.pdf",
+          "type": "pdf",
+          "taille": "257873",
+          "encodage": "base64",
+          "hasData": true,
+          "dataLength": 343832,
+          "data": "[DONNÉES PRÉSENTES]"
+        },
+        {
+          "libelle": "Questionnaire de santé simplifié",
+          "nom": "QSS23122025-000539.pdf",
+          "type": "pdf",
+          "taille": "136836",
+          "encodage": "base64",
+          "hasData": true,
+          "dataLength": 182448,
+          "data": "[DONNÉES PRÉSENTES]"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "documents_malakoff",
+      "success": true,
+      "documents": []
+    }
+  ]
+}

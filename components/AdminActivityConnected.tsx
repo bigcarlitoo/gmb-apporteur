@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ActivityReadStatusCache } from '@/lib/services/activity-read-status-cache';
 import { getActivityConfig as getCentralizedActivityConfig } from '@/lib/utils/activity-config';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useBrokerContext } from '@/hooks/useBrokerContext';
 import {
   Select,
   SelectContent,
@@ -35,14 +36,23 @@ interface AdminActivityProps {
 
 export default function AdminActivityConnected({ limit = 6 }: AdminActivityProps) {
   const router = useRouter();
+  const { currentBrokerId } = useBrokerContext();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('tous');
 
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
+    // Ne pas charger si pas de broker_id
+    if (!currentBrokerId) {
+      console.warn('[AdminActivityConnected] Pas de broker_id, skip fetch');
+      setActivities([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Récupérer les activités depuis la vue activities_view
+      // Récupérer les activités depuis la vue activities_view FILTREES par broker_id
       const { data: activitiesData, error } = await supabase
         .from('activities_view')
         .select(`
@@ -62,6 +72,7 @@ export default function AdminActivityConnected({ limit = 6 }: AdminActivityProps
           numero_devis,
           devis_statut
         `)
+        .eq('broker_id', currentBrokerId)
         .order('created_at', { ascending: false })
         .limit(limit || 50);
 
@@ -128,11 +139,11 @@ export default function AdminActivityConnected({ limit = 6 }: AdminActivityProps
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentBrokerId, limit]);
 
   useEffect(() => {
     fetchActivities();
-  }, []);
+  }, [fetchActivities]);
 
   // Filtrer les activités selon le filtre sélectionné
   const filteredActivities = useMemo(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { EXADE_COMMISSION_CODES, ExadeCommissionCode } from '@/lib/constants/exade';
 
@@ -43,13 +43,73 @@ interface DevisCardProps {
   devis: DevisData;
   coutAssuranceBanque?: number;
   onClick: () => void;
+  // Props pour le téléchargement PDF
+  brokerId?: string;
+  clientInfo?: any;
+  pretData?: any;
 }
 
 // ============================================================================
 // COMPOSANT
 // ============================================================================
 
-export function DevisCard({ devis, coutAssuranceBanque, onClick }: DevisCardProps) {
+export function DevisCard({ devis, coutAssuranceBanque, onClick, brokerId, clientInfo, pretData }: DevisCardProps) {
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  // Télécharger le PDF du devis
+  const handleDownloadPdf = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!brokerId || !clientInfo || !pretData) {
+      alert('Informations manquantes pour générer le PDF');
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      const response = await fetch('/api/exade/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker_id: brokerId,
+          clientInfo,
+          pretData,
+          idTarif: devis.id_tarif
+        })
+      });
+
+      if (!response.ok) throw new Error('Erreur lors du chargement');
+
+      const data = await response.json();
+      const devisDoc = data.documents?.find((d: any) => d.libelle?.toLowerCase().includes('devis'));
+
+      if (devisDoc?.data) {
+        const byteCharacters = atob(devisDoc.data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = devisDoc.nom || `Devis_${devis.compagnie}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        alert('Le PDF n\'est pas disponible pour ce tarif');
+      }
+    } catch (err) {
+      console.error('Erreur PDF:', err);
+      alert('Erreur lors du téléchargement');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   // Calculer l'économie
   const economie = useMemo(() => {
     if (!coutAssuranceBanque) return null;
@@ -241,18 +301,36 @@ export function DevisCard({ devis, coutAssuranceBanque, onClick }: DevisCardProp
         )}
       </div>
 
-      {/* Footer avec action */}
+      {/* Footer avec actions */}
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
-        <button className="w-full py-2 text-sm font-medium text-[#335FAD] hover:text-[#2a4d8f] dark:text-[#335FAD]/80 dark:hover:text-[#335FAD] transition-colors flex items-center justify-center gap-2 group-hover:underline">
-          <i className="ri-eye-line"></i>
-          Voir les détails
-        </button>
+        <div className="flex gap-2">
+          <button className="flex-1 py-2 text-sm font-medium text-[#335FAD] hover:text-[#2a4d8f] dark:text-[#335FAD]/80 dark:hover:text-[#335FAD] transition-colors flex items-center justify-center gap-2 group-hover:underline">
+            <i className="ri-eye-line"></i>
+            Détails
+          </button>
+          {brokerId && clientInfo && pretData && (
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="px-3 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              title="Télécharger le devis PDF"
+            >
+              {isDownloadingPdf ? (
+                <i className="ri-loader-4-line animate-spin"></i>
+              ) : (
+                <i className="ri-file-pdf-line"></i>
+              )}
+              PDF
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 export default DevisCard;
+
 
 
 

@@ -424,6 +424,7 @@ export class DevisService {
 
   /**
    * Met à jour les paramètres financiers d'un devis (frais et commission)
+   * Met à jour les colonnes directement ET dans donnees_devis pour la cohérence
    */
   static async updateDevisFinancials(
     devisId: string,
@@ -450,9 +451,12 @@ export class DevisService {
         financials_updated_at: new Date().toISOString()
       }
 
+      // Mettre à jour les colonnes directement + donnees_devis
       const { data, error } = await supabase
         .from('devis')
         .update({
+          frais_courtier: fraisCourtierCentimes,
+          commission_exade_code: commissionExadeCode,
           donnees_devis: newDonneesDevis,
           updated_at: new Date().toISOString()
         })
@@ -572,6 +576,234 @@ export class DevisService {
     } catch (error) {
       console.error('[DevisService.getAnalyseCompagnies] Erreur:', error)
       return []
+    }
+  }
+
+  /**
+   * 🔄 RECALCUL TARIF VIA API EXADE
+   * 
+   * Appelle l'API Exade pour recalculer un tarif avec une nouvelle commission.
+   * Met à jour le devis avec les nouveaux coûts (cout_total, cout_mensuel, etc.)
+   * 
+   * @param devisId - ID du devis à recalculer
+   * @param commissionCode - Nouveau code commission Exade (ex: "10T5")
+   * @param fraisCourtierCentimes - Nouveaux frais courtier en centimes
+   * @param brokerId - ID du broker pour l'appel API
+   * @returns Le devis mis à jour avec les nouveaux tarifs
+   */
+  static async recalculateTarifWithCommission(
+    devisId: string,
+    commissionCode: string,
+    fraisCourtierCentimes: number,
+    brokerId: string
+  ): Promise<{
+    success: boolean;
+    devis?: any;
+    newCoutTotal?: number;
+    newCoutMensuel?: number;
+    error?: string;
+  }> {
+    console.log('[DevisService.recalculateTarifWithCommission] Début:', {
+      devisId,
+      commissionCode,
+      fraisCourtierCentimes,
+      brokerId
+    })
+
+    try {
+      // 1. Récupérer le devis actuel avec les infos du dossier
+      const { data: devisData, error: devisError } = await supabase
+        .from('devis')
+        .select(`
+          id,
+          dossier_id,
+          id_tarif,
+          donnees_devis,
+          frais_courtier,
+          commission_exade_code
+        `)
+        .eq('id', devisId)
+        .single()
+
+      if (devisError || !devisData) {
+        console.error('[recalculateTarifWithCommission] Devis non trouvé:', devisError)
+        return { success: false, error: 'Devis non trouvé' }
+      }
+
+      const idTarif = devisData.id_tarif
+      if (!idTarif) {
+        console.error('[recalculateTarifWithCommission] Pas de id_tarif sur ce devis')
+        return { success: false, error: 'Ce devis n\'a pas d\'identifiant tarif Exade' }
+      }
+
+      // 2. Récupérer les infos du dossier (client et prêt)
+      const { data: dossierData, error: dossierError } = await supabase
+        .from('dossiers')
+        .select(`
+          id,
+          client_infos (
+            client_nom, client_prenom, client_nom_naissance,
+            client_date_naissance, client_lieu_naissance,
+            client_fumeur, client_categorie_professionnelle,
+            client_deplacement_pro, client_travaux_manuels,
+            is_couple, conjoint_nom, conjoint_prenom,
+            conjoint_date_naissance, conjoint_lieu_naissance, conjoint_fumeur
+          ),
+          pret_data (
+            montant_capital, duree_mois, taux_nominal,
+            type_pret_code, type_taux_code, type_credit,
+            objet_financement_code, date_effet, frac_assurance,
+            type_adhesion, differe
+          )
+        `)
+        .eq('id', devisData.dossier_id)
+        .single()
+
+      if (dossierError || !dossierData) {
+        console.error('[recalculateTarifWithCommission] Dossier non trouvé:', dossierError)
+        return { success: false, error: 'Dossier non trouvé' }
+      }
+
+      const clientInfo = (dossierData.client_infos as any)?.[0] || dossierData.client_infos
+      const pretData = (dossierData.pret_data as any)?.[0] || dossierData.pret_data
+
+      if (!clientInfo || !pretData) {
+        console.error('[recalculateTarifWithCommission] Données client/prêt manquantes')
+        return { success: false, error: 'Données client ou prêt manquantes' }
+      }
+
+      // 3. Mapper les données pour l'API
+      const clientInfoForApi = {
+        nom: clientInfo.client_nom,
+        prenom: clientInfo.client_prenom,
+        nom_naissance: clientInfo.client_nom_naissance || clientInfo.client_nom,
+        date_naissance: clientInfo.client_date_naissance,
+        lieu_naissance: clientInfo.client_lieu_naissance || 'France',
+        fumeur: clientInfo.client_fumeur || false,
+        categorie_professionnelle: clientInfo.client_categorie_professionnelle || 1,
+        deplacement_pro: clientInfo.client_deplacement_pro || 1,
+        travaux_manuels: clientInfo.client_travaux_manuels || 0,
+        is_couple: clientInfo.is_couple,
+        conjoint_nom: clientInfo.conjoint_nom,
+        conjoint_prenom: clientInfo.conjoint_prenom,
+        conjoint_date_naissance: clientInfo.conjoint_date_naissance,
+        conjoint_lieu_naissance: clientInfo.conjoint_lieu_naissance,
+        conjoint_fumeur: clientInfo.conjoint_fumeur
+      }
+
+      const pretDataForApi = {
+        montant_capital: pretData.montant_capital,
+        duree_mois: pretData.duree_mois,
+        taux_nominal: pretData.taux_nominal,
+        type_pret_code: pretData.type_pret_code,
+        type_taux_code: pretData.type_taux_code,
+        type_credit: pretData.type_credit,
+        objet_financement_code: pretData.objet_financement_code,
+        date_effet: pretData.date_effet,
+        frac_assurance: pretData.frac_assurance,
+        type_adhesion: pretData.type_adhesion,
+        differe: pretData.differe
+      }
+
+      console.log('[recalculateTarifWithCommission] Appel API Exade avec:', {
+        idTarif,
+        commissionCode,
+        fraisCourtierEuros: fraisCourtierCentimes / 100
+      })
+
+      // 4. Appeler l'API Exade pour recalculer
+      const response = await fetch('/api/exade/tarifs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker_id: brokerId,
+          clientInfo: clientInfoForApi,
+          pretData: pretDataForApi,
+          idTarif: idTarif,
+          commission: {
+            frais_adhesion_apporteur: fraisCourtierCentimes / 100,
+            commissionnement: commissionCode
+          },
+          useProductionUrl: false // Utiliser staging pour le recalcul
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[recalculateTarifWithCommission] Erreur API:', response.status, errorData)
+        return { success: false, error: errorData.error || `Erreur API: ${response.status}` }
+      }
+
+      const apiResult = await response.json()
+      console.log('[recalculateTarifWithCommission] Résultat API:', apiResult)
+
+      // 5. Trouver le tarif correspondant dans la réponse
+      const tarifs = apiResult.tarifs || []
+      const matchingTarif = tarifs.find((t: any) => t.id_tarif === idTarif)
+
+      if (!matchingTarif) {
+        console.error('[recalculateTarifWithCommission] Tarif non trouvé dans la réponse')
+        return { success: false, error: 'Tarif non trouvé dans la réponse Exade' }
+      }
+
+      console.log('[recalculateTarifWithCommission] Nouveau tarif:', {
+        cout_total: matchingTarif.cout_total_tarif || matchingTarif.cout_total,
+        cout_mensuel: matchingTarif.mensualite || matchingTarif.cout_mensuel
+      })
+
+      // 6. Mettre à jour le devis avec les nouvelles valeurs
+      const newCoutTotal = matchingTarif.cout_total_tarif || matchingTarif.cout_total || matchingTarif.primeTotale
+      const newCoutMensuel = matchingTarif.mensualite || matchingTarif.cout_mensuel || (newCoutTotal / (pretData.duree_mois || 240))
+
+      const existingDonnees = (devisData.donnees_devis || {}) as Record<string, unknown>
+      const updatedDonnees = {
+        ...existingDonnees,
+        ...matchingTarif,
+        cout_total: newCoutTotal,
+        cout_total_tarif: newCoutTotal,
+        cout_mensuel: newCoutMensuel,
+        mensualite: newCoutMensuel,
+        frais_courtier: fraisCourtierCentimes,
+        frais_adhesion_apporteur: fraisCourtierCentimes / 100,
+        commission_exade_code: commissionCode,
+        recalculated_at: new Date().toISOString()
+      }
+
+      const { data: updatedDevis, error: updateError } = await supabase
+        .from('devis')
+        .update({
+          frais_courtier: fraisCourtierCentimes,
+          commission_exade_code: commissionCode,
+          donnees_devis: updatedDonnees,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', devisId)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('[recalculateTarifWithCommission] Erreur update:', updateError)
+        return { success: false, error: 'Erreur lors de la mise à jour du devis' }
+      }
+
+      console.log('[recalculateTarifWithCommission] ✅ Devis mis à jour avec succès:', {
+        devisId,
+        newCoutTotal,
+        newCoutMensuel,
+        commissionCode,
+        fraisCourtierCentimes
+      })
+
+      return {
+        success: true,
+        devis: updatedDevis,
+        newCoutTotal,
+        newCoutMensuel
+      }
+
+    } catch (error) {
+      console.error('[recalculateTarifWithCommission] Erreur:', error)
+      return { success: false, error: (error as Error).message || 'Erreur inconnue' }
     }
   }
 }

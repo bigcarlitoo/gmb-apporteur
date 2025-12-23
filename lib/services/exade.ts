@@ -20,7 +20,15 @@ export type ExadeTarif = {
   frais_adhesion_apporteur: number
   /** Frais de fractionnement (en euros, converti depuis centimes Exade) */
   frais_frac: number
-  garanties: Array<{ code: string; libelle: string; cout: number }>
+  /** Détails des garanties avec coûts et caractéristiques */
+  garanties: Array<{
+    nom: string
+    taxe?: string
+    appreciation?: string | null
+    cout_mensuel?: number
+    cout_total?: number
+    crd?: number
+  }>
   erreurs?: string[]
   compatible_lemoine?: boolean
   /** Taux sur capital assuré pour le tarif (en %, converti depuis ×10000 Exade) */
@@ -345,11 +353,37 @@ function parseExadeResponse(xmlText: string): any {
     throw new Error('[EXADE] Réponse SOAP inattendue: pas de webservice_tarificateurResponse')
   }
 
-  let resultString: string = responseNode['webservice_tarificateurResult']
-    || responseNode['#text']
-    || (typeof responseNode === 'string' ? responseNode : null)
+  // Le résultat peut avoir un préfixe namespace (ns1:) selon l'environnement (staging vs prod)
+  // Et peut être soit une string directe, soit un objet { "#text": "..." }
+  const extractString = (val: any): string | null => {
+    if (typeof val === 'string') return val
+    if (val && typeof val === 'object' && val['#text']) return val['#text']
+    return null
+  }
+
+  let resultString: string | null = 
+    extractString(responseNode['webservice_tarificateurResult'])
+    || extractString(responseNode['ns1:webservice_tarificateurResult'])
+    || extractString(responseNode['#text'])
+    || extractString(responseNode)
+
+  // Si toujours pas trouvé, chercher dans les valeurs du responseNode
+  if (!resultString) {
+    for (const [key, val] of Object.entries(responseNode)) {
+      if (key.toLowerCase().includes('result')) {
+        const extracted = extractString(val)
+        if (extracted) {
+          resultString = extracted
+          console.log('[EXADE] Found result under key:', key)
+          break
+        }
+      }
+    }
+  }
 
   if (!resultString || typeof resultString !== 'string') {
+    console.error('[EXADE] responseNode keys:', Object.keys(responseNode))
+    console.error('[EXADE] responseNode structure:', JSON.stringify(responseNode, null, 2).substring(0, 500))
     throw new Error('[EXADE] Pas de webservice_tarificateurResult (string) dans la réponse')
   }
 
@@ -403,6 +437,17 @@ function mapSimulationToTarifs(simulation: any): ExadeTarif[] {
 
     // Pour récupérer le coût total du dossier, il faut sommer les coûts de ce tarif pour CHAQUE assuré
     // IMPORTANT: Exade renvoie tous les montants en CENTIMES, il faut diviser par 100
+    
+    // Map pour agréger les garanties par nom (éviter les doublons)
+    const garantiesDetailMap = new Map<string, {
+      nom: string
+      taxe?: string
+      appreciation?: string | null
+      cout_mensuel?: number
+      cout_total?: number
+      crd?: number
+    }>()
+    
     for (const ass of assures) {
       const tAss = Array.isArray(ass.tarif) ? ass.tarif.find((x: any) => x.id_tarif == t.id_tarif) : ass.tarif
       if (tAss) {
@@ -410,18 +455,18 @@ function mapSimulationToTarifs(simulation: any): ExadeTarif[] {
         coutTotalGlobal += Number(tAss.cout_total_tarif || 0) / 100
         fraisAdhesionGlobal += Number(tAss.frais_adhesion || 0) / 100
 
-        // Calcul mensualité depuis garantie_pret
+        // Calcul mensualité depuis garantie_pret et extraction des détails de garanties
         // ATTENTION: C'est une approximation basée sur la première période
         // Pour un calcul exact, il faudrait utiliser l'échéancier complet d'Exade
         const prets = Array.isArray(tAss.pret) ? tAss.pret : [tAss.pret].filter(Boolean)
         for (const p of prets) {
-          const garanties = Array.isArray(p.garantie_pret) ? p.garantie_pret : [p.garantie_pret].filter(Boolean)
+          const garantiesPret = Array.isArray(p.garantie_pret) ? p.garantie_pret : [p.garantie_pret].filter(Boolean)
           // On prend uniquement la première période (plus petite valeur de "periode")
           // pour éviter de sommer plusieurs périodes si Exade en renvoie plusieurs
           // IMPORTANT: Exade renvoie en centimes, conversion nécessaire
-          if (garanties.length > 0) {
+          if (garantiesPret.length > 0) {
             // Trier par période pour prendre la première
-            const sorted = [...garanties].sort((a: any, b: any) => 
+            const sorted = [...garantiesPret].sort((a: any, b: any) => 
               String(a.periode || '').localeCompare(String(b.periode || ''))
             )
             // Prendre uniquement les garanties de la première période
@@ -429,16 +474,46 @@ function mapSimulationToTarifs(simulation: any): ExadeTarif[] {
             for (const g of sorted) {
               if (g.periode === firstPeriode || !firstPeriode) {
                 mensualiteGlobale += Number(g.cout || 0) / 100
+                
+                // Ajouter les détails de la garantie si pas déjà présente
+                const existingGarantie = garantiesDetailMap.get(g.nom)
+                if (!existingGarantie) {
+                  garantiesDetailMap.set(g.nom, {
+                    nom: g.nom || 'Garantie',
+                    taxe: g.taxe === 'O' ? 'Oui' : g.taxe === 'N' ? 'Non' : g.taxe,
+                    appreciation: g.appreciation || null,
+                    cout_mensuel: Number(g.cout || 0) / 100,
+                    crd: Number(g.crd || 0) / 100,
+                  })
+                } else {
+                  // Additionner les coûts si plusieurs assurés
+                  existingGarantie.cout_mensuel += Number(g.cout || 0) / 100
+                }
               }
+            }
+          }
+          
+          // Extraction des cout_total_garantie (coût total sur toute la durée)
+          const coutTotalGaranties = Array.isArray(p.cout_total_garantie) 
+            ? p.cout_total_garantie 
+            : [p.cout_total_garantie].filter(Boolean)
+          for (const ctg of coutTotalGaranties) {
+            const existingGarantie = garantiesDetailMap.get(ctg.nom)
+            if (existingGarantie) {
+              existingGarantie.cout_total = (existingGarantie.cout_total || 0) + Number(ctg.cout || 0) / 100
+            } else {
+              garantiesDetailMap.set(ctg.nom, {
+                nom: ctg.nom,
+                cout_total: Number(ctg.cout || 0) / 100,
+              })
             }
           }
         }
       }
     }
 
-    // Extraction des garanties (libellés)
-    const garantiesList: any[] = []
-    // On peut parser t.formalite ou t.garanties si dispo, sinon on déduit du code garantie
+    // Conversion de la Map en liste de garanties
+    const garantiesList = Array.from(garantiesDetailMap.values())
 
     // Extraction des erreurs par tarif (si présentes)
     const erreursTarif: string[] = []

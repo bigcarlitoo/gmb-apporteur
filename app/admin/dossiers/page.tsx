@@ -754,7 +754,9 @@ export default function AdminDossiersPage() {
                         <div className="text-sm text-gray-900 dark:text-white">
                           {dossier.apporteur_profiles ?
                             `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` :
-                            'N/A'
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                              <i className="ri-building-line mr-1"></i>Direct
+                            </span>
                           }
                         </div>
                       </td>
@@ -839,11 +841,14 @@ export default function AdminDossiersPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          Apporteur: {dossier.apporteur_profiles ?
-                            `${dossier.apporteur_profiles.prenom} ${dossier.apporteur_profiles.nom}` :
-                            'N/A'
-                          }
+                        <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                          {dossier.apporteur_profiles ? (
+                            <>Apporteur: {dossier.apporteur_profiles.prenom} {dossier.apporteur_profiles.nom}</>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                              <i className="ri-building-line mr-1"></i>Dossier direct
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-900 dark:text-white">

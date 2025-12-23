@@ -54,6 +54,10 @@ interface DevisListViewProps {
   onDevisClick: (devis: DevisData) => void;
   onRefreshDevis: () => void;
   isRefreshing?: boolean;
+  // Props pour le téléchargement PDF
+  brokerId?: string;
+  clientInfo?: any;
+  pretData?: any;
 }
 
 // ============================================================================
@@ -65,7 +69,10 @@ export function DevisListView({
   coutAssuranceBanque,
   onDevisClick,
   onRefreshDevis,
-  isRefreshing = false
+  isRefreshing = false,
+  brokerId,
+  clientInfo,
+  pretData
 }: DevisListViewProps) {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [filters, setFilters] = useState<FilterState>({
@@ -446,6 +453,9 @@ export function DevisListView({
                 devis={devisItem}
                 coutAssuranceBanque={coutAssuranceBanque}
                 onClick={() => onDevisClick(devisItem)}
+                brokerId={brokerId}
+                clientInfo={clientInfo}
+                pretData={pretData}
               />
             ))}
           </div>
@@ -456,6 +466,7 @@ export function DevisListView({
 }
 
 export default DevisListView;
+
 
 
 

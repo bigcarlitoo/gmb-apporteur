@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+  xmlns:def="http://www.4d.com/namespace/default">
+  <soapenv:Body>
+    <def:webservice_tarificateurRequest>
+      <licence>GMB#7ùuQefujig8fu1+rulyXa)it</licence>
+<code_courtier>815178</code_courtier>
+<type_operation>2</type_operation>
+<id_tarif>10</id_tarif>
+<retournerLesErreurs/>
+<simulation>
+  <date_effet>20260322</date_effet>
+  <id_objetdufinancement>1</id_objetdufinancement>
+  <frac_assurance>12</frac_assurance>
+  <type_credit>0</type_credit>
+  <assure>
+    <statut>1</statut>
+    <type_adhesion>0</type_adhesion>
+    <numero>1</numero>
+    <sexe>1</sexe>
+    <nom>TEST</nom>
+    <nom_naissance>TEST</nom_naissance>
+    <prenom>Document</prenom>
+    <adresse>1 rue Test</adresse>
+    <ville>Paris</ville>
+    <code_postal>75001</code_postal>
+    <lieu_naissance>Paris</lieu_naissance>
+    <velIdPaysNaissance>118</velIdPaysNaissance>
+    <idnationalite>84</idnationalite>
+    <idPaysResidenceFiscale>84</idPaysResidenceFiscale>
+    <date_naissance>19850315</date_naissance>
+    <franchise>90</franchise>
+    <fumeur>0</fumeur>
+    <deplacement_pro>1</deplacement_pro>
+    <travaux_manuels>1</travaux_manuels>
+    <travaux_hauteur>1</travaux_hauteur>
+    <manip_produit_dangereux>1</manip_produit_dangereux>
+    <portable>0600000000</portable>
+    <email>test@example.com</email>
+    <politique_expose>N</politique_expose>
+    <proche_politique_expose>N</proche_politique_expose>
+    <encours_lemoine>180000</encours_lemoine>
+    <categ_pro>1</categ_pro>
+  </assure>
+  <pret>
+    <numero>1</numero>
+    <type_pret>1</type_pret>
+    <capital>20000000</capital>
+    <taux>350</taux>
+    <type_taux>1</type_taux>
+    <duree>240</duree>
+    <differe>0</differe>
+    <amortissement>12</amortissement>
+    <date_deblocage>20260322</date_deblocage>
+    <palier/>
+  </pret>
+  <garantie_pret>
+    <id_assure>1</id_assure>
+    <id_pret>1</id_pret>
+    <garantie>2</garantie>
+    <quotite>100</quotite>
+  </garantie_pret>
+</simulation>
+    </def:webservice_tarificateurRequest>
+  </soapenv:Body>
+</soapenv:Envelope>

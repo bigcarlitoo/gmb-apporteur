@@ -383,6 +383,55 @@ export const COMPAGNIE_OPTIONS = Object.entries(EXADE_COMPAGNIES).map(([id, data
 }));
 
 /**
+ * Obtenir l'ID de compagnie à partir du nom de la compagnie
+ * @param compagnieName Nom de la compagnie (ex: "MAIF VIE", "GENERALI", "SWISSLIFE")
+ * @returns ID de la compagnie (1-12) ou null si non trouvé
+ */
+export function getCompagnieIdFromName(compagnieName: string): string | null {
+  if (!compagnieName) return null;
+  
+  const normalizedName = compagnieName.toUpperCase().trim();
+  
+  // Mapping des noms de compagnies retournés par Exade vers les IDs
+  const mappings: Record<string, string> = {
+    'GENERALI': '1',
+    'GENERALI VIE': '1',
+    'SWISSLIFE': '2',
+    'SWISS LIFE': '2',
+    'MNCAP': '3',
+    'CNP': '4',
+    'CNP ASSURANCES': '4',
+    'DIGITAL': '5',
+    'ASSUREA DIGITAL': '5',
+    'PROTECTION': '7',
+    'ASSUREA PROTECTION': '7',
+    'MAIF': '10',
+    'MAIF VIE': '10',
+    'HUMANIS': '11',
+    'MALAKOFF': '11',
+    'MALAKOFF HUMANIS': '11',
+    'PERFORMANCE': '12',
+    'GAN': '12',
+  };
+  
+  // Chercher une correspondance exacte d'abord
+  for (const [key, id] of Object.entries(mappings)) {
+    if (normalizedName === key || normalizedName.includes(key)) {
+      return id;
+    }
+  }
+  
+  // Chercher dans les noms des compagnies définies
+  for (const [id, data] of Object.entries(EXADE_COMPAGNIES)) {
+    if (normalizedName.includes(data.name.toUpperCase())) {
+      return id;
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Obtenir les codes de commission pour une compagnie
  * @param compagnieId ID de la compagnie (1-12)
  * @param includeSpecialCodes Inclure les codes spéciaux (prêt relais, prime unique)

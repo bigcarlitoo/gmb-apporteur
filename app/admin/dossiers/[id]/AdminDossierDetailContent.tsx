@@ -27,8 +27,8 @@ import {
 import { getStatutBadgeConfig, mapStatutForDisplay } from '@/lib/utils/statut-mapping';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { DocumentViewerModal } from '@/components/features/document-viewer/DocumentViewerModal';
+import { SmartCommissionOptimizer } from '@/components/features/commission/SmartCommissionOptimizer';
 import { DevisCommissionPanel } from '@/components/features/devis/DevisCommissionPanel';
-import { CommissionRecommendationCard } from '@/components/features/commission/CommissionRecommendationCard';
 import { DevisDetailModal } from '@/components/features/devis/DevisDetailModal';
 import { DevisListView } from '@/components/features/devis/DevisListView';
 import { useBrokerContext } from '@/hooks/useBrokerContext';
@@ -184,6 +184,59 @@ interface AdminDossierDetailContentProps {
   dossierId: string;
 }
 
+/**
+ * Mapper un devis de la base de données vers le format attendu par l'UI
+ * Extrait les champs de donnees_devis au premier niveau pour faciliter l'affichage
+ */
+function mapDevisFromDb(d: any, dossier: any, selectedId?: string | null) {
+  return {
+    id: d.id,
+    numero_devis: d.numero_devis,
+    statut: d.statut,
+    selected: selectedId ? d.id === selectedId : false,
+    refused: d.statut === 'refuse',
+    motif_refus: (d.donnees_devis as any)?.motif_refus,
+    commentaire_refus: (d.donnees_devis as any)?.commentaire_refus,
+    date_generation: d.date_generation,
+    date_envoi: d.date_envoi,
+    compagnie: (d.donnees_devis as any)?.compagnie || (d.donnees_devis as any)?.compagnie_libelle || 'Compagnie',
+    produit: (d.donnees_devis as any)?.nom || (d.donnees_devis as any)?.produit || (d.donnees_devis as any)?.reference || '',
+    cout_mensuel: (d.donnees_devis as any)?.mensualite || (d.donnees_devis as any)?.cout_mensuel || 0,
+    cout_total: (d.donnees_devis as any)?.primeTotale || (d.donnees_devis as any)?.cout_total || 0,
+    economie_estimee: (d.donnees_devis as any)?.economie_estimee,
+    formalites_medicales: (d.donnees_devis as any)?.formalites_medicales || [],
+    couverture: (d.donnees_devis as any)?.couverture || [],
+    exclusions: (d.donnees_devis as any)?.exclusions || [],
+    avantages: (d.donnees_devis as any)?.avantages || [],
+    id_simulation: (d.donnees_devis as any)?.id_simulation || '',
+    id_tarif: d.id_tarif || (d.donnees_devis as any)?.id_tarif || (d.donnees_devis as any)?.reference || '',
+    cout_total_tarif: (d.donnees_devis as any)?.cout_total_tarif || (d.donnees_devis as any)?.primeTotale || 0,
+    frais_adhesion: (d.donnees_devis as any)?.frais_adhesion || 0,
+    frais_adhesion_apporteur: (d.donnees_devis as any)?.frais_adhesion_apporteur || 0,
+    frais_frac: (d.donnees_devis as any)?.frais_frac || 0,
+    frais_courtier: d.frais_courtier,
+    commission_exade_code: d.commission_exade_code,
+    // Nouveaux champs Exade
+    type_tarif: (d.donnees_devis as any)?.type_tarif,
+    compatible_lemoine: (d.donnees_devis as any)?.compatible_lemoine,
+    taux_capital_assure: (d.donnees_devis as any)?.taux_capital_assure,
+    cout_premieres_annees: (d.donnees_devis as any)?.cout_premieres_annees,
+    // Garanties avec détails (nom, taxe, appreciation, cout_mensuel, cout_total, crd)
+    garanties: (d.donnees_devis as any)?.garanties || [],
+    detail_pret: {
+      capital: (d.donnees_devis as any)?.detail_pret?.capital || dossier?.montant_capital,
+      duree: (d.donnees_devis as any)?.detail_pret?.duree || (dossier?.duree_pret ? dossier.duree_pret * 12 : 0),
+      taux_assurance: (d.donnees_devis as any)?.detail_pret?.taux_assurance || (dossier as any)?.infos_pret?.taux_assurance || 0
+    },
+    formalites_detaillees: (d.donnees_devis as any)?.formalites_detaillees || [],
+    erreurs: (d.donnees_devis as any)?.erreurs || [],
+    // Champs workflow Exade
+    exade_simulation_id: d.exade_simulation_id,
+    exade_pushed_at: d.exade_pushed_at,
+    exade_locked: d.exade_locked
+  };
+}
+
 export default function AdminDossierDetailContent({ dossierId }: AdminDossierDetailContentProps) {
   const router = useRouter();
   const { currentBrokerId } = useBrokerContext();
@@ -196,6 +249,9 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showDevisModal, setShowDevisModal] = useState(false);
   const [selectedDevisDetail, setSelectedDevisDetail] = useState<Devis | null>(null);
+  // État pour les documents à envoyer avec le devis
+  const [selectedDocumentsForSend, setSelectedDocumentsForSend] = useState<Set<string>>(new Set(['devis', 'fiche_standardisee']));
+  const [isGeneratingDocuments, setIsGeneratingDocuments] = useState(false);
 
   // États pour l'édition
   const [isEditingClient, setIsEditingClient] = useState(false);
@@ -490,38 +546,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         if (dbDevis && dbDevis.length > 0) {
           // essayer de récupérer le devis sélectionné si disponible dans le dossier
           const selectedId = (dossier as any)?.devis_selectionne_id || null;
-          setDevis(dbDevis.map((d: any) => ({
-            id: d.id,
-            numero_devis: d.numero_devis,
-            statut: d.statut,
-            selected: selectedId ? d.id === selectedId : false,
-            refused: d.statut === 'refuse',
-            motif_refus: (d.donnees_devis as any)?.motif_refus,
-            commentaire_refus: (d.donnees_devis as any)?.commentaire_refus,
-            date_generation: d.date_generation,
-            date_envoi: d.date_envoi,
-            compagnie: (d.donnees_devis as any)?.compagnie || (d.donnees_devis as any)?.compagnie_libelle || 'Compagnie',
-            produit: (d.donnees_devis as any)?.produit || (d.donnees_devis as any)?.reference || '',
-            cout_mensuel: (d.donnees_devis as any)?.mensualite || (d.donnees_devis as any)?.cout_mensuel || 0,
-            cout_total: (d.donnees_devis as any)?.primeTotale || (d.donnees_devis as any)?.cout_total || 0,
-            economie_estimee: (d.donnees_devis as any)?.economie_estimee,
-            formalites_medicales: (d.donnees_devis as any)?.garanties?.map((g: any) => g.libelle) || [],
-            couverture: (d.donnees_devis as any)?.couverture || [],
-            exclusions: (d.donnees_devis as any)?.exclusions || [],
-            avantages: (d.donnees_devis as any)?.avantages || [],
-            id_simulation: (d.donnees_devis as any)?.id_simulation || '',
-            id_tarif: (d.donnees_devis as any)?.id_tarif || (d.donnees_devis as any)?.reference || '',
-            cout_total_tarif: (d.donnees_devis as any)?.cout_total_tarif || (d.donnees_devis as any)?.primeTotale || 0,
-            frais_adhesion: (d.donnees_devis as any)?.frais_adhesion || 0,
-            frais_frac: (d.donnees_devis as any)?.frais_frac || 0,
-            detail_pret: {
-              capital: (d.donnees_devis as any)?.detail_pret?.capital || dossier.montant_capital,
-              duree: (d.donnees_devis as any)?.detail_pret?.duree || dossier.duree_pret * 12,
-              taux_assurance: (d.donnees_devis as any)?.detail_pret?.taux_assurance || (dossier as any)?.infos_pret?.taux_assurance || 0
-            },
-            formalites_detaillees: (d.donnees_devis as any)?.formalites_detaillees || [],
-            erreurs: (d.donnees_devis as any)?.erreurs || []
-          })) as Devis[]);
+          setDevis(dbDevis.map((d: any) => mapDevisFromDb(d, dossier, selectedId)) as Devis[]);
           return;
         }
 
@@ -541,11 +566,15 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           const tarifs: any[] = payload?.tarifs || [];
 
           if (tarifs.length > 0) {
+            // Frais courtier par défaut (150€ = 15000 centimes)
+            const DEFAULT_FRAIS_COURTIER_CENTIMES = 15000;
             const devisToInsert = tarifs.map((t: any, index: number) => ({
               dossier_id: dossier.id,
               numero_devis: `EX-${Date.now()}-${index + 1}`,
               statut: 'en_attente',
               donnees_devis: t,
+              frais_courtier: DEFAULT_FRAIS_COURTIER_CENTIMES,
+              id_tarif: t.id_tarif,
               date_generation: new Date().toISOString(),
               date_expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
             }));
@@ -556,14 +585,10 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           // Afficher un message d'erreur à l'utilisateur mais ne pas créer de données fictives
         }
 
-        // 3) Relire depuis DB
+        // 3) Relire depuis DB et mapper correctement les champs
         const freshDevis = await DevisService.getDevisByDossierId(dossier.id);
         const selectedId = (dossier as any)?.devis_selectionne_id || null;
-        setDevis((freshDevis as any).map((d: any) => ({
-          ...d,
-          selected: selectedId ? d.id === selectedId : false,
-          refused: d.statut === 'refuse'
-        })));
+        setDevis((freshDevis as any).map((d: any) => mapDevisFromDb(d, dossier, selectedId)));
       } catch (e) {
         console.error('[AdminDetail] devis load/seed error', e);
       }
@@ -1534,12 +1559,15 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           .delete()
           .eq('dossier_id', dossierId);
 
-        // Créer les nouveaux devis
+        // Créer les nouveaux devis avec frais courtier par défaut (150€ = 15000 centimes)
+        const DEFAULT_FRAIS_COURTIER_CENTIMES = 15000;
         const devisToInsert = tarifs.map((t: any, index: number) => ({
           dossier_id: dossierId,
           numero_devis: `EX-${Date.now()}-${index + 1}`,
           statut: 'en_attente',
           donnees_devis: t,
+          frais_courtier: DEFAULT_FRAIS_COURTIER_CENTIMES,
+          id_tarif: t.id_tarif,
           date_generation: new Date().toISOString(),
           date_expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         }));
@@ -1653,63 +1681,206 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
    * - L'apporteur reçoit une notification
    * - L'interface apporteur affiche le devis pour validation client
    * - Le client peut valider ou refuser via l'apporteur
+   * 
+   * DOSSIER SANS APPORTEUR :
+   * - Le courtier valide directement le devis
+   * - Statut passe directement à 'valide'
+   * - Pas de notification apporteur
    */
   const confirmEnvoiDevis = async () => {
     try {
-      console.log('Envoi du devis sélectionné:', selectedDevis);
+      console.log('Validation du devis sélectionné:', selectedDevis);
+      setIsGeneratingDocuments(true);
+      
+      // Trouver le devis sélectionné pour obtenir l'id_tarif
+      const devisToSend = devis.find(d => d.id === selectedDevis);
+      
+      // Générer et télécharger les documents sélectionnés
+      if (devisToSend?.id_tarif && currentBrokerId) {
+        try {
+          console.log('[AdminDetail] Génération des documents pour le devis:', devisToSend.id_tarif);
+          console.log('[AdminDetail] Documents sélectionnés:', Array.from(selectedDocumentsForSend));
+          
+          const response = await fetch('/api/exade/documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              broker_id: currentBrokerId,
+              clientInfo: dossier,
+              pretData: dossier?.infos_pret,
+              idTarif: devisToSend.id_tarif
+            })
+          });
 
-      // Utiliser la fonction RPC atomique pour l'envoi de devis
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('envoyer_devis_selectionne', {
-        p_devis_id: selectedDevis,
-        p_dossier_id: dossierId,
-        p_admin_id: adminData.id
-      });
-
-      if (rpcError) {
-        console.error('[AdminDetail] Erreur RPC envoyer_devis_selectionne:', rpcError);
-        throw rpcError;
+          if (response.ok) {
+            const data = await response.json();
+            const allDocuments = data.documents || [];
+            
+            console.log('[AdminDetail] Documents reçus:', allDocuments.map((d: any) => d.libelle));
+            
+            // Patterns de matching
+            const DOCUMENT_PATTERNS: Record<string, string[]> = {
+              'devis': ['devis'],
+              'fiche_standardisee': ['fiche standardis', 'fiche_standardis'],
+              'conditions_generales': ['conditions g', 'notice'],
+              'demande_adhesion': ['demande d\'adh', 'demande adh', 'adhesion'],
+              'questionnaire_sante': ['questionnaire', 'santé', 'sante'],
+              'aeras': ['aeras', 'aéras'],
+            };
+            
+            // Filtrer les documents selon la sélection
+            const documentsToDownload = allDocuments.filter((doc: any) => {
+              const docLabel = doc.libelle?.toLowerCase() || '';
+              for (const [selId, patterns] of Object.entries(DOCUMENT_PATTERNS)) {
+                if (selectedDocumentsForSend.has(selId)) {
+                  if (patterns.some(p => docLabel.includes(p.toLowerCase()))) {
+                    return true;
+                  }
+                }
+              }
+              return false;
+            });
+            
+            console.log('[AdminDetail] Documents à télécharger:', documentsToDownload.map((d: any) => d.libelle));
+            
+            // Télécharger chaque document
+            for (const doc of documentsToDownload) {
+              if (doc.data) {
+                const byteCharacters = atob(doc.data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = doc.nom || `${doc.libelle}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                // Délai entre les téléchargements
+                await new Promise(r => setTimeout(r, 600));
+              }
+            }
+            
+            if (documentsToDownload.length > 0) {
+              console.log(`✅ ${documentsToDownload.length} document(s) téléchargé(s)`);
+            }
+          }
+        } catch (docError) {
+          console.warn('[AdminDetail] Erreur génération documents (non bloquante):', docError);
+          // Ne pas bloquer l'envoi du devis si les documents échouent
+        }
       }
+      
+      // Vérifier si le dossier a un apporteur
+      const hasApporteur = !!dossier?.apporteur_id;
 
-      console.log('[AdminDetail] Devis envoyé avec succès:', rpcResult);
+      if (hasApporteur) {
+        // AVEC APPORTEUR : Workflow standard - envoi pour validation
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('envoyer_devis_selectionne', {
+          p_devis_id: selectedDevis,
+          p_dossier_id: dossierId,
+          p_admin_id: adminData.id
+        });
 
-      // Mise à jour optimiste des états locaux
-      setDevis(prev => prev.map(d => ({
-        ...d,
-        selected: d.id === selectedDevis,
-        refused: false,
-        statut: d.id === selectedDevis ? 'envoye' : d.statut
-      })));
+        if (rpcError) {
+          console.error('[AdminDetail] Erreur RPC envoyer_devis_selectionne:', rpcError);
+          throw rpcError;
+        }
 
-      setDossier(prev => {
-        if (!prev) return prev;
-        return { ...prev, status: 'devis_envoye' };
-      });
+        console.log('[AdminDetail] Devis envoyé avec succès:', rpcResult);
 
-      // Refetch dossier + devis pour aligner l'état (selected via devis_selectionne_id)
-      try {
-        const refreshed = await DossiersService.getDossierById(dossierId);
-        const selectedId = refreshed?.devis_selectionne_id || null;
-        const freshDevis = (refreshed?.devis || []).map((d: any) => ({
+        // Mise à jour optimiste
+        setDevis(prev => prev.map(d => ({
           ...d,
-          selected: selectedId ? d.id === selectedId : false,
-          refused: d.statut === 'refuse',
-        }));
+          selected: d.id === selectedDevis,
+          refused: false,
+          statut: d.id === selectedDevis ? 'envoye' : d.statut
+        })));
+
         setDossier(prev => {
           if (!prev) return prev;
           return { ...prev, status: 'devis_envoye' };
         });
+
+        console.log('✅ Devis envoyé à l\'apporteur pour validation client');
+      } else {
+        // SANS APPORTEUR : Le courtier valide directement
+        // Mettre à jour le devis comme sélectionné
+        const { error: devisError } = await supabase
+          .from('devis')
+          .update({ 
+            statut: 'accepte',
+            date_acceptation: new Date().toISOString()
+          })
+          .eq('id', selectedDevis);
+
+        if (devisError) throw devisError;
+
+        // Démarquer les autres devis
+        await supabase
+          .from('devis')
+          .update({ statut: 'en_attente' })
+          .eq('dossier_id', dossierId)
+          .neq('id', selectedDevis);
+
+        // Mettre à jour le dossier avec le devis sélectionné et statut validé
+        const { error: dossierError } = await supabase
+          .from('dossiers')
+          .update({
+            status: 'devis_accepte',
+            devis_selectionne_id: selectedDevis,
+            date_validation: new Date().toISOString()
+          })
+          .eq('id', dossierId);
+
+        if (dossierError) throw dossierError;
+
+        console.log('[AdminDetail] Devis validé directement par le courtier');
+
+        // Mise à jour optimiste
+        setDevis(prev => prev.map(d => ({
+          ...d,
+          selected: d.id === selectedDevis,
+          refused: false,
+          statut: d.id === selectedDevis ? 'accepte' : 'en_attente'
+        })));
+
+        setDossier(prev => {
+          if (!prev) return prev;
+          return { ...prev, status: 'valide' };
+        });
+
+        console.log('✅ Devis validé directement - Dossier prêt pour finalisation');
+      }
+
+      // Refetch pour synchroniser l'état
+      try {
+        const refreshed = await DossiersService.getDossierById(dossierId);
+        const selectedId = refreshed?.devis_selectionne_id || null;
+        const freshDevis = (refreshed?.devis || []).map((d: any) => mapDevisFromDb(d, refreshed, selectedId));
+        setDossier(prev => {
+          if (!prev) return prev;
+          return { ...prev, status: hasApporteur ? 'devis_envoye' : 'valide' };
+        });
         setDevis(freshDevis);
       } catch (e) {
-        console.warn('[AdminDetail] refetch après envoi devis échoué', e);
+        console.warn('[AdminDetail] refetch après validation échoué', e);
       }
 
       setShowConfirmModal(false);
       setSelectedDevis(null);
-
-      console.log('✅ Devis envoyé avec succès - L\'apporteur va recevoir une notification');
+      setIsGeneratingDocuments(false);
     } catch (error) {
-      console.error('❌ Erreur lors de l\'envoi du devis:', error);
-      alert('Erreur lors de l\'envoi du devis');
+      console.error('❌ Erreur lors de la validation du devis:', error);
+      alert('Erreur lors de la validation du devis');
+      setIsGeneratingDocuments(false);
     }
   };
 
@@ -1901,7 +2072,12 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 {getStatusBadge(dossier.status)}
               </div>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {dossier.client_prenom} {dossier.client_nom} • Géré par {dossier.apporteur_prenom} {dossier.apporteur_nom}
+                {dossier.client_prenom} {dossier.client_nom} • {dossier.apporteur_id 
+                  ? `Géré par ${dossier.apporteur_prenom} ${dossier.apporteur_nom}`
+                  : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                      <i className="ri-building-line mr-1"></i>Dossier courtier
+                    </span>
+                }
               </p>
             </div>
           </div>
@@ -2008,14 +2184,6 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
               </div>
 
-              {/* Card de recommandation commission (mode compact) */}
-              {dossier.status === 'nouveau' || dossier.status === 'devis_disponible' ? (
-                <CommissionRecommendationCard
-                  dossierId={dossierId}
-                  coutAssuranceBanque={dossier.infos_pret?.cout_assurance_banque || dossier.cout_assurance_banque}
-                  compact={true}
-                />
-              ) : null}
 
               {/* ============================================================================ */}
               {/* SECTION CRITIQUE : DEVIS SÉLECTIONNÉ - TRAÇABILITÉ COMPLÈTE */}
@@ -2251,8 +2419,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
               )}
 
-              {/* STATUT: DEVIS ENVOYÉ - Devis sélectionné et envoyé à l'apporteur */}
-              {(dossier.status === 'devis_envoye' || (dossier.status as any) === 'devis_disponible') && (
+              {/* STATUT: DEVIS ENVOYÉ - Uniquement pour dossiers avec apporteur */}
+              {(dossier.status === 'devis_envoye' || (dossier.status as any) === 'devis_disponible') && dossier.apporteur_id && (
                 <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800 p-6">
                   <div className="flex items-start space-x-3">
                     <i className="ri-send-plane-line text-orange-600 dark:text-orange-400 text-xl mt-0.5"></i>
@@ -2510,33 +2678,57 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                 </div>
               )}
 
-              {/* Informations apporteur */}
+              {/* Informations apporteur ou Dossier courtier */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Apporteur d'affaires
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Nom complet
-                    </label>
-                    <p className="text-gray-900 dark:text-white">
-                      {dossier.apporteur_prenom} {dossier.apporteur_nom}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Email
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{dossier.apporteur_email}</p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/admin/apporteurs/${dossier.apporteur_id}`)}
-                    className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
-                  >
-                    Voir le profil complet
-                  </button>
-                </div>
+                {dossier.apporteur_id ? (
+                  <>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                      Apporteur d'affaires
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          Nom complet
+                        </label>
+                        <p className="text-gray-900 dark:text-white">
+                          {dossier.apporteur_prenom} {dossier.apporteur_nom}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          Email
+                        </label>
+                        <p className="text-gray-900 dark:text-white">{dossier.apporteur_email}</p>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/admin/apporteurs/${dossier.apporteur_id}`)}
+                        className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                      >
+                        Voir le profil complet
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+                      <i className="ri-building-line text-blue-500 mr-2"></i>
+                      Dossier direct courtier
+                    </h3>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-3">
+                        <i className="ri-information-line text-blue-600 dark:text-blue-400 text-xl mt-0.5"></i>
+                        <div>
+                          <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                            Dossier créé directement par le courtier
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Ce dossier n'est pas lié à un apporteur d'affaires. Le courtier gère directement la relation client et peut valider le devis sans intermédiaire.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Historique des devis */}
@@ -3813,32 +4005,60 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         {/* Tab Devis Comparatif */}
         {activeTab === 'devis' && (
           <>
-            {/* Card d'optimisation intelligente des commissions */}
-            <CommissionRecommendationCard
-              dossierId={dossierId}
+            {/* Optimiseur intelligent de commissions - maximise les gains courtier */}
+            <SmartCommissionOptimizer
+              devisList={devis.map(d => ({
+                id: d.id,
+                compagnie: d.compagnie,
+                produit: d.produit,
+                id_tarif: d.id_tarif || '',
+                cout_total: d.cout_total,
+                cout_mensuel: d.cout_mensuel,
+                frais_courtier: d.frais_courtier,
+                frais_adhesion: d.frais_adhesion,
+                commission_exade_code: d.commission_exade_code
+              }))}
               coutAssuranceBanque={dossier.infos_pret?.cout_assurance_banque || dossier.cout_assurance_banque}
-              onSelectCommission={(tarifId, code) => {
-                console.log('Commission sélectionnée:', { tarifId, code });
-                // Trouver le devis correspondant et ouvrir la modale
-                const devisCorrespondant = devis.find(d => d.id_tarif === tarifId);
-                if (devisCorrespondant) {
-                  setSelectedDevisDetail(devisCorrespondant);
-                  setShowDevisModal(true);
-                }
+              dureeMois={dossier.infos_pret?.duree_mois || (dossier.duree_pret || 20) * 12}
+              brokerId={currentBrokerId || undefined}
+              onApplyOptimization={(devisId, commissionCode, fraisCourtier, newCoutTotal, newCoutMensuel) => {
+                console.log('Configuration optimale appliquée:', { devisId, commissionCode, fraisCourtier, newCoutTotal, newCoutMensuel });
+                
+                // Mettre à jour le state local avec les nouveaux tarifs si disponibles
+                setDevis(prev => prev.map(d => 
+                  d.id === devisId 
+                    ? { 
+                        ...d, 
+                        frais_courtier: fraisCourtier, 
+                        commission_exade_code: commissionCode,
+                        // Mettre à jour les coûts si recalculés via API
+                        ...(newCoutTotal !== undefined && { cout_total: newCoutTotal }),
+                        ...(newCoutMensuel !== undefined && { cout_mensuel: newCoutMensuel })
+                      } 
+                    : d
+                ));
+                
+                console.log('✅ Configuration mise à jour');
               }}
-              compact={false}
+              onRecalculComplete={() => {
+                // Rafraîchir les devis après recalcul pour synchroniser avec la BDD
+                console.log('🔄 Recalcul terminé, rafraîchissement des données...');
+                handleRefreshDevis();
+              }}
             />
-
-            {/* Panneau de configuration des commissions (paramètres détaillés) */}
+            
+            {/* Panneau de configuration manuelle des commissions */}
             {currentBrokerId && (
-              <DevisCommissionPanel
-                dossierId={dossierId}
-                selectedDevisId={selectedDevisDetail?.id || devis.find(d => d.selected)?.id || null}
-                selectedDevisCoutTotal={selectedDevisDetail?.cout_total || devis.find(d => d.selected)?.cout_total || 0}
-                apporteurId={dossier.apporteur_id || null}
-                brokerId={currentBrokerId}
-                onRefreshDevis={handleRefreshDevis}
-              />
+              <div className="mt-4">
+                <DevisCommissionPanel
+                  dossierId={dossierId}
+                  selectedDevisId={selectedDevisDetail?.id || devis.find(d => d.selected)?.id || null}
+                  selectedDevisCoutTotal={selectedDevisDetail?.cout_total || devis.find(d => d.selected)?.cout_total || 0}
+                  apporteurId={dossier.apporteur_id || null}
+                  brokerId={currentBrokerId}
+                  onRefreshDevis={handleRefreshDevis}
+                />
+              </div>
             )}
 
             {/* Liste des devis avec vue hybride tableau/grille */}
@@ -3851,6 +4071,9 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
               }}
               onRefreshDevis={handleRefreshDevis}
               isRefreshing={isRefreshingDevis}
+              brokerId={currentBrokerId}
+              clientInfo={dossier}
+              pretData={dossier?.infos_pret}
             />
           </>
         )}
@@ -3979,32 +4202,157 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         )}
       </main>
 
-      {/* MODAL CONFIRMATION ENVOI DEVIS */}
+      {/* MODAL CONFIRMATION ENVOI/VALIDATION DEVIS */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowConfirmModal(false)}></div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-lg w-full p-6">
-              <div className="text-center">
-                <i className="ri-send-plane-line text-[#335FAD] dark:text-[#335FAD]/80 text-2xl mb-3"></i>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Confirmer l'envoi du devis
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Êtes-vous sûr de vouloir choisir ce devis ? Il sera envoyé à l'apporteur pour validation client.
-                </p>
-                <div className="flex justify-center space-x-3">
+            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => !isGeneratingDocuments && setShowConfirmModal(false)}></div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-xl w-full p-6 relative">
+              <div>
+                {dossier?.apporteur_id ? (
+                  // AVEC APPORTEUR : Envoi pour validation
+                  <>
+                    <div className="text-center mb-4">
+                      <i className="ri-send-plane-line text-[#335FAD] dark:text-[#335FAD]/80 text-2xl mb-3"></i>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Confirmer l'envoi du devis
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Sélectionnez les documents à envoyer à l'apporteur pour le client.
+                      </p>
+                    </div>
+                    
+                    {/* Sélection des documents */}
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 mb-4">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        <i className="ri-file-list-3-line mr-1"></i>
+                        Documents à inclure :
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'devis', label: 'Devis', icon: 'ri-file-text-line', required: true },
+                          { id: 'fiche_standardisee', label: 'Fiche standardisée', icon: 'ri-file-list-3-line' },
+                          { id: 'conditions_generales', label: 'Conditions Générales', icon: 'ri-book-2-line' },
+                          { id: 'demande_adhesion', label: 'Demande d\'adhésion', icon: 'ri-edit-line' },
+                          { id: 'questionnaire_sante', label: 'Questionnaire de santé', icon: 'ri-heart-pulse-line' },
+                          { id: 'aeras', label: 'Documentation AERAS', icon: 'ri-information-line' },
+                        ].map(docType => (
+                          <label
+                            key={docType.id}
+                            className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-sm ${
+                              selectedDocumentsForSend.has(docType.id)
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                            } ${docType.required ? 'opacity-75' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDocumentsForSend.has(docType.id)}
+                              disabled={docType.required}
+                              onChange={() => {
+                                if (docType.required) return;
+                                const newSet = new Set(selectedDocumentsForSend);
+                                if (newSet.has(docType.id)) {
+                                  newSet.delete(docType.id);
+                                } else {
+                                  newSet.add(docType.id);
+                                }
+                                setSelectedDocumentsForSend(newSet);
+                              }}
+                              className="h-4 w-4 text-blue-600 rounded"
+                            />
+                            <i className={`${docType.icon} text-gray-500`}></i>
+                            <span className="text-gray-700 dark:text-gray-300">{docType.label}</span>
+                            {docType.required && <span className="text-xs text-blue-600">(requis)</span>}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // SANS APPORTEUR : Validation directe
+                  <div className="text-center mb-4">
+                    <i className="ri-checkbox-circle-line text-green-500 text-2xl mb-3"></i>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      Valider ce devis
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Ce dossier n'a pas d'apporteur. En confirmant, ce devis sera directement validé.
+                    </p>
+                    
+                    {/* Documents pour téléchargement */}
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 mt-4 text-left">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        <i className="ri-download-line mr-1"></i>
+                        Documents à générer :
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'devis', label: 'Devis', icon: 'ri-file-text-line', required: true },
+                          { id: 'fiche_standardisee', label: 'Fiche standardisée', icon: 'ri-file-list-3-line' },
+                          { id: 'conditions_generales', label: 'Conditions Générales', icon: 'ri-book-2-line' },
+                          { id: 'demande_adhesion', label: 'Demande d\'adhésion', icon: 'ri-edit-line' },
+                        ].map(docType => (
+                          <label
+                            key={docType.id}
+                            className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-sm ${
+                              selectedDocumentsForSend.has(docType.id)
+                                ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDocumentsForSend.has(docType.id)}
+                              disabled={docType.required}
+                              onChange={() => {
+                                if (docType.required) return;
+                                const newSet = new Set(selectedDocumentsForSend);
+                                if (newSet.has(docType.id)) {
+                                  newSet.delete(docType.id);
+                                } else {
+                                  newSet.add(docType.id);
+                                }
+                                setSelectedDocumentsForSend(newSet);
+                              }}
+                              className="h-4 w-4 text-green-600 rounded"
+                            />
+                            <i className={`${docType.icon} text-gray-500`}></i>
+                            <span className="text-gray-700 dark:text-gray-300">{docType.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-center space-x-3 mt-4">
                   <button
                     onClick={() => setShowConfirmModal(false)}
-                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                    disabled={isGeneratingDocuments}
+                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Annuler
                   </button>
                   <button
                     onClick={confirmEnvoiDevis}
-                    className="bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+                    disabled={isGeneratingDocuments}
+                    className={`${dossier?.apporteur_id 
+                      ? 'bg-[#335FAD] hover:bg-[#335FAD]/90' 
+                      : 'bg-green-600 hover:bg-green-700'
+                    } text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50`}
                   >
-                    Confirmer l'envoi
+                    {isGeneratingDocuments ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin"></i>
+                        Génération des documents...
+                      </>
+                    ) : (
+                      <>
+                        <i className={dossier?.apporteur_id ? 'ri-send-plane-line' : 'ri-check-line'}></i>
+                        {dossier?.apporteur_id ? `Envoyer (${selectedDocumentsForSend.size} docs)` : "Valider et télécharger"}
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -4144,6 +4492,10 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
             alert(`❌ Erreur: ${result.error}`);
           }
         }}
+        // Props pour les documents PDF
+        brokerId={currentBrokerId}
+        clientInfo={dossier}
+        pretData={dossier?.infos_pret}
       />
 
       {/* MODAL AJOUT DOCUMENT */}

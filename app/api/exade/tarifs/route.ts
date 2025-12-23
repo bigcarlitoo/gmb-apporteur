@@ -373,6 +373,88 @@ function parseExadeResponse(xmlText: string, dureeMois: number = 240): any[] {
     const coutTotalCentimes = parseInt(extractValue(tarifContent, 'cout_total_tarif') || '0', 10)
     const coutTotal = coutTotalCentimes / 100
     
+    // Extraction de la durée du prêt en mois (pour calculer le coût mensuel)
+    const dureeMois = parseInt(extractValue(tarifContent, 'duree') || '0', 10) || 240
+    
+    // Extraction des garanties avec détails (nom, taxe, appreciation, cout, crd)
+    // On utilise un Map pour fusionner par nom normalisé
+    const garantiesMap = new Map<string, {
+      nom: string
+      taxe?: string
+      appreciation?: string | null
+      cout_periode?: number // Coût sur une période (de garantie_pret)
+      cout_total?: number   // Coût total (de cout_total_garantie)
+      crd?: number
+    }>()
+    
+    // Fonction pour normaliser les noms de garanties (pour éviter les doublons avec casse différente)
+    const normalizeGarantieName = (name: string): string => name.toUpperCase().trim().replace(/\s+/g, ' ')
+    
+    // ÉTAPE 1 : Extraire d'abord les cout_total_garantie (plus fiables pour le coût total)
+    const coutTotalGarantieRegex = /<cout_total_garantie>([\s\S]*?)<\/cout_total_garantie>/gi
+    let garantieMatch
+    while ((garantieMatch = coutTotalGarantieRegex.exec(tarifContent)) !== null) {
+      const gContent = garantieMatch[1]
+      const nom = extractValue(gContent, 'nom')
+      const coutTotalCentimes = parseInt(extractValue(gContent, 'cout') || '0', 10)
+      
+      if (nom) {
+        const nomNormalized = normalizeGarantieName(nom)
+        const existing = garantiesMap.get(nomNormalized)
+        if (existing) {
+          existing.cout_total = (existing.cout_total || 0) + coutTotalCentimes / 100
+        } else {
+          garantiesMap.set(nomNormalized, {
+            nom, // Garder le nom original
+            cout_total: coutTotalCentimes / 100,
+          })
+        }
+      }
+    }
+    
+    // ÉTAPE 2 : Extraire les garantie_pret pour les détails (taxe, appreciation, crd)
+    const garantiePretRegex = /<garantie_pret>([\s\S]*?)<\/garantie_pret>/gi
+    while ((garantieMatch = garantiePretRegex.exec(tarifContent)) !== null) {
+      const gContent = garantieMatch[1]
+      const nom = extractValue(gContent, 'nom')
+      if (nom) {
+        const nomNormalized = normalizeGarantieName(nom)
+        const coutPeriodeCentimes = parseInt(extractValue(gContent, 'cout') || '0', 10)
+        const crdCentimes = parseInt(extractValue(gContent, 'crd') || '0', 10)
+        const taxe = extractValue(gContent, 'taxe') === 'O' ? 'Oui' : 'Non'
+        const appreciation = extractValue(gContent, 'appreciation') || null
+        
+        const existing = garantiesMap.get(nomNormalized)
+        if (existing) {
+          // Ajouter/mettre à jour les détails
+          if (!existing.taxe) existing.taxe = taxe
+          if (!existing.appreciation) existing.appreciation = appreciation
+          if (!existing.crd) existing.crd = crdCentimes / 100
+          // Additionner les coûts période (pour plusieurs assurés)
+          existing.cout_periode = (existing.cout_periode || 0) + coutPeriodeCentimes / 100
+        } else {
+          garantiesMap.set(nomNormalized, {
+            nom, // Garder le nom original en majuscules (plus propre)
+            taxe,
+            appreciation,
+            cout_periode: coutPeriodeCentimes / 100,
+            crd: crdCentimes / 100,
+          })
+        }
+      }
+    }
+    
+    // ÉTAPE 3 : Convertir le Map en tableau et calculer le coût mensuel
+    const garantiesDetails = Array.from(garantiesMap.values()).map(g => ({
+      nom: g.nom,
+      taxe: g.taxe,
+      appreciation: g.appreciation,
+      // Coût mensuel = coût total / durée en mois (arrondi à 2 décimales)
+      cout_mensuel: g.cout_total ? Math.round((g.cout_total / dureeMois) * 100) / 100 : undefined,
+      cout_total: g.cout_total,
+      crd: g.crd,
+    })).filter(g => g.cout_total !== undefined || g.taxe !== undefined) // Supprimer les entrées vides
+    
     const tarif = {
       id_simulation: idSimulation,
       id_tarif: extractValue(tarifContent, 'id_tarif'),
@@ -392,6 +474,8 @@ function parseExadeResponse(xmlText: string, dureeMois: number = 240): any[] {
       // Formalités médicales
       formalites_medicales: formalites,
       formalites_detaillees: formalites,
+      // Détails des garanties
+      garanties: garantiesDetails,
       // Coût des 8 premières années (si disponible)
       cout_premieres_annees: parseInt(extractValue(tarifContent, 'cout_premieres_annees_tarif') || '0', 10) / 100,
       // Erreurs

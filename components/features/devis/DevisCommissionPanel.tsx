@@ -60,7 +60,7 @@ export function DevisCommissionPanel({
   const [defaultFrais, setDefaultFrais] = useState(150);
   const [defaultCommissionCode, setDefaultCommissionCode] = useState('');
   const [defaultApporteurPct, setDefaultApporteurPct] = useState(80);
-  const [platformFeePct, setPlatformFeePct] = useState(7.5);
+  const [platformFeePct, setPlatformFeePct] = useState(5); // 5% par défaut
   const [subscriptionPlan, setSubscriptionPlan] = useState<string>('free');
   
   // Commission personnalisée de l'apporteur
@@ -95,13 +95,8 @@ export function DevisCommissionPanel({
           setDefaultApporteurPct(settings.default_apporteur_share_pct);
           setSubscriptionPlan(settings.subscription_plan);
 
-          // Calculer le taux de plateforme selon le plan et la présence d'apporteur
-          const platformFees = {
-            free: apporteurId ? 7.5 : 4,
-            pro: apporteurId ? 3 : 0,
-            unlimited: 0
-          };
-          setPlatformFeePct(platformFees[settings.subscription_plan as keyof typeof platformFees] || 7.5);
+          // Taux de plateforme fixe : 5%
+          setPlatformFeePct(5);
         }
 
         // 2. Charger la commission personnalisée de l'apporteur si présent
@@ -189,7 +184,7 @@ export function DevisCommissionPanel({
     });
   }, [fraisCourtierEuros, commissionCode, customApporteurPct, defaultApporteurPct, platformFeePct, apporteurId]);
 
-  // Sauvegarder les modifications sur le devis
+  // Sauvegarder les modifications et recalculer via API Exade
   const handleSave = async () => {
     if (!selectedDevisId) {
       setError('Aucun devis sélectionné');
@@ -200,24 +195,43 @@ export function DevisCommissionPanel({
     setError(null);
 
     try {
-      const { error: updateError } = await supabase
-        .from('devis')
-        .update({
-          frais_courtier: Math.round(fraisCourtierEuros * 100),
-          commission_exade_code: commissionCode || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedDevisId);
+      // Importer dynamiquement le service pour éviter les problèmes de circular import
+      const { DevisService } = await import('@/lib/services/devis');
 
-      if (updateError) throw updateError;
+      // Utiliser le recalcul via API Exade pour obtenir les vrais tarifs
+      const result = await DevisService.recalculateTarifWithCommission(
+        selectedDevisId,
+        commissionCode || '',
+        Math.round(fraisCourtierEuros * 100),
+        brokerId
+      );
+
+      if (!result.success) {
+        // Fallback: sauvegarder quand même sans recalcul
+        console.warn('Recalcul API échoué, sauvegarde simple:', result.error);
+        const { error: updateError } = await supabase
+          .from('devis')
+          .update({
+            frais_courtier: Math.round(fraisCourtierEuros * 100),
+            commission_exade_code: commissionCode || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedDevisId);
+
+        if (updateError) throw updateError;
+      }
 
       // Notifier le parent si callback fourni
       if (onSettingsChange) {
         onSettingsChange(Math.round(fraisCourtierEuros * 100), commissionCode);
       }
 
-      // Afficher succès (temporairement via alert, idéalement un toast)
-      alert('Paramètres enregistrés. Vous pouvez maintenant régénérer les devis pour appliquer les nouveaux taux.');
+      // Rafraîchir les devis pour afficher les nouveaux tarifs
+      if (onRefreshDevis) {
+        onRefreshDevis();
+      }
+
+      console.log('✅ Configuration enregistrée' + (result.success ? ' avec recalcul API' : ' (sans recalcul)'));
     } catch (err: any) {
       console.error('Erreur sauvegarde:', err);
       setError(err.message || 'Erreur lors de la sauvegarde');

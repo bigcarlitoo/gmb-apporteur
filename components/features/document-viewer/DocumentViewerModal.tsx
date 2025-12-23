@@ -59,6 +59,9 @@ export const DocumentViewerModal = ({
     // Stub behavior
     const isMock = !activeUrl || activeUrl.includes('mock');
 
+    // Ne pas afficher si la modale n'est pas ouverte
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />

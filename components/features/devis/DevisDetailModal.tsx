@@ -14,7 +14,9 @@ import {
   EXADE_COMMISSION_CODES,
   ExadeCommissionCode,
   getCommissionCodesForCompagnie,
+  getCompagnieIdFromName,
 } from '@/lib/constants/exade';
+import { DevisDocumentsPanel } from './DevisDocumentsPanel';
 
 // ============================================================================
 // TYPES
@@ -56,6 +58,16 @@ interface DevisData {
   compatible_lemoine?: boolean;
   type_tarif?: string;
   taux_capital_assure?: number;
+  cout_premieres_annees?: number;
+  // Détails des garanties extraits d'Exade
+  garanties?: Array<{
+    nom: string
+    taxe?: string
+    appreciation?: string | null
+    cout_mensuel?: number
+    cout_total?: number
+    crd?: number
+  }>;
   // Données brutes Exade (dans donnees_devis)
   donnees_devis?: any;
   // Champs pour le workflow push Exade
@@ -75,6 +87,10 @@ interface DevisDetailModalProps {
   onResendDevis?: (devisId: string) => void;
   onPushToExade?: (devisId: string) => Promise<void>;
   dossierStatut?: string; // statut_canon du dossier
+  // Props pour les documents PDF
+  brokerId?: string;
+  clientInfo?: any;
+  pretData?: any;
 }
 
 // ============================================================================
@@ -91,7 +107,10 @@ export function DevisDetailModal({
   onRejectDevis,
   onResendDevis,
   onPushToExade,
-  dossierStatut
+  dossierStatut,
+  brokerId,
+  clientInfo,
+  pretData
 }: DevisDetailModalProps) {
   // États pour la configuration de commission
   const [selectedCompagnie, setSelectedCompagnie] = useState<string>('');
@@ -100,7 +119,7 @@ export function DevisDetailModal({
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [isPushingToExade, setIsPushingToExade] = useState(false);
   const [showPushConfirmModal, setShowPushConfirmModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'garanties' | 'formalites' | 'frais'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'garanties' | 'formalites' | 'frais' | 'documents'>('details');
 
   // Vérifier si le devis peut être pushé vers Exade
   const canPushToExade = devis && 
@@ -126,8 +145,10 @@ export function DevisDetailModal({
   // Initialiser les valeurs depuis le devis sélectionné
   useEffect(() => {
     if (devis) {
-      // Extraire l'ID tarif pour initialiser la compagnie
-      setSelectedCompagnie(devis.id_tarif || '');
+      // Déterminer l'ID de compagnie à partir du nom de la compagnie
+      const compagnieId = getCompagnieIdFromName(devis.compagnie);
+      console.log('[DevisDetailModal] Mapping compagnie:', { compagnie: devis.compagnie, compagnieId });
+      setSelectedCompagnie(compagnieId || '');
       setSelectedCommissionCode(devis.commission_exade_code || '');
       setFraisCourtier(devis.frais_courtier ? devis.frais_courtier / 100 : devis.frais_adhesion_apporteur || 150);
     }
@@ -213,6 +234,17 @@ export function DevisDetailModal({
     }
   };
 
+  // Bloquer le scroll du body quand la modale est ouverte
+  // Ce hook DOIT être avant tout early return pour respecter les règles des Hooks
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !devis) return null;
 
   // Déterminer le logo/couleur de la compagnie
@@ -232,15 +264,15 @@ export function DevisDetailModal({
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen p-4">
+      <div className="flex items-center justify-center min-h-screen py-2 px-4">
         {/* Backdrop */}
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
           onClick={onClose}
         />
 
-        {/* Modal */}
-        <div className="relative w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Modal - hauteur max réduite pour moins de marges */}
+        <div className="relative w-full max-w-4xl max-h-[95vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
           {/* Header avec gradient compagnie */}
           <div className={`bg-gradient-to-r ${getCompagnieColor(devis.compagnie)} px-6 py-5`}>
             <div className="flex items-center justify-between">
@@ -279,7 +311,7 @@ export function DevisDetailModal({
           </div>
 
           {/* Corps de la modale avec scroll */}
-          <div className="max-h-[calc(85vh-200px)] overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {/* Section Tarification principale */}
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -512,6 +544,7 @@ export function DevisDetailModal({
                   { id: 'garanties', label: 'Garanties', icon: 'ri-shield-check-line' },
                   { id: 'formalites', label: 'Formalités', icon: 'ri-heart-pulse-line' },
                   { id: 'frais', label: 'Frais', icon: 'ri-money-euro-circle-line' },
+                  { id: 'documents', label: 'Documents', icon: 'ri-file-pdf-line' },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -563,22 +596,93 @@ export function DevisDetailModal({
 
               {/* Tab Garanties */}
               {activeTab === 'garanties' && (
-                <div className="space-y-4">
-                  {/* Couvertures */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                      <i className="ri-check-double-line text-green-500"></i>
-                      Garanties incluses
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {(devis.couverture?.length > 0 ? devis.couverture : ['DC', 'PTIA', 'ITT', 'IPT']).map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                          <i className="ri-check-line text-green-600 dark:text-green-400"></i>
-                          <span className="text-sm text-green-800 dark:text-green-300">{item}</span>
-                        </div>
-                      ))}
+                <div className="space-y-6">
+                  {/* Détails des garanties Exade */}
+                  {devis.garanties && devis.garanties.length > 0 ? (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <i className="ri-shield-check-line text-green-500"></i>
+                        Détails des garanties
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                              <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Garantie</th>
+                              <th className="text-center py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Taxe</th>
+                              <th className="text-center py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Appréciation</th>
+                              <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Coût/mois</th>
+                              <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Coût total</th>
+                              <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">CRD initial</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {devis.garanties.map((g, index) => (
+                              <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2">
+                                    <i className="ri-check-line text-green-500"></i>
+                                    <span className="font-medium text-gray-900 dark:text-white">{g.nom}</span>
+                                  </div>
+                                </td>
+                                <td className="text-center py-3 px-4">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    g.taxe === 'Oui' 
+                                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                  }`}>
+                                    {g.taxe || '-'}
+                                  </span>
+                                </td>
+                                <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">
+                                  {g.appreciation || '-'}
+                                </td>
+                                <td className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">
+                                  {g.cout_mensuel ? formatCurrency(g.cout_mensuel) : '-'}
+                                </td>
+                                <td className="text-right py-3 px-4 font-semibold text-[#335FAD]">
+                                  {g.cout_total ? formatCurrency(g.cout_total) : '-'}
+                                </td>
+                                <td className="text-right py-3 px-4 text-gray-600 dark:text-gray-400">
+                                  {g.crd ? formatCurrency(g.crd) : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          {/* Totaux */}
+                          <tfoot>
+                            <tr className="bg-gray-50 dark:bg-gray-800/50 font-semibold">
+                              <td className="py-3 px-4 text-gray-700 dark:text-gray-300">Total</td>
+                              <td></td>
+                              <td></td>
+                              <td className="text-right py-3 px-4 text-gray-900 dark:text-white">
+                                {formatCurrency(devis.garanties.reduce((sum, g) => sum + (g.cout_mensuel || 0), 0))}
+                              </td>
+                              <td className="text-right py-3 px-4 text-[#335FAD]">
+                                {formatCurrency(devis.garanties.reduce((sum, g) => sum + (g.cout_total || 0), 0))}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <i className="ri-check-double-line text-green-500"></i>
+                        Garanties incluses
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(devis.couverture?.length > 0 ? devis.couverture : ['DC', 'PTIA', 'ITT', 'IPT']).map((item, index) => (
+                          <div key={index} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <i className="ri-check-line text-green-600 dark:text-green-400"></i>
+                            <span className="text-sm text-green-800 dark:text-green-300">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Exclusions */}
                   {devis.exclusions && devis.exclusions.length > 0 && (
@@ -635,31 +739,96 @@ export function DevisDetailModal({
 
               {/* Tab Frais */}
               {activeTab === 'frais' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Frais d'adhésion</span>
-                    <p className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(devis.frais_adhesion || 0)}
-                    </p>
+                <div className="space-y-6">
+                  {/* Frais principaux */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Frais d'adhésion assureur</span>
+                      <p className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(devis.frais_adhesion || 0)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Frais de fractionnement</span>
+                      <p className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(devis.frais_frac || 0)}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                      <span className="text-xs text-blue-600 dark:text-blue-400 block mb-1">Frais courtier configurés</span>
+                      <p className="text-xl font-semibold text-blue-700 dark:text-blue-300">
+                        {formatCurrency(devis.frais_courtier ? devis.frais_courtier / 100 : (devis.frais_adhesion_apporteur || fraisCourtier))}
+                      </p>
+                      <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+                        {devis.frais_courtier ? 'Enregistré en base' : 'Valeur par défaut'}
+                      </p>
+                    </div>
+                    <div className="bg-[#335FAD]/10 dark:bg-[#335FAD]/20 rounded-lg p-4 border border-[#335FAD]/30">
+                      <span className="text-xs text-[#335FAD] block mb-1">Coût total tarif</span>
+                      <p className="text-xl font-semibold text-[#335FAD]">
+                        {formatCurrency(devis.cout_total_tarif || devis.cout_total || 0)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Frais de fractionnement</span>
-                    <p className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(devis.frais_frac || 0)}
-                    </p>
+
+                  {/* Informations complémentaires */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {devis.cout_premieres_annees && (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-700">
+                        <span className="text-xs text-amber-600 dark:text-amber-400 block mb-1">
+                          <i className="ri-time-line mr-1"></i>
+                          Coût 8 premières années
+                        </span>
+                        <p className="text-lg font-semibold text-amber-700 dark:text-amber-300">
+                          {formatCurrency(devis.cout_premieres_annees)}
+                        </p>
+                      </div>
+                    )}
+                    {devis.taux_capital_assure && (
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+                        <span className="text-xs text-purple-600 dark:text-purple-400 block mb-1">
+                          <i className="ri-percent-line mr-1"></i>
+                          Taux sur capital assuré
+                        </span>
+                        <p className="text-lg font-semibold text-purple-700 dark:text-purple-300">
+                          {(devis.taux_capital_assure * 100).toFixed(3)}%
+                        </p>
+                      </div>
+                    )}
+                    {devis.commission_exade_code && (
+                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
+                        <span className="text-xs text-green-600 dark:text-green-400 block mb-1">
+                          <i className="ri-money-euro-circle-line mr-1"></i>
+                          Code commission Exade
+                        </span>
+                        <p className="text-lg font-semibold text-green-700 dark:text-green-300">
+                          {devis.commission_exade_code}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                    <span className="text-xs text-blue-600 dark:text-blue-400 block mb-1">Frais courtier actuels</span>
-                    <p className="text-xl font-semibold text-blue-700 dark:text-blue-300">
-                      {formatCurrency(devis.frais_adhesion_apporteur || 0)}
-                    </p>
-                  </div>
-                  <div className="bg-[#335FAD]/10 dark:bg-[#335FAD]/20 rounded-lg p-4 border border-[#335FAD]/30">
-                    <span className="text-xs text-[#335FAD] block mb-1">Coût total tarif</span>
-                    <p className="text-xl font-semibold text-[#335FAD]">
-                      {formatCurrency(devis.cout_total_tarif || devis.cout_total || 0)}
-                    </p>
-                  </div>
+                </div>
+              )}
+
+              {/* Tab Documents PDF */}
+              {activeTab === 'documents' && (
+                <div className="space-y-4">
+                  {brokerId && clientInfo && pretData ? (
+                    <DevisDocumentsPanel
+                      devisId={devis.id}
+                      idTarif={devis.id_tarif}
+                      compagnie={devis.compagnie}
+                      brokerId={brokerId}
+                      clientInfo={clientInfo}
+                      pretData={pretData}
+                    />
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <i className="ri-file-warning-line text-4xl mb-2"></i>
+                      <p>Informations manquantes pour générer les documents.</p>
+                      <p className="text-sm mt-1">Données client ou prêt non disponibles.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

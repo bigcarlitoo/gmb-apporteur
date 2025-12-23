@@ -38,8 +38,8 @@ interface BrokerCommissionSettingsProps {
   brokerId: string;
 }
 
-// Nouvelle tarification simplifiée : 6% sur tout
-const PLATFORM_FEE_PCT = 6; // 6% sur frais courtier + commissions Exade 1ère année
+// Tarification plateforme : 5% sur tout
+const PLATFORM_FEE_PCT = 5; // 5% sur frais courtier + commissions Exade 1ère année
 
 export function BrokerCommissionSettings({ brokerId }: BrokerCommissionSettingsProps) {
   const [settings, setSettings] = useState<CommissionSettings | null>(null);
@@ -520,7 +520,7 @@ export function BrokerCommissionSettings({ brokerId }: BrokerCommissionSettingsP
                   <th className="text-left py-2 text-gray-500 dark:text-gray-400 font-normal">Source</th>
                   <th className="text-right py-2 text-gray-500 dark:text-gray-400 font-normal">Montant</th>
                   <th className="text-right py-2 text-green-600 dark:text-green-400 font-normal">Apporteur</th>
-                  <th className="text-right py-2 text-orange-600 dark:text-orange-400 font-normal">Plateforme (6%)</th>
+                  <th className="text-right py-2 text-orange-600 dark:text-orange-400 font-normal">Plateforme ({PLATFORM_FEE_PCT}%)</th>
                   <th className="text-right py-2 text-[#335FAD] font-normal">Vous (net)</th>
                 </tr>
               </thead>
