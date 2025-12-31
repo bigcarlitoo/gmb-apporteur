@@ -63,6 +63,8 @@ interface DossierDetail {
   client_telephone: string;
   client_date_naissance: string;
   client_adresse: string;
+  client_code_postal?: string;
+  client_ville?: string;
   client_categorie_professionnelle?: number;  // Code Exade 1-11
   client_fumeur: boolean;
   // Informations du conjoint (si dossier couple)
