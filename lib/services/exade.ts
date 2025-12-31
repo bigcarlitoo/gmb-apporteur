@@ -487,7 +487,7 @@ function mapSimulationToTarifs(simulation: any): ExadeTarif[] {
                   })
                 } else {
                   // Additionner les coûts si plusieurs assurés
-                  existingGarantie.cout_mensuel += Number(g.cout || 0) / 100
+                  existingGarantie.cout_mensuel = (existingGarantie.cout_mensuel || 0) + Number(g.cout || 0) / 100
                 }
               }
             }

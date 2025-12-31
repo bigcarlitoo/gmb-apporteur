@@ -4558,7 +4558,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           }
         }}
         // Props pour les documents PDF
-        brokerId={currentBrokerId}
+        brokerId={currentBrokerId || undefined}
         clientInfo={dossier}
         pretData={dossier?.infos_pret}
       />
