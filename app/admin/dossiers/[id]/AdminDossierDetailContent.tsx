@@ -4136,7 +4136,7 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
               }}
               onRefreshDevis={handleRefreshDevis}
               isRefreshing={isRefreshingDevis}
-              brokerId={currentBrokerId}
+              brokerId={currentBrokerId || undefined}
               clientInfo={dossier}
               pretData={dossier?.infos_pret}
             />
