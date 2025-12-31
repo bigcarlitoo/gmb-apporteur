@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { CATEGORY_OPTIONS } from '@/lib/constants/exade';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 type DossierType = 'seul' | 'couple';
 
@@ -387,7 +388,28 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {renderInputField("Adresse", "adresse", "text", formData.adresse, true, "Numéro et nom de rue")}
+            {/* Champ d'autocomplete d'adresse */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Adresse <span className="text-red-500">*</span>
+              </label>
+              <AddressAutocomplete
+                value={formData.adresse}
+                onChange={(address, codePostal, ville) => {
+                  updateField("adresse", address);
+                  if (codePostal) {
+                    updateField("code_postal", codePostal);
+                  }
+                  if (ville) {
+                    updateField("ville", ville);
+                  }
+                }}
+                placeholder="Commencez à taper une adresse (ex: 10 rue de la Paix, Paris)"
+                error={errors.adresse}
+                required={true}
+              />
+            </div>
+            
             {renderInputField("Complément d'adresse", "complement_adresse", "text", formData.complement_adresse, false, "Bâtiment, étage, etc.")}
             {renderInputField("Code postal", "code_postal", "text", formData.code_postal, true, "Ex: 75001")}
             {renderInputField("Ville", "ville", "text", formData.ville, true, "Ville")}

@@ -285,7 +285,9 @@ Cordialement,
                                 value={config.codeCourtier}
                                 onChange={e => setConfig({ ...config, codeCourtier: e.target.value })}
                                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm p-3 focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD]"
-                                placeholder="Ex: 815178"
+                                placeholder="Ex: 123456"
+                                autoComplete="off"
+                                inputMode="numeric"
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 Votre identifiant unique chez Exade/Multi-Impact
@@ -303,7 +305,8 @@ Cordialement,
                                     value={config.licenceKey}
                                     onChange={e => setConfig({ ...config, licenceKey: e.target.value })}
                                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm p-3 pr-10 focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] font-mono"
-                                    placeholder="Ex: GMB#7ùuQefujig8fu1+rulyXa)it"
+                                    placeholder="Ex: ABC#123xyz789..."
+                                    autoComplete="off"
                                 />
                                 <button
                                     type="button"
@@ -329,6 +332,7 @@ Cordialement,
                                 onChange={e => setConfig({ ...config, soapUrl: e.target.value })}
                                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm p-3 focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] font-mono"
                                 placeholder="https://www.exade.fr/4DSOAP"
+                                autoComplete="off"
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 URL de l'API Exade (généralement https://www.exade.fr/4DSOAP)
@@ -346,7 +350,8 @@ Cordialement,
                                     value={config.ssoKey}
                                     onChange={e => setConfig({ ...config, ssoKey: e.target.value })}
                                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm p-3 pr-12 focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] font-mono"
-                                    placeholder="Ex: GMB#SSO83udYpo))voywà5èviw)G"
+                                    placeholder="Ex: ABC#SSO123xyz..."
+                                    autoComplete="off"
                                 />
                                 <button
                                     type="button"

@@ -33,6 +33,7 @@ import { DevisDetailModal } from '@/components/features/devis/DevisDetailModal';
 import { DevisListView } from '@/components/features/devis/DevisListView';
 import { useBrokerContext } from '@/hooks/useBrokerContext';
 import { ExadePushService } from '@/lib/services/exade-push';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 // ============================================================================
 // INTERFACES POUR L'INTÉGRATION SUPABASE
@@ -155,6 +156,8 @@ interface EditedClientData {
   client_telephone: string;
   client_date_naissance: string;
   client_adresse: string;
+  client_code_postal?: string;
+  client_ville?: string;
   client_categorie_professionnelle?: number;  // Code Exade 1-11
   client_fumeur: boolean;
   // Informations du conjoint (si dossier couple)
@@ -750,6 +753,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         client_telephone: dossier.client_telephone,
         client_date_naissance: dossier.client_date_naissance,
         client_adresse: dossier.client_adresse,
+        client_code_postal: dossier.client_code_postal || '',
+        client_ville: dossier.client_ville || '',
         client_categorie_professionnelle: dossier.client_categorie_professionnelle || 0,
         client_fumeur: dossier.client_fumeur,
         // Informations du conjoint (si dossier couple)
@@ -791,6 +796,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
       client_telephone: dossier.client_telephone,
       client_date_naissance: dossier.client_date_naissance,
       client_adresse: dossier.client_adresse,
+      client_code_postal: dossier.client_code_postal || '',
+      client_ville: dossier.client_ville || '',
       client_categorie_professionnelle: dossier.client_categorie_professionnelle || 0,
       client_fumeur: dossier.client_fumeur,
       // Informations du conjoint (si dossier couple)
@@ -847,6 +854,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
         client_telephone: editedClientData.client_telephone,
         client_date_naissance: editedClientData.client_date_naissance,
         client_adresse: editedClientData.client_adresse,
+        client_code_postal: editedClientData.client_code_postal || null,
+        client_ville: editedClientData.client_ville || null,
         categorie_professionnelle: editedClientData.client_categorie_professionnelle || null,
         client_fumeur: editedClientData.client_fumeur,
         // Informations du conjoint (si dossier couple)
@@ -880,6 +889,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
           client_telephone: saved?.client_telephone ?? editedClientData.client_telephone,
           client_date_naissance: saved?.client_date_naissance ?? editedClientData.client_date_naissance,
           client_adresse: saved?.client_adresse ?? editedClientData.client_adresse,
+          client_code_postal: saved?.client_code_postal ?? editedClientData.client_code_postal,
+          client_ville: saved?.client_ville ?? editedClientData.client_ville,
           client_categorie_professionnelle: saved?.categorie_professionnelle ?? editedClientData.client_categorie_professionnelle,
           client_fumeur: saved?.client_fumeur ?? editedClientData.client_fumeur,
           // Informations du conjoint (si dossier couple)
@@ -916,6 +927,8 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
       client_telephone: dossier.client_telephone,
       client_date_naissance: dossier.client_date_naissance,
       client_adresse: dossier.client_adresse,
+      client_code_postal: dossier.client_code_postal || '',
+      client_ville: dossier.client_ville || '',
       client_categorie_professionnelle: dossier.client_categorie_professionnelle || 0,
       client_fumeur: dossier.client_fumeur,
       conjoint_civilite: dossier.conjoint_civilite || '',
@@ -3005,15 +3018,65 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
                     Adresse
                   </label>
                   {isEditingClient ? (
-                    <input
-                      type="text"
+                    <AddressAutocomplete
                       value={editedClientData.client_adresse}
-                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_adresse: e.target.value }))}
-                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                      onChange={(address, codePostal, ville) => {
+                        setEditedClientData((prev: EditedClientData) => ({
+                          ...prev,
+                          client_adresse: address,
+                          client_code_postal: codePostal || prev.client_code_postal,
+                          client_ville: ville || prev.client_ville
+                        }));
+                      }}
+                      placeholder="Commencez à taper une adresse (ex: 10 rue de la Paix, Paris)"
+                      className="w-full"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       {dossier.client_adresse}
+                      {dossier.client_code_postal && dossier.client_ville && (
+                        <span className="text-gray-500 dark:text-gray-400 ml-2">
+                          {dossier.client_code_postal} {dossier.client_ville}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Code postal
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="text"
+                      value={editedClientData.client_code_postal || ''}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_code_postal: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                      placeholder="Ex: 75001"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_code_postal || '-'}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Ville
+                  </label>
+                  {isEditingClient ? (
+                    <input
+                      type="text"
+                      value={editedClientData.client_ville || ''}
+                      onChange={(e) => setEditedClientData((prev: EditedClientData) => ({ ...prev, client_ville: e.target.value }))}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-[#335FAD] focus:border-transparent"
+                      placeholder="Ville"
+                    />
+                  ) : (
+                    <p className="text-gray-900 dark:text-white p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      {dossier.client_ville || '-'}
                     </p>
                   )}
                 </div>

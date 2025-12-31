@@ -36,6 +36,8 @@ export async function PUT(_req: NextRequest, { params }: { params: Promise<{ id:
         client_telephone: clientData.client_telephone,
         client_date_naissance: clientData.client_date_naissance,
         client_adresse: clientData.client_adresse,
+        client_code_postal: clientData.client_code_postal || null,
+        client_ville: clientData.client_ville || null,
         client_profession: clientData.client_profession,
         client_fumeur: clientData.client_fumeur,
         updated_at: new Date().toISOString()
