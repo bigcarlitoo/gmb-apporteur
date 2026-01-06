@@ -15,7 +15,7 @@ export async function generateStaticParams() {
     }
 
     // Retourner les IDs pour la génération des pages statiques
-    return apporteurs?.map((apporteur) => ({
+    return apporteurs?.map((apporteur: { id: string }) => ({
       id: apporteur.id
     })) || [];
   } catch (error) {
