@@ -370,7 +370,7 @@ export class ActivitiesService {
       parMois: {} as Record<string, number>
     }
 
-    data.forEach(activity => {
+    data.forEach((activity: Activity) => {
       // Compter les non lues
       if (!activity.is_read) {
         stats.nonLues++
