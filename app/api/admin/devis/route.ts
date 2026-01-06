@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Si un devis est sélectionné, mettre à jour le dossier
     if (selectedDevisId) {
-      const selectedDevis = insertedDevis?.find(d => d.donnees_devis?.compagnie === devis.find((d: any) => d.id === selectedDevisId)?.compagnie)
+      const selectedDevis = insertedDevis?.find((d: any) => d.donnees_devis?.compagnie === devis.find((d2: any) => d2.id === selectedDevisId)?.compagnie)
       
       if (selectedDevis) {
         const { error: updateError } = await supabase
