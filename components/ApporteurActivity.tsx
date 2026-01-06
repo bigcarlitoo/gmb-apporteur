@@ -73,7 +73,7 @@ export default function ApporteurActivity({ userId }: ApporteurActivityProps) {
       console.log('📊 fetchActivities - Données récupérées:', data?.length);
       
       // Formater les données et fusionner avec le cache local
-      const formattedActivities = data?.map(activity => {
+      const formattedActivities = data?.map((activity: Activity) => {
         const formatted = formatActivityForDisplay(activity);
         // Priorité au cache local
         const cachedStatus = ActivityReadStatusCache.getReadStatus(activity.id);

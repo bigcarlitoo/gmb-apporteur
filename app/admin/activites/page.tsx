@@ -214,7 +214,7 @@ export default function AdminActivitesPage() {
       const data = await ActivitiesService.getAllActivities(currentBrokerId);
       
       // Formater et fusionner avec le cache local
-      const formatted = data?.map(activity => {
+      const formatted = data?.map((activity: Activity) => {
         const formatted = formatActivityForDisplay(activity);
         // Priorité au cache local
         const cachedStatus = ActivityReadStatusCache.getReadStatus(activity.id);
