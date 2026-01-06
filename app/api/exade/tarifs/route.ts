@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { ExadeCommissionOptions } from '@/lib/services/exade'
 import { 
   formatDateForExade, 
@@ -51,7 +51,8 @@ export async function POST(req: Request) {
     }
 
     // Récupérer la configuration Exade du broker (obligatoire)
-    const { data: exadeConfig, error: configError } = await supabase
+    const serviceClient = createServiceRoleClient()
+    const { data: exadeConfig, error: configError } = await serviceClient
       .from('broker_exade_configs')
       .select('code_courtier, licence_key, endpoint_url, is_enabled')
       .eq('broker_id', broker_id)

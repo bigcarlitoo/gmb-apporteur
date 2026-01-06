@@ -1,33 +1,45 @@
+/**
+ * API Route: Mise à jour des données de prêt d'un dossier
+ * Accès: Admin ou Broker User uniquement
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { 
+  createApiRouteClient, 
+  createServiceRoleClient,
+  getAuthenticatedUser 
+} from '@/lib/supabase/server'
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id: dossierId } = await params;
+    const { id: dossierId } = await params
     
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
-    if (userError || !user) {
+    // Authentification
+    const supabase = await createApiRouteClient(request)
+    const user = await getAuthenticatedUser(supabase)
+    
+    if (!user) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-
-    // Vérifier admin
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Accès non autorisé - Admin seulement' }, { status: 403 })
+    
+    // Vérifier que l'utilisateur est admin ou broker_user
+    if (user.role !== 'admin' && user.role !== 'broker_user') {
+      return NextResponse.json(
+        { error: 'Accès non autorisé - Admin ou Broker User seulement' }, 
+        { status: 403 }
+      )
     }
-    const body = await req.json()
+    
+    const body = await request.json()
     const pretData = body?.pretData || {}
-
-    const { error: upsertPretError } = await supabaseClient
+    
+    // Utiliser le service role pour les modifications
+    const serviceClient = createServiceRoleClient()
+    
+    const { error: upsertPretError } = await serviceClient
       .from('pret_data')
       .upsert({
         dossier_id: dossierId,
@@ -38,25 +50,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         cout_assurance_banque: pretData.cout_assurance_banque,
         updated_at: new Date().toISOString()
       })
-
+    
     if (upsertPretError) throw upsertPretError
-
-    const { error: updateDossierError } = await supabaseClient
+    
+    // Mettre à jour le montant capital sur le dossier
+    const { error: updateDossierError } = await serviceClient
       .from('dossiers')
       .update({
         montant_capital: pretData.montant_capital,
         updated_at: new Date().toISOString()
       })
       .eq('id', dossierId)
-
+    
     if (updateDossierError) throw updateDossierError
-
-    await supabaseClient
+    
+    // Marquer les devis comme nécessitant un recalcul
+    await serviceClient
       .from('devis')
       .update({ needs_recalculation: true })
       .eq('dossier_id', dossierId)
-
-    await supabaseClient
+    
+    // Log admin
+    await serviceClient
       .from('admin_logs')
       .insert({
         admin_id: user.id,
@@ -64,12 +79,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         dossier_id: dossierId,
         details: { updated_fields: Object.keys(pretData) }
       })
-
+    
     return NextResponse.json({ success: true, recalculation_needed: true })
+    
   } catch (error: any) {
-    console.error('[API] PUT /api/dossiers/[id]/pret error', error)
-    return NextResponse.json({ error: error?.message || 'Erreur interne' }, { status: 400 })
+    console.error('[API] PUT /api/dossiers/[id]/pret error:', error)
+    return NextResponse.json(
+      { error: error?.message || 'Erreur interne' }, 
+      { status: 500 }
+    )
   }
 }
-
-

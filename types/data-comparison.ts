@@ -67,10 +67,10 @@ export interface ExtractedClientData {
 
 export interface CurrentClientData {
   // Emprunteur principal
-  civilite?: string | null
+  client_civilite?: string | null
   client_nom: string
   client_prenom: string
-  nom_naissance?: string | null
+  client_nom_naissance?: string | null
   client_date_naissance: string
   client_fumeur: boolean
   categorie_professionnelle?: number | null  // Code Exade 1-11

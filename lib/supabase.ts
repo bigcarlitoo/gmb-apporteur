@@ -1,31 +1,18 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+/**
+ * Point d'entrée Supabase pour les composants CLIENT
+ * 
+ * Ce fichier maintient la compatibilité avec les imports existants:
+ * `import { supabase } from '@/lib/supabase'`
+ * 
+ * ⚠️ Ce fichier est UNIQUEMENT pour le code côté CLIENT
+ * 
+ * Pour le code SERVEUR (API Routes, Server Components), utilisez:
+ * `import { createServerSupabaseClient } from '@/lib/supabase/server'`
+ */
 
-let supabaseInstance: SupabaseClient | null = null;
+// Re-export UNIQUEMENT le client browser
+export { supabase, createBrowserSupabaseClient } from './supabase/client'
 
-function getSupabaseClient(): SupabaseClient {
-  if (supabaseInstance) {
-    return supabaseInstance;
-  }
-  
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Les variables d\'environnement Supabase ne sont pas configurées');
-  }
-  
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
-  return supabaseInstance;
-}
-
-// Export un proxy qui initialise le client à la demande
-export const supabase = new Proxy({} as SupabaseClient, {
-  get(_, prop) {
-    const client = getSupabaseClient();
-    const value = (client as any)[prop];
-    if (typeof value === 'function') {
-      return value.bind(client);
-    }
-    return value;
-  }
-});
+// NOTE: Les exports serveur (createServerSupabaseClient, etc.) ne sont PAS inclus ici
+// car ils utilisent `next/headers` qui ne fonctionne pas côté client.
+// Pour le serveur, importez directement depuis '@/lib/supabase/server'

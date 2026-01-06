@@ -1415,10 +1415,10 @@ export default function AdminDossierDetailContent({ dossierId }: AdminDossierDet
 
       // Récupérer les données actuelles du dossier
       const currentData = {
-        civilite: dossier.client_civilite,
+        client_civilite: dossier.client_civilite,
         client_nom: dossier.client_nom,
         client_prenom: dossier.client_prenom,
-        nom_naissance: dossier.client_nom_naissance,
+        client_nom_naissance: dossier.client_nom_naissance,
         client_date_naissance: dossier.client_date_naissance,
         client_fumeur: dossier.client_fumeur,
         categorie_professionnelle: dossier.client_categorie_professionnelle,

@@ -28,11 +28,9 @@ interface ClientInfo {
   prenom: string;
   nom_naissance: string;
   dateNaissance: string;
-  lieu_naissance: string;  // OBLIGATOIRE pour API Exade
   
   // Adresse séparée (obligatoire Exade)
   adresse: string;
-  complement_adresse: string;
   code_postal: string;
   ville: string;
   
@@ -42,7 +40,6 @@ interface ClientInfo {
   
   // Professionnel
   categorie_professionnelle: number;
-  revenus: string;
   
   // Santé / Risques (obligatoire pour Generali, SwissLife, MNCAP)
   fumeur: boolean;
@@ -56,7 +53,6 @@ interface ClientInfo {
     prenom: string;
     nom_naissance: string;
     dateNaissance: string;
-    lieu_naissance: string;
     categorie_professionnelle: number;
     fumeur: boolean;
     deplacement_pro: number;
@@ -78,15 +74,12 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     prenom: '',
     nom_naissance: '',
     dateNaissance: '',
-    lieu_naissance: '',
     adresse: '',
-    complement_adresse: '',
     code_postal: '',
     ville: '',
     email: '',
     telephone: '',
     categorie_professionnelle: 0,
-    revenus: '',
     fumeur: false,
     deplacement_pro: 1,  // Par défaut: moins de 20000km
     travaux_manuels: 0,  // Par défaut: aucun
@@ -97,7 +90,6 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
         prenom: '',
         nom_naissance: '',
         dateNaissance: '',
-        lieu_naissance: '',
         categorie_professionnelle: 0,
         fumeur: false,
         deplacement_pro: 1,
@@ -108,6 +100,10 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // États pour les checkboxes "nom de naissance identique"
+  const [nomNaissanceIdentique, setNomNaissanceIdentique] = useState(false);
+  const [conjointNomNaissanceIdentique, setConjointNomNaissanceIdentique] = useState(false);
 
   // Charger les données initiales
   useEffect(() => {
@@ -124,9 +120,11 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     if (!formData.civilite) newErrors.civilite = 'La civilité est obligatoire';
     if (!formData.nom.trim()) newErrors.nom = 'Le nom est obligatoire';
     if (!formData.prenom.trim()) newErrors.prenom = 'Le prénom est obligatoire';
-    if (!formData.nom_naissance.trim()) newErrors.nom_naissance = 'Le nom de naissance est obligatoire';
+    // Le nom de naissance est automatiquement rempli si la checkbox est cochée
+    if (!nomNaissanceIdentique && !formData.nom_naissance.trim()) {
+      newErrors.nom_naissance = 'Le nom de naissance est obligatoire';
+    }
     if (!formData.dateNaissance) newErrors.dateNaissance = 'La date de naissance est obligatoire';
-    if (!formData.lieu_naissance.trim()) newErrors.lieu_naissance = 'Le lieu de naissance est obligatoire';
     
     // Adresse
     if (!formData.adresse.trim()) newErrors.adresse = 'L\'adresse est obligatoire';
@@ -147,16 +145,17 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     if (!formData.categorie_professionnelle || formData.categorie_professionnelle === 0) {
       newErrors.categorie_professionnelle = 'La catégorie professionnelle est obligatoire';
     }
-    if (!formData.revenus.trim()) newErrors.revenus = 'Les revenus sont obligatoires';
 
     // Validation conjoint si couple
     if (dossierType === 'couple' && formData.conjoint) {
       if (!formData.conjoint.civilite) newErrors['conjoint.civilite'] = 'La civilité est obligatoire';
       if (!formData.conjoint.nom.trim()) newErrors['conjoint.nom'] = 'Le nom est obligatoire';
       if (!formData.conjoint.prenom.trim()) newErrors['conjoint.prenom'] = 'Le prénom est obligatoire';
-      if (!formData.conjoint.nom_naissance.trim()) newErrors['conjoint.nom_naissance'] = 'Le nom de naissance est obligatoire';
+      // Le nom de naissance est automatiquement rempli si la checkbox est cochée
+      if (!conjointNomNaissanceIdentique && !formData.conjoint.nom_naissance.trim()) {
+        newErrors['conjoint.nom_naissance'] = 'Le nom de naissance est obligatoire';
+      }
       if (!formData.conjoint.dateNaissance) newErrors['conjoint.dateNaissance'] = 'La date de naissance est obligatoire';
-      if (!formData.conjoint.lieu_naissance.trim()) newErrors['conjoint.lieu_naissance'] = 'Le lieu de naissance est obligatoire';
       if (!formData.conjoint.categorie_professionnelle || formData.conjoint.categorie_professionnelle === 0) {
         newErrors['conjoint.categorie_professionnelle'] = 'La catégorie professionnelle est obligatoire';
       }
@@ -214,7 +213,20 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
     
     try {
       await new Promise(resolve => setTimeout(resolve, 500));
-      onSubmit(formData);
+      
+      // Préparer les données avec les noms de naissance si identiques
+      const dataToSubmit = {
+        ...formData,
+        nom_naissance: nomNaissanceIdentique ? formData.nom : formData.nom_naissance,
+        ...(formData.conjoint && {
+          conjoint: {
+            ...formData.conjoint,
+            nom_naissance: conjointNomNaissanceIdentique ? formData.conjoint.nom : formData.conjoint.nom_naissance,
+          }
+        })
+      };
+      
+      onSubmit(dataToSubmit);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
     } finally {
@@ -370,9 +382,70 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
             
             {renderInputField("Nom", "nom", "text", formData.nom, true, "Nom de famille actuel")}
             {renderInputField("Prénom", "prenom", "text", formData.prenom, true, "Prénom")}
-            {renderInputField("Nom de naissance", "nom_naissance", "text", formData.nom_naissance, true, "Nom de jeune fille si différent")}
+            
+            {/* Nom de naissance avec checkbox */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nom de naissance {!nomNaissanceIdentique && <span className="text-red-500">*</span>}
+              </label>
+              
+              {/* Checkbox pour indiquer que le nom de naissance est identique */}
+              <label className="flex items-center cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={nomNaissanceIdentique}
+                  onChange={(e) => {
+                    setNomNaissanceIdentique(e.target.checked);
+                    if (e.target.checked) {
+                      updateField('nom_naissance', formData.nom);
+                      // Supprimer l'erreur si elle existe
+                      if (errors.nom_naissance) {
+                        setErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.nom_naissance;
+                          return newErrors;
+                        });
+                      }
+                    }
+                  }}
+                  className="mr-2 h-4 w-4 text-[#335FAD] focus:ring-[#335FAD] border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Identique au nom actuel
+                </span>
+              </label>
+              
+              {!nomNaissanceIdentique && (
+                <>
+                  <input
+                    type="text"
+                    value={formData.nom_naissance}
+                    onChange={(e) => updateField('nom_naissance', e.target.value)}
+                    placeholder="Nom de jeune fille si différent"
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] transition-colors text-sm ${
+                      errors.nom_naissance 
+                        ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20' 
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                    } text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500`}
+                  />
+                  {errors.nom_naissance && (
+                    <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
+                      <i className="ri-error-warning-line mr-1"></i>
+                      {errors.nom_naissance}
+                    </p>
+                  )}
+                </>
+              )}
+              
+              {nomNaissanceIdentique && (
+                <p className="text-gray-500 dark:text-gray-400 text-sm py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <i className="ri-check-line mr-1 text-green-500"></i>
+                  Sera enregistré comme : <span className="font-medium">{formData.nom || '—'}</span>
+                </p>
+              )}
+            </div>
+            
             {renderInputField("Date de naissance", "dateNaissance", "date", formData.dateNaissance, true)}
-            {renderInputField("Lieu de naissance", "lieu_naissance", "text", formData.lieu_naissance, true, "Ville ou pays de naissance")}
           </div>
         </div>
 
@@ -410,7 +483,6 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
               />
             </div>
             
-            {renderInputField("Complément d'adresse", "complement_adresse", "text", formData.complement_adresse, false, "Bâtiment, étage, etc.")}
             {renderInputField("Code postal", "code_postal", "text", formData.code_postal, true, "Ex: 75001")}
             {renderInputField("Ville", "ville", "text", formData.ville, true, "Ville")}
           </div>
@@ -453,15 +525,6 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
               true,
               "Sélectionnez votre catégorie",
               CATEGORY_OPTIONS
-            )}
-            
-            {renderInputField(
-              "Revenus mensuels nets",
-              "revenus",
-              "number",
-              formData.revenus,
-              true,
-              "Montant en euros"
             )}
             
             {renderFumeurField()}
@@ -513,9 +576,70 @@ export default function ClientInfoForm({ dossierType, initialData, onSubmit, onB
                 
                 {renderInputField("Nom", "conjoint.nom", "text", formData.conjoint.nom, true, "Nom de famille actuel")}
                 {renderInputField("Prénom", "conjoint.prenom", "text", formData.conjoint.prenom, true, "Prénom")}
-                {renderInputField("Nom de naissance", "conjoint.nom_naissance", "text", formData.conjoint.nom_naissance, true, "Nom de jeune fille si différent")}
+                
+                {/* Nom de naissance conjoint avec checkbox */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Nom de naissance {!conjointNomNaissanceIdentique && <span className="text-red-500">*</span>}
+                  </label>
+                  
+                  {/* Checkbox pour indiquer que le nom de naissance est identique */}
+                  <label className="flex items-center cursor-pointer mb-2">
+                    <input
+                      type="checkbox"
+                      checked={conjointNomNaissanceIdentique}
+                      onChange={(e) => {
+                        setConjointNomNaissanceIdentique(e.target.checked);
+                        if (e.target.checked) {
+                          updateField('conjoint.nom_naissance', formData.conjoint?.nom || '');
+                          // Supprimer l'erreur si elle existe
+                          if (errors['conjoint.nom_naissance']) {
+                            setErrors(prev => {
+                              const newErrors = { ...prev };
+                              delete newErrors['conjoint.nom_naissance'];
+                              return newErrors;
+                            });
+                          }
+                        }
+                      }}
+                      className="mr-2 h-4 w-4 text-[#335FAD] focus:ring-[#335FAD] border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Identique au nom actuel
+                    </span>
+                  </label>
+                  
+                  {!conjointNomNaissanceIdentique && (
+                    <>
+                      <input
+                        type="text"
+                        value={formData.conjoint.nom_naissance}
+                        onChange={(e) => updateField('conjoint.nom_naissance', e.target.value)}
+                        placeholder="Nom de jeune fille si différent"
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#335FAD] focus:border-[#335FAD] transition-colors text-sm ${
+                          errors['conjoint.nom_naissance'] 
+                            ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20' 
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                        } text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500`}
+                      />
+                      {errors['conjoint.nom_naissance'] && (
+                        <p className="text-red-600 dark:text-red-400 text-xs mt-1 flex items-center">
+                          <i className="ri-error-warning-line mr-1"></i>
+                          {errors['conjoint.nom_naissance']}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  
+                  {conjointNomNaissanceIdentique && (
+                    <p className="text-gray-500 dark:text-gray-400 text-sm py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <i className="ri-check-line mr-1 text-green-500"></i>
+                      Sera enregistré comme : <span className="font-medium">{formData.conjoint?.nom || '—'}</span>
+                    </p>
+                  )}
+                </div>
+                
                 {renderInputField("Date de naissance", "conjoint.dateNaissance", "date", formData.conjoint.dateNaissance, true)}
-                {renderInputField("Lieu de naissance", "conjoint.lieu_naissance", "text", formData.conjoint.lieu_naissance, true, "Ville ou pays de naissance")}
               </div>
             </div>
 

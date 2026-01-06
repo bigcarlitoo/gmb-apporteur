@@ -1104,12 +1104,14 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
                       <span className="text-gray-500 dark:text-gray-400">Profession :</span>
                       <span className="text-gray-900 dark:text-white">{dossier.clientInfo.profession}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Revenus :</span>
-                      <span className="text-gray-900 dark:text-white">
-                        {dossier.clientInfo.revenus}€/mois
-                      </span>
-                    </div>
+                    {dossier.clientInfo.revenus && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Revenus :</span>
+                        <span className="text-gray-900 dark:text-white">
+                          {dossier.clientInfo.revenus}€/mois
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-gray-500 dark:text-gray-400">Fumeur :</span>
                       <span className="text-gray-900 dark:text-white">
@@ -1152,12 +1154,14 @@ export default function DossierDetailContent({ dossierId }: DossierDetailContent
                         <span className="text-gray-500 dark:text-gray-400">Profession :</span>
                         <span className="text-gray-900 dark:text-white">{dossier.clientInfo.conjoint.profession}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Revenus :</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {dossier.clientInfo.conjoint.revenus}€/mois
-                        </span>
-                      </div>
+                      {dossier.clientInfo.conjoint.revenus && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400">Revenus :</span>
+                          <span className="text-gray-900 dark:text-white">
+                            {dossier.clientInfo.conjoint.revenus}€/mois
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-gray-500 dark:text-gray-400">Fumeur :</span>
                         <span className="text-gray-900 dark:text-white">

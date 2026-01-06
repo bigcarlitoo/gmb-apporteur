@@ -1,5 +1,5 @@
 import { GoogleGenAI, createPartFromUri } from "@google/genai";
-import { supabase } from '@/lib/supabase';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 /**
  * Service d'extraction de documents utilisant Google Gemini 3 Flash
@@ -98,11 +98,15 @@ export class GeminiExtractionService {
 
   /**
    * Télécharge un document depuis Supabase Storage
+   * Utilise le service role client pour bypasser les RLS
    */
   private static async downloadDocument(storagePath: string): Promise<ArrayBuffer> {
     console.log(`[GeminiExtraction] Téléchargement: ${storagePath}`);
     
-    const { data, error } = await supabase.storage
+    // Utiliser le service role client pour avoir accès aux fichiers
+    const serviceClient = createServiceRoleClient();
+    
+    const { data, error } = await serviceClient.storage
       .from('documents')
       .download(storagePath);
 
@@ -154,9 +158,9 @@ export class GeminiExtractionService {
         userParts.push(content[i]);
       }
       
-      // Générer le contenu avec Gemini 3 Flash (modèle sorti le 17/12/2025)
+      // Générer le contenu avec Gemini 2.0 Flash
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash',
+        model: 'gemini-2.0-flash',
         contents: [
           {
             role: 'user',

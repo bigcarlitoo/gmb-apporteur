@@ -182,6 +182,17 @@ Retourne directement l'objet JSON suivant :
   }
 }
 
+EXTRACTION DES DONNÉES DE PRÊT (règles précises) :
+- montantInitial : Montant TOTAL emprunté en euros (ex: 250000 pour 250 000€)
+- dureeInitialeMois : Durée TOTALE du prêt en mois (ex: 240 pour 20 ans, 300 pour 25 ans)
+  → CALCUL : Si tu vois "20 ans" → 20 × 12 = 240 mois
+  → CALCUL : Si tu vois "25 ans" → 25 × 12 = 300 mois
+- dateDebut : Date de déblocage/première échéance (format YYYY-MM-DD)
+- dateFin : Date de dernière échéance (format YYYY-MM-DD)
+  → CALCUL : Si dateDebut = 2024-01-01 et durée = 240 mois → dateFin = 2044-01-01
+- tauxNominal : Taux d'intérêt en % (ex: 3.5 pour 3,5%)
+- coutAssuranceMensuel : Prime d'assurance mensuelle payée à la banque (CRITIQUE pour l'économie)
+
 === CODES OBLIGATOIRES (utilise UNIQUEMENT ces valeurs numériques) ===
 
 CATÉGORIE PROFESSIONNELLE (categorieProfessionnelle) - Retourne le CODE NUMÉRIQUE :
@@ -248,7 +259,18 @@ POUR LE TABLEAU D'AMORTISSEMENT :
 - L'utilisateur te fournira la "date_effective". Trouve l'échéance la plus proche AVANT cette date et l'échéance la plus proche APRÈS cette date.
 - Si la "date_effective" tombe exactement sur une échéance, retourne cette même échéance pour "echeanceAvant" ET "echeanceApres".
 - Si tu ne trouves pas de tableau d'amortissement, retourne null pour "echeanceAvant" et "echeanceApres" et ajoute un warning.
-- **IMPORTANT** : Pour "coutAssuranceMensuel", cherche dans le tableau d'amortissement la colonne "Assurance" ou "Prime d'assurance". Cette valeur apparaît généralement pour CHAQUE échéance. Si tu la trouves, retourne le montant mensuel de l'assurance.
+
+EXTRACTION DU COÛT ASSURANCE BANQUE (TRÈS IMPORTANT pour le calcul d'économie) :
+- Cherche dans le tableau d'amortissement une colonne nommée "Assurance", "Prime d'assurance", "Ass.", "Cotisation assurance", ou similaire
+- Cette valeur représente le COÛT MENSUEL de l'assurance actuellement payée à la banque
+- Retourne ce montant dans "coutAssuranceMensuel" (ex: si tu vois 125.50€ par mois, retourne 125.50)
+- Si le tableau montre le coût annuel, DIVISE par 12 pour obtenir le mensuel
+- Si tu ne trouves pas cette information, retourne null et ajoute "coutAssuranceMensuel" dans champsManquants
+
+CALCUL DE LA DURÉE RESTANTE (pour vérification) :
+- La durée restante = nombre de mois entre la date_effective et la date de fin du prêt
+- Tu peux aussi la calculer depuis le tableau d'amortissement : compte le nombre d'échéances restantes après la date_effective
+- Exemple : Si date_effective = 01/04/2026 et date_fin = 01/03/2046, durée restante = 240 - 1 = 239 mois
 
 CHAMPS MANQUANTS (NON BLOQUANT) :
 - Si une donnée n'est pas trouvée, utilise null et ajoute le nom du champ dans "champsManquants"
@@ -270,10 +292,26 @@ DÉTECTION DU TABLEAU D'AMORTISSEMENT :
 - Même si le tableau semble incomplet, extrais les deux lignes qui encadrent la date_effective
 - Si aucun tableau n'est trouvé après analyse exhaustive, retourne null pour les échéances mais ajoute un warning explicite
 
-GESTION DU CONJOINT :
-- Si les documents ne mentionnent qu'un seul emprunteur, retourne null pour le champ "conjoint"
-- Si les documents mentionnent un co-emprunteur/conjoint, remplis ses informations
-- En cas de doute, privilégie null pour éviter les erreurs
+GESTION DU CONJOINT (CRUCIAL - extraction complète requise) :
+- DÉTECTION : Cherche les termes "co-emprunteur", "conjoint", "emprunteur 2", "M. et Mme", "époux/épouse"
+- Si UN SEUL emprunteur est mentionné → nombreAssures = 1 et conjoint = null
+- Si DEUX emprunteurs sont mentionnés → nombreAssures = 2 et remplis TOUS les champs du conjoint
+
+EXTRACTION DU CONJOINT - Cherche ces informations :
+- Civilité : Souvent après "co-emprunteur" ou "emprunteur 2" (M., Mme, Mlle)
+- Nom / Prénom : Identité complète du co-emprunteur
+- Nom de naissance : Si différent du nom actuel (ex: "née DUPONT")
+- Date de naissance : Format JJ/MM/AAAA ou AAAA-MM-JJ
+- Profession : Intitulé du poste
+- Catégorie professionnelle : Déduis le code 1-11 depuis la profession
+
+INDICES D'UN PRÊT À DEUX :
+- Quotité partagée (ex: 50%/50%, 60%/40%, 70%/30%)
+- Mention "Assurance sur 2 têtes"
+- Deux tableaux de garanties distincts
+- Deux noms sur l'offre de prêt
+
+ATTENTION : Ne confonds PAS le conseiller bancaire avec le conjoint !
 
 CONSOLIDATION DES DONNÉES :
 - Si une même information apparaît dans plusieurs documents avec des valeurs différentes, privilégie la source la plus récente ou la plus détaillée

@@ -1,83 +1,64 @@
+/**
+ * API Route: Création de dossier
+ * 
+ * Cette route gère la création de dossiers pour :
+ * - Les apporteurs (via le formulaire nouveau-dossier)
+ * - Les admins (via le formulaire admin/nouveau-dossier)
+ * 
+ * Authentification: Requise (via cookies ou Bearer token)
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { 
+  createApiRouteClient, 
+  createServiceRoleClient,
+  getAuthenticatedUser,
+  type AuthenticatedUser 
+} from '@/lib/supabase/server'
 import { AnalyticsService } from '@/lib/services/analytics'
 
 export const runtime = 'nodejs'
 
-export async function POST(request: NextRequest) {
-  console.log('[API] POST /api/dossiers/create - Début')
-  console.log('[API] NODE_ENV:', process.env.NODE_ENV)
-  console.log('[API] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Défini' : 'Non défini')
-  console.log('[API] SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Défini' : 'Non défini')
-  console.log('[API] SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Défini' : 'Non défini')
-  try {
-    const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
-    // Initialize Supabase client avec l'auth du client
-    console.log('[API] Initialisation du client Supabase...')
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    
-    // Client Supabase avec service role pour l'upload de fichiers
-    const supabaseServiceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        },
-        global: {
-          headers: {
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`
-          }
-        }
-      }
-    )
-    console.log('[API] Client Supabase initialisé')
+// Helper pour valider les UUID
+const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 
-    // Vérifier l'authentification
-    console.log('[API] Vérification de l\'authentification...')
-    const { data: { user: authUser }, error: userError } = await supabaseClient.auth.getUser()
-    let user = authUser
+export async function POST(request: NextRequest) {
+  console.log('[API Dossiers Create] Début de la requête')
+  
+  try {
+    // ========================================
+    // 1. AUTHENTIFICATION
+    // ========================================
+    const supabase = await createApiRouteClient(request)
+    const authUser = await getAuthenticatedUser(supabase)
     
-    if (userError || !user) {
-      console.log('[API] Erreur auth ou pas d\'utilisateur:', userError)
-      
-      // En développement, permettre la création sans authentification
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[API] Mode développement - création utilisateur fictif')
-        user = { 
-          id: 'dev-user-123', 
-          email: 'dev@example.com',
-          app_metadata: {},
-          user_metadata: {},
-          aud: 'authenticated',
-          created_at: new Date().toISOString()
-        } as any;
-      } else {
-        console.log('[API] Pas d\'utilisateur - retour 401')
-        return NextResponse.json(
-          { error: 'Non authentifié' },
-          { status: 401 }
-        )
-      }
+    if (!authUser) {
+      console.log('[API Dossiers Create] Utilisateur non authentifié')
+      return NextResponse.json(
+        { error: 'Non authentifié', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
     }
     
-    console.log('[API] Authentification OK, utilisateur:', user?.id)
-
-    console.log('[API] Parsing du FormData...')
+    console.log('[API Dossiers Create] Utilisateur authentifié:', {
+      id: authUser.id,
+      role: authUser.role,
+      brokerId: authUser.brokerId,
+      apporteurId: authUser.apporteurId
+    })
+    
+    // ========================================
+    // 2. PARSING DES DONNÉES
+    // ========================================
     const formData = await request.formData()
     
-    // Extraire les données de base
     const dossierData = {
       type: formData.get('type') as string,
-      clientInfo: JSON.parse(formData.get('clientInfo') as string),
-      commentaire: formData.get('commentaire') as string,
+      clientInfo: JSON.parse(formData.get('clientInfo') as string || '{}'),
+      commentaire: formData.get('commentaire') as string || '',
       isComplete: formData.get('isComplete') === 'true',
       createdByAdmin: formData.get('createdByAdmin') === 'true',
+      apporteurId: formData.get('apporteur_id') as string | null,
       documents: {
         offrePret: formData.get('documents.offrePret') as File | null,
         tableauAmortissement: formData.get('documents.tableauAmortissement') as File | null,
@@ -86,148 +67,135 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log('[API] Dossier data reçu:', {
+    // Le broker_id peut être passé explicitement ou déduit de l'utilisateur
+    let brokerId = formData.get('broker_id') as string | null || authUser.brokerId
+    
+    console.log('[API Dossiers Create] Données reçues:', {
       type: dossierData.type,
-      clientInfo: dossierData.clientInfo,
-      commentaire: dossierData.commentaire,
-      isComplete: dossierData.isComplete,
       createdByAdmin: dossierData.createdByAdmin,
-      documents: {
-        offrePret: dossierData.documents.offrePret?.name,
-        tableauAmortissement: dossierData.documents.tableauAmortissement?.name,
-        carteIdentite: dossierData.documents.carteIdentite?.name,
-        carteIdentiteConjoint: dossierData.documents.carteIdentiteConjoint?.name
-      }
+      brokerId,
+      clientNom: dossierData.clientInfo?.nom,
+      documentsCount: Object.values(dossierData.documents).filter(Boolean).length
     })
     
-    // Validation des données obligatoires
-    console.log('[API] Validation des données...')
-    if (!dossierData.clientInfo) {
-      console.error('[API] clientInfo manquant')
-      return NextResponse.json({ error: 'Informations client manquantes' }, { status: 400 })
+    // ========================================
+    // 3. VALIDATION
+    // ========================================
+    if (!dossierData.clientInfo?.nom || !dossierData.clientInfo?.prenom || !dossierData.clientInfo?.email) {
+      return NextResponse.json(
+        { error: 'Nom, prénom et email sont obligatoires', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      )
     }
     
-    if (!dossierData.clientInfo.nom || !dossierData.clientInfo.prenom || !dossierData.clientInfo.email) {
-      console.error('[API] Champs obligatoires manquants dans clientInfo')
-      return NextResponse.json({ error: 'Nom, prénom et email sont obligatoires' }, { status: 400 })
+    // ========================================
+    // 4. DÉTERMINATION DES IDS (apporteur, broker)
+    // ========================================
+    let apporteurId: string | null = null
+    
+    // Si c'est un admin qui crée le dossier
+    if (dossierData.createdByAdmin && (authUser.role === 'admin' || authUser.role === 'broker_user')) {
+      // L'apporteur peut être spécifié explicitement
+      apporteurId = dossierData.apporteurId || null
+      
+      // Si pas de broker_id explicite, utiliser celui du contexte admin
+      if (!brokerId && authUser.brokerId) {
+        brokerId = authUser.brokerId
+      }
+    } else {
+      // C'est un apporteur qui crée son propre dossier
+      apporteurId = authUser.apporteurId
+      
+      // Le broker_id vient du contexte de l'apporteur
+      if (!brokerId && authUser.brokerId) {
+        brokerId = authUser.brokerId
+      }
     }
     
-    console.log('[API] Validation OK')
-
-    // Récupérer le broker_id depuis le FormData si fourni
-    const brokerId = formData.get('broker_id') as string | null
-
-    // Vérifier le client lock avant création (anti-contournement)
-    if (brokerId && dossierData.clientInfo?.nom && dossierData.clientInfo?.prenom && dossierData.clientInfo?.dateNaissance) {
+    console.log('[API Dossiers Create] IDs déterminés:', { apporteurId, brokerId })
+    
+    // ========================================
+    // 5. VÉRIFICATION CLIENT LOCK (anti-contournement)
+    // ========================================
+    if (brokerId && dossierData.clientInfo?.dateNaissance) {
       try {
-        console.log('[API] Vérification du client lock...')
-        const { data: lockResult, error: lockError } = await supabaseClient.rpc('check_client_lock', {
+        const { data: lockResult } = await supabase.rpc('check_client_lock', {
           p_broker_id: brokerId,
           p_nom: dossierData.clientInfo.nom,
           p_prenom: dossierData.clientInfo.prenom,
           p_date_naissance: dossierData.clientInfo.dateNaissance
         })
-
-        if (!lockError && lockResult) {
-          const result = Array.isArray(lockResult) ? lockResult[0] : lockResult
-          if (result?.is_locked && result?.dossier_id) {
-            console.log('[API] Client déjà locké, dossier existant:', result.dossier_id)
-            return NextResponse.json({
-              error: 'client_locked',
-              message: 'Ce client est déjà associé à un dossier existant.',
-              existing_dossier_id: result.dossier_id,
-              apporteur_nom: result.apporteur_nom,
-              apporteur_prenom: result.apporteur_prenom,
-              locked_at: result.locked_at
-            }, { status: 409 }) // 409 Conflict
-          }
+        
+        const result = Array.isArray(lockResult) ? lockResult[0] : lockResult
+        if (result?.is_locked && result?.dossier_id) {
+          console.log('[API Dossiers Create] Client déjà locké:', result.dossier_id)
+          return NextResponse.json({
+            error: 'client_locked',
+            message: 'Ce client est déjà associé à un dossier existant.',
+            existing_dossier_id: result.dossier_id,
+            code: 'CLIENT_LOCKED'
+          }, { status: 409 })
         }
-      } catch (lockCheckError) {
-        console.warn('[API] Erreur vérification client lock (non bloquant):', lockCheckError)
-        // En cas d'erreur, on continue (fail-open pour UX)
+      } catch (error) {
+        console.warn('[API Dossiers Create] Erreur vérification client lock (non bloquant):', error)
       }
     }
-
-    // TODO: Gérer les brouillons si nécessaire
-    // if (dossierData.isDraft && dossierData.draftId) {
-    //   await supabaseClient
-    //     .from('dossiers')
-    //     .delete()
-    //     .eq('id', dossierData.draftId)
-    // }
-
-    // Création manuelle du dossier (sans RPC pour debug)
-    console.log('[API] Création manuelle du dossier...')
     
-    // Mapper le type de dossier frontend vers les types DB valides
-    const typeDossierMapping: { [key: string]: string } = {
-      'seul': 'pret_immobilier', // Par défaut pour les dossiers individuels
-      'couple': 'pret_immobilier' // Par défaut pour les dossiers de couple
+    // ========================================
+    // 6. CRÉATION DU DOSSIER
+    // ========================================
+    // Utiliser le service role client pour bypasser les RLS
+    const serviceClient = createServiceRoleClient()
+    
+    const typeDossierMapping: Record<string, string> = {
+      'seul': 'pret_immobilier',
+      'couple': 'pret_immobilier'
     }
     
-    const mappedTypeDossier = typeDossierMapping[dossierData.type] || 'pret_immobilier'
-    console.log('[API] Type dossier mappé:', mappedTypeDossier)
-    
-    // Générer un numéro de dossier simple
     const numeroDossier = `DOS-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
-    console.log('[API] Numéro de dossier généré:', numeroDossier)
     
-    // Créer le dossier principal
-    console.log('[API] Création du dossier principal...')
+    // Récupérer le produit d'assurance par défaut (Assurance Emprunteur)
+    const { data: defaultProduct } = await serviceClient
+      .from('insurance_products')
+      .select('id')
+      .eq('code', 'loan_insurance')
+      .eq('is_enabled', true)
+      .single()
     
-    // En développement, utiliser un apporteur fictif
-    let apporteurId = null
-    if (process.env.NODE_ENV === 'development') {
-      // Récupérer le premier apporteur ou créer un fictif
-      const { data: apporteurs } = await supabaseClient
-        .from('apporteur_profiles')
-        .select('id')
-        .limit(1)
-      
-      if (apporteurs && apporteurs.length > 0) {
-        apporteurId = apporteurs[0].id
-      } else {
-        // Créer un apporteur fictif pour les tests
-        const { data: fictifApporteur } = await supabaseClient
-          .from('apporteur_profiles')
-          .insert({
-            user_id: user?.id || 'dev-user-123',
-            nom: 'Dev',
-            prenom: 'Apporteur',
-            email: 'dev@apporteur.com'
-          })
-          .select('id')
-          .single()
-        apporteurId = fictifApporteur?.id
-      }
-    }
+    const insuranceProductId = defaultProduct?.id || '7dd78abe-2447-4706-b23e-79674fb29be8'
     
-    const { data: createdDossier, error: dossierError } = await supabaseClient
+    const { data: createdDossier, error: dossierError } = await serviceClient
       .from('dossiers')
       .insert({
         numero_dossier: numeroDossier,
-        type_dossier: mappedTypeDossier,
+        type_dossier: typeDossierMapping[dossierData.type] || 'pret_immobilier',
         commentaire: dossierData.commentaire || null,
         statut_canon: 'en_attente',
-        // Ajouter un champ pour distinguer couple/seul
         is_couple: dossierData.type === 'couple',
-        // Ajouter apporteur_id pour les permissions
-        apporteur_id: apporteurId
+        apporteur_id: apporteurId,
+        broker_id: brokerId,
+        insurance_product_id: insuranceProductId,
+        // admin_id stocke l'utilisateur qui a créé le dossier (si admin/broker)
+        admin_id: dossierData.createdByAdmin ? authUser.id : null
       })
       .select()
       .single()
-
+    
     if (dossierError) {
-      console.error('[API] Erreur création dossier:', dossierError)
-      throw dossierError
+      console.error('[API Dossiers Create] Erreur création dossier:', dossierError)
+      return NextResponse.json(
+        { error: 'Erreur lors de la création du dossier', details: dossierError.message },
+        { status: 500 }
+      )
     }
     
     const dossierId = createdDossier.id
-    console.log('[API] Dossier créé avec ID:', dossierId)
+    console.log('[API Dossiers Create] Dossier créé:', dossierId)
     
-    // Créer les informations client avec tous les champs codes Exade
-    console.log('[API] Création des informations client...')
-    const { error: clientError } = await supabaseClient
+    // ========================================
+    // 7. CRÉATION DES INFORMATIONS CLIENT
+    // ========================================
+    const { error: clientError } = await serviceClient
       .from('client_infos')
       .insert({
         dossier_id: dossierId,
@@ -238,247 +206,220 @@ export async function POST(request: NextRequest) {
         client_nom_naissance: dossierData.clientInfo?.nom_naissance || dossierData.clientInfo?.nom || null,
         client_date_naissance: dossierData.clientInfo?.dateNaissance,
         client_lieu_naissance: dossierData.clientInfo?.lieu_naissance || null,
-        // Adresse principal
+        // Adresse
         client_adresse: dossierData.clientInfo?.adresse || null,
         client_complement_adresse: dossierData.clientInfo?.complement_adresse || null,
         client_code_postal: dossierData.clientInfo?.code_postal || null,
         client_ville: dossierData.clientInfo?.ville || null,
-        // Contact principal
+        // Contact
         client_email: dossierData.clientInfo?.email,
         client_telephone: dossierData.clientInfo?.telephone || null,
-        // Professionnel principal - codes Exade
+        // Professionnel - codes Exade
         client_profession: dossierData.clientInfo?.profession || null,
-        categorie_professionnelle: dossierData.clientInfo?.categorie_professionnelle || null,
-        // Santé/Risques principal - codes Exade
+        categorie_professionnelle: dossierData.clientInfo?.categorie_professionnelle ?? null,
+        // Santé/Risques - codes Exade (utiliser ?? pour préserver les valeurs 0)
         client_fumeur: dossierData.clientInfo?.fumeur ?? false,
         client_deplacement_pro: dossierData.clientInfo?.deplacement_pro ?? 1,
         client_travaux_manuels: dossierData.clientInfo?.travaux_manuels ?? 0,
-        // Conjoint - Identité
+        // Conjoint si couple
         conjoint_civilite: dossierData.clientInfo?.conjoint?.civilite || null,
         conjoint_nom: dossierData.clientInfo?.conjoint?.nom || null,
         conjoint_prenom: dossierData.clientInfo?.conjoint?.prenom || null,
         conjoint_nom_naissance: dossierData.clientInfo?.conjoint?.nom_naissance || dossierData.clientInfo?.conjoint?.nom || null,
         conjoint_date_naissance: dossierData.clientInfo?.conjoint?.dateNaissance || null,
         conjoint_lieu_naissance: dossierData.clientInfo?.conjoint?.lieu_naissance || null,
-        // Conjoint - Professionnel - codes Exade
         conjoint_profession: dossierData.clientInfo?.conjoint?.profession || null,
-        conjoint_categorie_professionnelle: dossierData.clientInfo?.conjoint?.categorie_professionnelle || null,
-        // Conjoint - Santé/Risques - codes Exade
+        conjoint_categorie_professionnelle: dossierData.clientInfo?.conjoint?.categorie_professionnelle ?? null,
         conjoint_fumeur: dossierData.clientInfo?.conjoint?.fumeur ?? null,
         conjoint_deplacement_pro: dossierData.clientInfo?.conjoint?.deplacement_pro ?? null,
         conjoint_travaux_manuels: dossierData.clientInfo?.conjoint?.travaux_manuels ?? null
       })
-
+    
     if (clientError) {
-      console.error('[API] Erreur création client info:', clientError)
-      // Nettoyer le dossier créé
-      await supabaseClient.from('dossiers').delete().eq('id', dossierId)
-      throw clientError
+      console.error('[API Dossiers Create] Erreur création client_infos:', clientError)
+      // Rollback du dossier
+      await serviceClient.from('dossiers').delete().eq('id', dossierId)
+      return NextResponse.json(
+        { error: 'Erreur lors de la création des informations client', details: clientError.message },
+        { status: 500 }
+      )
     }
     
-    console.log('[API] Informations client créées avec succès')
-
-    // Upload des documents si fournis (all-or-nothing)
-    console.log('[API] Documents à uploader:', dossierData.documents)
+    // ========================================
+    // 8. UPLOAD DES DOCUMENTS
+    // ========================================
     const uploadedFiles: string[] = []
-    let documentUploadFailed = false
-    let documentFailureReason: string | null = null
-    if (dossierData.documents) {
-      for (const [documentType, file] of Object.entries(dossierData.documents)) {
-        if (!file) {
-          console.log(`[API] Document ${documentType} non fourni`)
-          continue
-        }
-        if (!(file instanceof File)) {
-          console.warn(`[API] Document ${documentType} non valide (pas un File)`)
-          continue
-        }
-        if (file.size <= 0) {
-          console.log(`[API] Document ${documentType} ignoré (fichier vide)`)
-          continue
-        }
-        try {
-          console.log(`[API] Upload du document ${documentType}:`, file.name, `(${file.size} bytes)`)
-          const arrayBuffer = await file.arrayBuffer()
-          const buffer = Buffer.from(new Uint8Array(arrayBuffer))
-          const fileExtension = file.name.split('.').pop() || 'pdf'
-          const fileName = `${dossierId}/${documentType}_${Date.now()}.${fileExtension}`
-          const { error: uploadError } = await supabaseServiceClient.storage
-            .from('documents')
-            .upload(fileName, buffer, {
-              contentType: file.type || 'application/octet-stream',
-              cacheControl: '3600',
-              upsert: false
-            })
-          if (uploadError) {
-            console.error(`[API] Erreur upload document ${documentType}:`, uploadError)
-            documentUploadFailed = true
-            documentFailureReason = `upload_failed_${documentType}`
-            break
-          }
-          uploadedFiles.push(fileName)
-          console.log(`[API] Document ${documentType} uploadé avec succès:`, fileName)
-
-          const uploadedBy = isUuid(user?.id) ? (user?.id as string) : null
-          console.log(`[API] Insertion document ${documentType} en base avec uploaded_by:`, uploadedBy ? 'UUID valide' : 'NULL')
-          const { error: insertError } = await supabaseServiceClient
-            .from('documents')
-            .insert({
-              dossier_id: dossierId,
-              document_name: file.name,
-              document_type: documentType,
-              file_size: file.size,
-              mime_type: file.type,
-              storage_path: fileName,
-              storage_bucket: 'documents',
-              uploaded_by: uploadedBy
-            })
-          if (insertError) {
-            console.error(`[API] Erreur insertion document ${documentType} en base:`, insertError)
-            documentUploadFailed = true
-            documentFailureReason = `db_insert_failed_${documentType}`
-            break
-          }
-
-          // Activité document uploaded
-          const targetUserId = dossierData.createdByAdmin ? (dossierData as any).apporteurId || user?.id : user?.id
-          await supabaseServiceClient
-            .from('activities')
-            .insert({
-              user_id: targetUserId,
-              dossier_id: dossierId,
-              activity_type: 'document_uploaded',
-              activity_title: 'Document uploadé',
-              activity_description: `Le document ${documentType} a été uploadé pour le dossier ${numeroDossier}.`,
-              activity_data: {
-                dossier_numero: numeroDossier,
-                document_type: documentType,
-                document_name: file.name,
-                file_size: file.size,
-                action: 'document_uploaded'
-              }
-            })
-        } catch (error) {
-          console.error(`[API] Erreur upload ${documentType}:`, error)
-          documentUploadFailed = true
-          documentFailureReason = `exception_${documentType}`
+    let uploadFailed = false
+    let uploadFailureReason: string | null = null
+    
+    for (const [docType, file] of Object.entries(dossierData.documents)) {
+      if (!file || !(file instanceof File) || file.size <= 0) continue
+      
+      try {
+        console.log(`[API Dossiers Create] Upload document ${docType}:`, file.name)
+        
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(new Uint8Array(arrayBuffer))
+        const fileExtension = file.name.split('.').pop() || 'pdf'
+        const fileName = `${dossierId}/${docType}_${Date.now()}.${fileExtension}`
+        
+        const { error: uploadError } = await serviceClient.storage
+          .from('documents')
+          .upload(fileName, buffer, {
+            contentType: file.type || 'application/octet-stream',
+            cacheControl: '3600',
+            upsert: false
+          })
+        
+        if (uploadError) {
+          console.error(`[API Dossiers Create] Erreur upload ${docType}:`, uploadError)
+          uploadFailed = true
+          uploadFailureReason = `upload_failed_${docType}`
           break
         }
-      }
-    }
-
-    if (documentUploadFailed) {
-      console.warn('[API] Échec d\'upload de documents — rollback du dossier')
-      // Supprimer fichiers déjà uploadés
-      if (uploadedFiles.length > 0) {
-        try {
-          const { error: rmErr } = await supabaseServiceClient.storage
-            .from('documents')
-            .remove(uploadedFiles)
-          if (rmErr) console.warn('[API] Erreur lors du cleanup Storage:', rmErr)
-        } catch (e) {
-          console.warn('[API] Exception cleanup Storage:', e)
+        
+        uploadedFiles.push(fileName)
+        
+        // Enregistrer le document en base
+        const uploadedBy = isUuid(authUser.id) ? authUser.id : null
+        const { error: insertError } = await serviceClient
+          .from('documents')
+          .insert({
+            dossier_id: dossierId,
+            document_name: file.name,
+            document_type: docType,
+            file_size: file.size,
+            mime_type: file.type,
+            storage_path: fileName,
+            storage_bucket: 'documents',
+            uploaded_by: uploadedBy
+          })
+        
+        if (insertError) {
+          console.error(`[API Dossiers Create] Erreur insertion document ${docType}:`, insertError)
+          uploadFailed = true
+          uploadFailureReason = `db_insert_failed_${docType}`
+          break
         }
+        
+      } catch (error) {
+        console.error(`[API Dossiers Create] Exception upload ${docType}:`, error)
+        uploadFailed = true
+        uploadFailureReason = `exception_${docType}`
+        break
       }
-      // Cleanup DB: documents, client_infos, dossier
-      try { await supabaseServiceClient.from('documents').delete().eq('dossier_id', dossierId) } catch {}
-      try { await supabaseServiceClient.from('client_infos').delete().eq('dossier_id', dossierId) } catch {}
-      try { await supabaseServiceClient.from('dossiers').delete().eq('id', dossierId) } catch {}
-      return NextResponse.json({ error: 'Upload des documents incomplet', reason: documentFailureReason }, { status: 400 })
     }
-
-    // Si un devis est sélectionné (admin), l'enregistrer
-    if ((dossierData as any).devisSelectionne && dossierData.createdByAdmin) {
-      // TODO: Créer le devis sélectionné en base
-      // Pour l'instant, on peut juste marquer qu'un devis est sélectionné
+    
+    // Rollback si upload échoué
+    if (uploadFailed) {
+      console.warn('[API Dossiers Create] Rollback suite à échec upload')
+      
+      // Supprimer les fichiers déjà uploadés
+      if (uploadedFiles.length > 0) {
+        await serviceClient.storage.from('documents').remove(uploadedFiles)
+      }
+      
+      // Cleanup DB
+      await serviceClient.from('documents').delete().eq('dossier_id', dossierId)
+      await serviceClient.from('client_infos').delete().eq('dossier_id', dossierId)
+      await serviceClient.from('dossiers').delete().eq('id', dossierId)
+      
+      return NextResponse.json(
+        { error: 'Upload des documents incomplet', reason: uploadFailureReason },
+        { status: 400 }
+      )
     }
-
-    // Note: Les activités sont maintenant créées automatiquement par le trigger trigger_dossier_activity
-    // Le trigger inclut désormais le broker_id et gère les deux cas (création apporteur ou admin)
-    // On garde ce bloc uniquement pour le cas spécial "dossier_attribue" quand un admin crée pour un apporteur
-    if (dossierData.createdByAdmin && (dossierData as any).apporteurId) {
+    
+    // ========================================
+    // 9. ACTIVITÉS ET NOTIFICATIONS
+    // ========================================
+    
+    // Activité spéciale si admin attribue à un apporteur
+    if (dossierData.createdByAdmin && apporteurId) {
       try {
-        console.log('[API] Création activité dossier_attribue pour apporteur...')
-        const targetApporteurId = (dossierData as any).apporteurId
-        const clientNom = dossierData.clientInfo?.prenom && dossierData.clientInfo?.nom 
-          ? `${dossierData.clientInfo.prenom} ${dossierData.clientInfo.nom}` 
+        const clientNom = dossierData.clientInfo?.prenom && dossierData.clientInfo?.nom
+          ? `${dossierData.clientInfo.prenom} ${dossierData.clientInfo.nom}`
           : null
         
-        await supabaseClient
+        await serviceClient
           .from('activities')
           .insert({
-            user_id: targetApporteurId,
+            user_id: apporteurId,
             dossier_id: dossierId,
-            broker_id: createdDossier.broker_id,
+            broker_id: brokerId,
             activity_type: 'dossier_attribue',
             activity_title: 'Nouveau dossier attribué',
-            activity_description: clientNom 
-              ? `Un nouveau dossier pour ${clientNom} vous a été attribué par l'administrateur.`
-              : `Un nouveau dossier ${numeroDossier} vous a été attribué par l'administrateur.`,
+            activity_description: clientNom
+              ? `Un nouveau dossier pour ${clientNom} vous a été attribué.`
+              : `Un nouveau dossier ${numeroDossier} vous a été attribué.`,
             activity_data: {
               dossier_numero: numeroDossier,
               dossier_type: dossierData.type,
               client_nom: clientNom,
               created_by_admin: true,
-              action: 'dossier_attribue'
+              admin_id: authUser.id
             }
           })
-        console.log('[API] Activité dossier_attribue créée avec succès')
       } catch (error) {
-        console.warn('[API] Erreur non critique avec activité dossier_attribue:', error)
+        console.warn('[API Dossiers Create] Erreur création activité (non bloquant):', error)
       }
     }
-
-    // Créer une notification
+    
+    // Notification
     try {
-      console.log('[API] Création de la notification...')
-      await supabaseClient
+      const notificationUserId = dossierData.createdByAdmin && apporteurId ? apporteurId : authUser.id
+      
+      await serviceClient
         .from('notifications')
         .insert({
           title: dossierData.createdByAdmin ? 'Nouveau dossier assigné' : 'Nouveau dossier créé',
-          message: dossierData.createdByAdmin 
+          message: dossierData.createdByAdmin
             ? `Un nouveau dossier ${numeroDossier} vous a été assigné.`
-            : `Votre dossier ${numeroDossier} a été créé avec succès et est en cours de traitement.`,
+            : `Votre dossier ${numeroDossier} a été créé avec succès.`,
           type: 'info',
-          user_id: dossierData.createdByAdmin ? (dossierData as any).apporteurId || user?.id : user?.id,
+          user_id: notificationUserId,
           data: { dossier_id: dossierId }
         })
-      console.log('[API] Notification créée avec succès')
     } catch (error) {
-      console.warn('[API] Erreur non critique avec notification:', error)
+      console.warn('[API Dossiers Create] Erreur création notification (non bloquant):', error)
     }
-
-    // Tracking analytics
+    
+    // Analytics
     try {
       await AnalyticsService.trackDossierCreated(
         dossierId,
-        createdDossier.broker_id || undefined,
+        brokerId || undefined,
         apporteurId || undefined,
         dossierData.createdByAdmin ? 'admin' : 'apporteur'
-      );
-    } catch (analyticsError) {
-      console.warn('[API] Erreur non critique analytics:', analyticsError);
+      )
+    } catch (error) {
+      console.warn('[API Dossiers Create] Erreur analytics (non bloquant):', error)
     }
-
+    
+    // ========================================
+    // 10. RÉPONSE SUCCÈS
+    // ========================================
+    console.log('[API Dossiers Create] Succès:', dossierId)
+    
     return NextResponse.json({
       success: true,
       dossier: {
         id: dossierId,
-        numeroDossier: numeroDossier,
-        statut: dossierData.createdByAdmin ? 'nouveau' : 'en_attente',
-        commentaire: dossierData.commentaire
+        numeroDossier,
+        statut: 'en_attente',
+        brokerId,
+        apporteurId
       }
     })
-
+    
   } catch (error) {
-    console.error('[API] Erreur création dossier:', error)
-    console.error('[API] Stack trace:', error instanceof Error ? error.stack : 'No stack')
+    console.error('[API Dossiers Create] Erreur inattendue:', error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Erreur interne',
-        details: error instanceof Error ? error.stack : undefined
+      { 
+        error: 'Erreur interne du serveur', 
+        details: error instanceof Error ? error.message : 'Erreur inconnue' 
       },
-      { status: 400 }
+      { status: 500 }
     )
   }
 }

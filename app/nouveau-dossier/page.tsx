@@ -21,11 +21,9 @@ export interface ClientInfo {
   prenom: string;
   nom_naissance: string;
   dateNaissance: string;
-  lieu_naissance: string;  // OBLIGATOIRE pour Exade
   
   // Adresse séparée (obligatoire Exade)
   adresse: string;
-  complement_adresse: string;
   code_postal: string;
   ville: string;
   
@@ -35,7 +33,6 @@ export interface ClientInfo {
   
   // Professionnel
   categorie_professionnelle: number;
-  revenus: string;
   
   // Santé / Risques (obligatoire pour Generali, SwissLife, MNCAP)
   fumeur: boolean;
@@ -49,7 +46,6 @@ export interface ClientInfo {
     prenom: string;
     nom_naissance: string;
     dateNaissance: string;
-    lieu_naissance: string;
     categorie_professionnelle: number;
     fumeur: boolean;
     deplacement_pro: number;

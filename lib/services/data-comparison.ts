@@ -115,10 +115,10 @@ export class DataComparisonService {
     if (!extracted.principal) return diffs
 
     const fields = [
-      { current: current.civilite, extracted: extracted.principal.civilite, field: 'civilite' },
+      { current: current.client_civilite, extracted: extracted.principal.civilite, field: 'civilite' },
       { current: current.client_nom, extracted: extracted.principal.nom, field: 'nom' },
       { current: current.client_prenom, extracted: extracted.principal.prenom, field: 'prenom' },
-      { current: current.nom_naissance, extracted: extracted.principal.nomNaissance, field: 'nomNaissance' },
+      { current: current.client_nom_naissance, extracted: extracted.principal.nomNaissance, field: 'nomNaissance' },
       { current: current.client_date_naissance, extracted: extracted.principal.dateNaissance, field: 'dateNaissance' },
       { current: current.client_fumeur, extracted: extracted.principal.fumeur, field: 'fumeur' },
       { current: current.categorie_professionnelle, extracted: extracted.principal.categorieProfessionnelle, field: 'categorieProfessionnelle' },

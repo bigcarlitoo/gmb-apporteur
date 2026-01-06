@@ -20,6 +20,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useBrokerContext } from '@/hooks/useBrokerContext';
 import { ClientLockService, ClientLockResult } from '@/lib/services/client-lock';
 import { ApporteursService } from '@/lib/services/apporteurs';
+import { DevisDetailModal } from '@/components/features/devis/DevisDetailModal';
 
 // Types pour le dossier admin
 export type DossierType = 'seul' | 'couple';
@@ -30,15 +31,12 @@ export interface ClientInfo {
   prenom: string;
   nom_naissance: string;
   dateNaissance: string;
-  lieu_naissance: string;
   adresse: string;
-  complement_adresse: string;
   code_postal: string;
   ville: string;
   email: string;
   telephone: string;
   categorie_professionnelle: number;
-  revenus: string;
   fumeur: boolean;
   deplacement_pro: number;
   travaux_manuels: number;
@@ -48,7 +46,6 @@ export interface ClientInfo {
     prenom: string;
     nom_naissance: string;
     dateNaissance: string;
-    lieu_naissance: string;
     categorie_professionnelle: number;
     fumeur: boolean;
     deplacement_pro: number;
@@ -134,6 +131,13 @@ function AdminNouveauDossierContent() {
     devisGeneres: [],
     devisSelectionne: undefined
   });
+  
+  // État pour le dossier brouillon créé (nécessaire pour l'extraction et EXADE)
+  const [draftDossierId, setDraftDossierId] = useState<string | null>(null);
+  // État pour les données extraites des documents
+  const [extractedData, setExtractedData] = useState<any>(null);
+  // État pour le message d'extraction
+  const [extractionStatus, setExtractionStatus] = useState<string | null>(null);
   
   const { user } = useAuth();
   const { currentBrokerId } = useBrokerContext();
@@ -322,6 +326,7 @@ function AdminNouveauDossierContent() {
   };
 
   // Fonction séparée pour la soumission de l'étape 3
+  // Crée le dossier brouillon, uploade les documents, lance l'extraction IA, puis génère les devis
   const handleSubmitStep3 = async () => {
     // Vérifier si tous les documents obligatoires sont présents
     const isComplete = isDossierComplete();
@@ -331,93 +336,216 @@ function AdminNouveauDossierContent() {
       return;
     }
 
-    // Générer les devis automatiquement
-    await generateDevis(dossierData);
-    
-    // Passer à l'étape suivante
-    nextStep();
+    if (!currentBrokerId) {
+      alert('Erreur: Aucun courtier sélectionné. Veuillez vous reconnecter.');
+      return;
+    }
+
+    setIsGeneratingDevis(true);
+    setExtractionStatus('Création du dossier...');
+
+    try {
+      // Étape 1: Créer le dossier brouillon et uploader les documents
+      const formData = new FormData();
+      formData.append('type', dossierData.type);
+      formData.append('clientInfo', JSON.stringify(dossierData.clientInfo));
+      formData.append('commentaire', dossierData.commentaire || '');
+      formData.append('isComplete', 'false'); // Brouillon
+      formData.append('createdByAdmin', 'true');
+      formData.append('broker_id', currentBrokerId);
+
+      // Ajouter les documents
+      if (dossierData.documents.offrePret) {
+        formData.append('documents.offrePret', dossierData.documents.offrePret);
+      }
+      if (dossierData.documents.tableauAmortissement) {
+        formData.append('documents.tableauAmortissement', dossierData.documents.tableauAmortissement);
+      }
+      if (dossierData.documents.carteIdentite) {
+        formData.append('documents.carteIdentite', dossierData.documents.carteIdentite);
+      }
+      if (dossierData.type === 'couple' && dossierData.documents.carteIdentiteConjoint) {
+        formData.append('documents.carteIdentiteConjoint', dossierData.documents.carteIdentiteConjoint);
+      }
+
+      console.log('[AdminNouveauDossier] Création du dossier brouillon...');
+      const createResponse = await fetch('/api/dossiers/create', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        throw new Error(errorData.error || 'Erreur lors de la création du dossier');
+      }
+
+      const createResult = await createResponse.json();
+      const dossierId = createResult.dossier?.id;
+
+      if (!dossierId) {
+        throw new Error('ID du dossier non retourné');
+      }
+
+      console.log('[AdminNouveauDossier] Dossier créé:', dossierId);
+      setDraftDossierId(dossierId);
+
+      // Étape 2: Lancer l'extraction IA des documents
+      setExtractionStatus('Extraction des données des documents...');
+      console.log('[AdminNouveauDossier] Lancement de l\'extraction IA...');
+      
+      const extractionResponse = await fetch('/api/extraction/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dossierId })
+      });
+
+      if (!extractionResponse.ok) {
+        const extractionError = await extractionResponse.json();
+        console.warn('[AdminNouveauDossier] Extraction partielle:', extractionError);
+        // On continue même si l'extraction échoue partiellement
+      } else {
+        const extractionResult = await extractionResponse.json();
+        console.log('[AdminNouveauDossier] Extraction réussie:', extractionResult);
+        setExtractedData(extractionResult.data);
+      }
+
+      // Étape 3: Récupérer les données du dossier mis à jour (avec données extraites)
+      setExtractionStatus('Génération des devis...');
+      await generateDevisFromDossier(dossierId);
+      
+      // Passer à l'étape suivante
+      nextStep();
+
+    } catch (error: any) {
+      console.error('[AdminNouveauDossier] Erreur handleSubmitStep3:', error);
+      setDevisError(error?.message || 'Erreur lors du traitement');
+      alert(`Erreur: ${error?.message || 'Erreur inconnue'}`);
+    } finally {
+      setIsGeneratingDevis(false);
+      setExtractionStatus(null);
+    }
   };
 
-  // Génération des devis via l'API
-  const generateDevis = async (data: AdminDossierData) => {
-    setIsGeneratingDevis(true);
-    
+  /**
+   * Génère les devis via l'API EXADE en utilisant les données extraites du dossier
+   * Cette fonction est appelée après la création du dossier et l'extraction IA
+   * Elle utilise le même format que la page de détail (AdminDossierDetailContent.tsx)
+   */
+  const generateDevisFromDossier = async (dossierId: string) => {
     try {
-      // Essayer d'abord l'API EXADE réelle
-      try {
-        const response = await fetch('/api/exade/tarifs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            broker_id: currentBrokerId,
-            client: {
-              nom: data.clientInfo?.nom,
-              prenom: data.clientInfo?.prenom,
-              dateNaissance: data.clientInfo?.dateNaissance,
-              fumeur: data.clientInfo?.fumeur,
-              categorie_professionnelle: data.clientInfo?.categorie_professionnelle,
-              revenus: parseFloat(data.clientInfo?.revenus || '0')
-            },
-            pret: {
-              montant: 350000, // Valeur par défaut pour les tests
-              duree: 240,
-              type: 'immobilier'
-            },
-            conjoint: data.type === 'couple' ? {
-              nom: data.clientInfo?.conjoint?.nom,
-              prenom: data.clientInfo?.conjoint?.prenom,
-              dateNaissance: data.clientInfo?.conjoint?.dateNaissance,
-              fumeur: data.clientInfo?.conjoint?.fumeur,
-              categorie_professionnelle: data.clientInfo?.conjoint?.categorie_professionnelle
-            } : null
-          })
+      console.log('[AdminNouveauDossier] Récupération des données du dossier...');
+      
+      // Utiliser le client Supabase avec la session utilisateur
+      const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
+      const supabaseClient = createBrowserSupabaseClient();
+
+      // Récupérer le dossier avec ses données extraites
+      const { data: dossierDb, error: dossierError } = await supabaseClient
+        .from('dossiers')
+        .select(`
+          *,
+          client_infos(*),
+          pret_data(*)
+        `)
+        .eq('id', dossierId)
+        .single();
+
+      if (dossierError || !dossierDb) {
+        throw new Error('Impossible de récupérer les données du dossier');
+      }
+
+      // Préparer les données pour l'API EXADE
+      // Format identique à AdminDossierDetailContent.tsx
+      const clientInfoForExade = Array.isArray(dossierDb.client_infos) 
+        ? dossierDb.client_infos[0] 
+        : dossierDb.client_infos;
+      
+      const pretDataForExade = Array.isArray(dossierDb.pret_data)
+        ? dossierDb.pret_data[0]
+        : dossierDb.pret_data;
+
+      // Si pas de données de prêt extraites, utiliser des valeurs par défaut
+      // Mais prévenir l'utilisateur
+      if (!pretDataForExade) {
+        console.warn('[AdminNouveauDossier] Données de prêt non extraites, utilisation des valeurs par défaut');
+      }
+
+      console.log('[AdminNouveauDossier] Appel API EXADE avec:', {
+        broker_id: currentBrokerId,
+        hasClientInfo: !!clientInfoForExade,
+        hasPretData: !!pretDataForExade
+      });
+
+      // Appel à l'API EXADE - Format identique à la page de détail
+      const response = await fetch('/api/exade/tarifs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker_id: currentBrokerId,
+          clientInfo: clientInfoForExade || dossierDb,
+          pretData: pretDataForExade || dossierDb.infos_pret || {
+            montant_capital: 200000,
+            duree_mois: 240,
+            type_pret_code: 1,
+            objet_financement_code: 1
+          }
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Erreur API EXADE');
+      }
+
+      const tarifs: any[] = payload?.tarifs || [];
+      console.log('[AdminNouveauDossier] Tarifs reçus:', tarifs.length);
+
+      if (tarifs.length > 0) {
+        // Récupérer les données pour calculer l'économie
+        const coutAssuranceBanque = pretDataForExade?.cout_assurance_banque || 0;
+        const dureeMois = pretDataForExade?.duree_mois || 240;
+        const coutTotalBanque = coutAssuranceBanque * dureeMois;
+        
+        console.log('[AdminNouveauDossier] Calcul économie:', { coutAssuranceBanque, dureeMois, coutTotalBanque });
+
+        // Mapper les tarifs vers le format DevisAPI
+        const devisFromAPI: DevisAPI[] = tarifs.map((t: any, index: number) => {
+          const coutTotal = t.cout_total || 0;
+          // Calculer l'économie seulement si on a le coût banque
+          const economie = coutTotalBanque > 0 ? (coutTotalBanque - coutTotal) : 0;
+          
+          return {
+            id: t.id_tarif || `devis_${index}`,
+            compagnie: t.compagnie || 'Compagnie',
+            produit: t.nom || 'Produit',
+            cout_mensuel: t.mensualite || 0,
+            cout_total: coutTotal,
+            economie_estimee: economie > 0 ? economie : 0,
+            formalites_medicales: t.formalites_medicales || t.formalites_detaillees || [],
+            couverture: t.garanties?.map((g: any) => g.nom) || ['Décès', 'PTIA'],
+            exclusions: [],
+            avantages: [],
+            taux_assurance: t.taux_capital_assure || 0,
+            frais_adhesion: t.frais_adhesion || 0,
+            frais_frac: t.frais_frac || 0
+          };
         });
 
-        if (response.ok) {
-          const apiResponse = await response.json();
-          console.log('✅ Devis générés via API EXADE:', apiResponse);
-          
-          // Mapper les données de l'API vers notre format
-          const devisFromAPI = apiResponse.map((quote: any, index: number) => ({
-            id: `devis_api_${index}`,
-            compagnie: quote.compagnie || 'Compagnie API',
-            produit: quote.produit || 'Produit API',
-            cout_mensuel: quote.cout_mensuel || 0,
-            cout_total: quote.cout_total || 0,
-            economie_estimee: quote.economie_estimee || 0,
-            formalites_medicales: quote.formalites_medicales || ['Questionnaire médical'],
-            couverture: quote.couverture || ['Décès', 'PTIA', 'ITT'],
-            exclusions: quote.exclusions || ['Suicide 1ère année'],
-            avantages: quote.avantages || ['Tarif préférentiel'],
-            taux_assurance: quote.taux_assurance || 0.35,
-            frais_adhesion: quote.frais_adhesion || 30,
-            frais_frac: quote.frais_frac || 15
-          }));
+        setDossierData(prev => ({
+          ...prev,
+          devisGeneres: devisFromAPI
+        }));
 
-          setDossierData(prev => ({
-            ...prev,
-            devisGeneres: devisFromAPI
-          }));
-
-          console.log('📋 Nombre de devis API:', devisFromAPI.length);
-          return;
-        }
-      } catch (apiError: any) {
-        console.error('❌ Erreur API EXADE:', apiError);
-        const errorMessage = apiError?.message || 'Erreur inconnue lors de la génération des devis';
-        setDevisError(errorMessage);
-        alert(`Erreur lors de la génération des devis : ${errorMessage}`);
+        console.log('✅ Devis générés avec succès:', devisFromAPI.length);
+      } else {
+        console.warn('[AdminNouveauDossier] Aucun tarif retourné par EXADE');
+        setDevisError('Aucun tarif disponible pour ce profil');
       }
 
     } catch (error: any) {
       console.error('❌ Erreur génération devis:', error);
-      const errorMessage = error?.message || 'Erreur lors de la génération des devis';
-      setDevisError(errorMessage);
-      alert(errorMessage);
-    } finally {
-      setIsGeneratingDevis(false);
+      throw error; // Propager l'erreur vers handleSubmitStep3
     }
   };
 
@@ -507,27 +635,74 @@ function AdminNouveauDossierContent() {
   };
 
   // Soumission finale du dossier
+  // Utilise le dossier brouillon créé à l'étape 3 si disponible
   const handleFinalSubmit = async (action: 'assign' | 'email') => {
     setIsSubmitting(true);
     
     try {
+      // Si le dossier brouillon existe déjà (créé à l'étape 3), le mettre à jour
+      if (draftDossierId) {
+        console.log('[AdminNouveauDossier] Mise à jour du dossier existant:', draftDossierId);
+        
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        // Mettre à jour le statut du dossier
+        const newStatut = action === 'assign' ? 'documents_fournis' : 'devis_envoye';
+        const { error: updateError } = await supabaseClient
+          .from('dossiers')
+          .update({
+            statut_canon: newStatut,
+            apporteur_id: dossierData.apporteurId || null,
+            commentaire: dossierData.commentaire,
+            devis_selectionne_id: dossierData.devisSelectionne,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', draftDossierId);
+
+        if (updateError) {
+          throw new Error(`Erreur mise à jour: ${updateError.message}`);
+        }
+
+        // Créer les devis en base si sélectionné
+        if (dossierData.devisSelectionne && dossierData.devisGeneres) {
+          const devisResponse = await fetch('/api/admin/devis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              dossierId: draftDossierId,
+              devis: dossierData.devisGeneres,
+              selectedDevisId: dossierData.devisSelectionne
+            })
+          });
+
+          if (!devisResponse.ok) {
+            console.warn('Erreur lors de la création des devis en base');
+          }
+        }
+
+        // Redirection vers le détail du dossier
+        router.push(`/admin/dossiers/${draftDossierId}`);
+        return;
+      }
+
+      // Fallback: créer un nouveau dossier si pas de brouillon
+      console.log('[AdminNouveauDossier] Création d\'un nouveau dossier (fallback)');
+      const formData = new FormData();
+      formData.append('type', dossierData.type);
+      formData.append('clientInfo', JSON.stringify(dossierData.clientInfo));
+      formData.append('commentaire', dossierData.commentaire || '');
+      formData.append('isComplete', 'true');
+      formData.append('createdByAdmin', 'true');
+      if (currentBrokerId) formData.append('broker_id', currentBrokerId);
+      if (dossierData.apporteurId) formData.append('apporteurId', dossierData.apporteurId);
+
       const response = await fetch('/api/dossiers/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          type: dossierData.type,
-          clientInfo: dossierData.clientInfo,
-          commentaire: dossierData.commentaire,
-          documents: dossierData.documents,
-          devisSelectionne: dossierData.devisSelectionne,
-          apporteurId: dossierData.apporteurId,
-          action: action,
-          isComplete: true,
-          createdByAdmin: true
-        })
+        body: formData
       });
 
       if (!response.ok) {
@@ -536,63 +711,87 @@ function AdminNouveauDossierContent() {
       }
 
       const result = await response.json();
-      
-      // Si un devis est sélectionné, créer les devis en base
-      if (dossierData.devisSelectionne && dossierData.devisGeneres) {
-        const selectedDevis = dossierData.devisGeneres.find(d => d.id === dossierData.devisSelectionne);
-        if (selectedDevis) {
-          // Créer les devis en base via l'API
-          const devisResponse = await fetch('/api/admin/devis', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              dossierId: result.dossier.id,
-              devis: dossierData.devisGeneres,
-              selectedDevisId: dossierData.devisSelectionne
-            })
-          });
-
-          if (!devisResponse.ok) {
-            console.warn('Erreur lors de la création des devis en base');
-          }
-        }
-      }
-      
-      // Redirection vers le détail du dossier créé
       router.push(`/admin/dossiers/${result.dossier.id}`);
       
     } catch (error) {
-      console.error('Erreur lors de la création du dossier:', error);
-      alert(`Erreur lors de la création du dossier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      console.error('Erreur lors de la finalisation du dossier:', error);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Fonction pour enregistrer le dossier sans l'envoyer
+  // Utilise le dossier brouillon créé à l'étape 3 si disponible
   const handleSaveDossier = async () => {
     setIsSubmitting(true);
     
     try {
+      // Si le dossier brouillon existe déjà, le mettre à jour
+      if (draftDossierId) {
+        console.log('[AdminNouveauDossier] Sauvegarde du dossier existant:', draftDossierId);
+        
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        // Mettre à jour le dossier
+        const { error: updateError } = await supabaseClient
+          .from('dossiers')
+          .update({
+            statut_canon: 'documents_fournis',
+            apporteur_id: dossierData.apporteurId || null,
+            commentaire: dossierData.commentaire,
+            devis_selectionne_id: dossierData.devisSelectionne,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', draftDossierId);
+
+        if (updateError) {
+          throw new Error(`Erreur mise à jour: ${updateError.message}`);
+        }
+
+        // Créer les devis en base si sélectionné
+        if (dossierData.devisSelectionne && dossierData.devisGeneres) {
+          try {
+            const devisResponse = await fetch('/api/admin/devis', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                dossierId: draftDossierId,
+                devis: dossierData.devisGeneres,
+                selectedDevisId: dossierData.devisSelectionne
+              })
+            });
+
+            if (!devisResponse.ok) {
+              console.warn('Erreur lors de la création des devis en base');
+            }
+          } catch (devisError) {
+            console.warn('Erreur lors de la création des devis:', devisError);
+          }
+        }
+
+        // Redirection vers la page des dossiers admin
+        router.push('/admin/dossiers');
+        return;
+      }
+
+      // Fallback: créer un nouveau dossier si pas de brouillon
+      console.log('[AdminNouveauDossier] Création d\'un nouveau dossier (fallback)');
+      const formData = new FormData();
+      formData.append('type', dossierData.type);
+      formData.append('clientInfo', JSON.stringify(dossierData.clientInfo));
+      formData.append('commentaire', dossierData.commentaire || '');
+      formData.append('isComplete', 'true');
+      formData.append('createdByAdmin', 'true');
+      if (currentBrokerId) formData.append('broker_id', currentBrokerId);
+
       const response = await fetch('/api/dossiers/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          type: dossierData.type,
-          clientInfo: dossierData.clientInfo,
-          commentaire: dossierData.commentaire,
-          documents: dossierData.documents,
-          devisSelectionne: dossierData.devisSelectionne,
-          apporteurId: dossierData.apporteurId,
-          action: 'save',
-          isComplete: true,
-          createdByAdmin: true
-        })
+        body: formData
       });
 
       if (!response.ok) {
@@ -600,36 +799,10 @@ function AdminNouveauDossierContent() {
         throw new Error(errorData.error || 'Erreur lors de la sauvegarde du dossier');
       }
 
-      const result = await response.json();
-      
-      // Si un devis est sélectionné, créer les devis en base
-      if (dossierData.devisSelectionne && dossierData.devisGeneres) {
-        try {
-          const devisResponse = await fetch('/api/admin/devis', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              dossierId: result.dossier.id,
-              devis: dossierData.devisGeneres,
-              selectedDevisId: dossierData.devisSelectionne
-            })
-          });
-
-          if (!devisResponse.ok) {
-            console.warn('Erreur lors de la création des devis en base');
-          }
-        } catch (devisError) {
-          console.warn('Erreur lors de la création des devis:', devisError);
-        }
-      }
-      
-      // Redirection vers la page des dossiers admin
       router.push('/admin/dossiers');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde du dossier:', error);
-      alert(`Erreur lors de la sauvegarde du dossier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -729,14 +902,19 @@ function AdminNouveauDossierContent() {
               <div className="bg-[#335FAD]/5 dark:bg-[#335FAD]/20 border border-[#335FAD]/20 dark:border-[#335FAD]/80 rounded-xl p-6 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#335FAD] mx-auto mb-4"></div>
                 <h3 className="text-lg font-medium text-[#335FAD] dark:text-[#335FAD]/80 mb-2">
-                  Génération des devis en cours...
+                  {extractionStatus || 'Génération des devis en cours...'}
                 </h3>
                 <p className="text-[#335FAD]/80 dark:text-[#335FAD]/80">
-                  Analyse des documents et calcul des meilleures offres disponibles
+                  {extractionStatus?.includes('Extraction') 
+                    ? 'L\'IA analyse vos documents pour extraire les informations du prêt'
+                    : extractionStatus?.includes('Création')
+                    ? 'Sauvegarde du dossier et des documents...'
+                    : 'Calcul des meilleures offres via l\'API EXADE'
+                  }
                 </p>
                 <div className="mt-4 bg-[#335FAD]/10 dark:bg-[#335FAD]/30 rounded-lg p-3">
                   <p className="text-xs text-[#335FAD] dark:text-[#335FAD] font-medium">
-                    🔄 Simulation API - En production, connecté à l'API Exade
+                    🔄 Connecté à l'API EXADE avec la configuration de votre courtier
                   </p>
                 </div>
               </div>
@@ -752,9 +930,9 @@ function AdminNouveauDossierContent() {
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                         Devis disponibles ({dossierData.devisGeneres.length})
                       </h3>
-                      <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
-                        <i className="ri-information-line"></i>
-                        <span>Données simulées pour test</span>
+                      <div className="flex items-center space-x-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">
+                        <i className="ri-check-line"></i>
+                        <span>Données EXADE en temps réel</span>
                       </div>
                     </div>
                     
@@ -945,151 +1123,54 @@ function AdminNouveauDossierContent() {
         )}
       </main>
 
-      {/* MODAL DÉTAIL DEVIS */}
+      {/* MODAL DÉTAIL DEVIS - Utilise le composant professionnel */}
       {showDevisModal && selectedDevisDetail && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowDevisModal(false)}></div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all sm:max-w-2xl w-full p-6 max-h-[90vh] my-[5vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-medium text-gray-900 dark:text-white">
-                  Détails du devis - {selectedDevisDetail.compagnie}
-                </h3>
-                <button
-                  onClick={() => setShowDevisModal(false)}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
-                >
-                  <i className="ri-close-line text-xl"></i>
-                </button>
-              </div>
-
-              {/* Badge simulation */}
-              <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
-                <div className="flex items-center">
-                  <i className="ri-code-line text-amber-600 dark:text-amber-400 mr-2"></i>
-                  <p className="text-xs text-amber-800 dark:text-amber-300">
-                    <strong>Mode Simulation :</strong> Ces données sont fictives pour tester le workflow. 
-                    En production, elles proviendront de l'API Exade.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {/* Informations principales */}
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                  <h4 className="font-medium text-[#335FAD] dark:text-[#335FAD]/80 mb-2">
-                    {selectedDevisDetail.produit}
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Coût mensuel
-                      </label>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(selectedDevisDetail.cout_mensuel)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Coût total
-                      </label>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(selectedDevisDetail.cout_total)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Économie estimée
-                      </label>
-                      <p className="text-lg font-medium text-green-600 dark:text-green-400">
-                        {formatCurrency(selectedDevisDetail.economie_estimee || 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Couverture */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-shield-check-line mr-2 text-green-500"></i>
-                    Couverture
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedDevisDetail.couverture.map((item, index) => (
-                      <div key={index} className="flex items-center bg-green-50 dark:bg-green-900/20 rounded p-3 border border-green-200 dark:border-green-800">
-                        <i className="ri-check-line text-green-600 dark:text-green-400 mr-2"></i>
-                        <p className="text-green-800 dark:text-green-300">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Formalités médicales */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-heart-pulse-line mr-2 text-orange-500"></i>
-                    Formalités médicales
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedDevisDetail.formalites_medicales.map((formalite, index) => (
-                      <div key={index} className="flex items-start bg-orange-50 dark:bg-orange-900/20 rounded p-3 border border-orange-200 dark:border-orange-800">
-                        <i className="ri-arrow-right-s-line text-orange-600 dark:text-orange-400 mt-0.5"></i>
-                        <p className="text-orange-800 dark:text-orange-300 ml-2">{formalite}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Exclusions */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-error-warning-line mr-2 text-amber-500"></i>
-                    Exclusions principales
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedDevisDetail.exclusions.map((item, index) => (
-                      <div key={index} className="flex items-center bg-amber-50 dark:bg-amber-900/20 rounded p-3 border border-amber-200 dark:border-amber-800">
-                        <i className="ri-close-line text-amber-600 dark:text-amber-400 mr-2"></i>
-                        <p className="text-amber-800 dark:text-amber-300">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Avantages */}
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                    <i className="ri-star-line mr-2 text-[#335FAD]"></i>
-                    Avantages spécifiques
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedDevisDetail.avantages.map((item, index) => (
-                      <div key={index} className="flex items-center bg-[#335FAD]/5 dark:bg-[#335FAD]/10 rounded p-3 border border-[#335FAD]/20 dark:border-[#335FAD]/30">
-                        <i className="ri-star-fill text-[#335FAD] dark:text-[#335FAD]/80 mr-2"></i>
-                        <p className="text-[#335FAD] dark:text-[#335FAD]/80">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Footer avec bouton */}
-                <div className="mt-6">
-                  <button
-                    onClick={() => {
-                      handleSelectDevis(selectedDevisDetail.id);
-                      setShowDevisModal(false);
-                    }}
-                    className="w-full bg-[#335FAD] hover:bg-[#335FAD]/90 dark:bg-[#335FAD] dark:hover:bg-[#335FAD]/90 text-white px-4 py-3 rounded-lg font-medium transition-colors cursor-pointer flex items-center justify-center"
-                  >
-                    <i className="ri-check-line mr-2"></i>
-                    Sélectionner ce devis
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DevisDetailModal
+          isOpen={showDevisModal}
+          onClose={() => setShowDevisModal(false)}
+          devis={{
+            id: selectedDevisDetail.id,
+            compagnie: selectedDevisDetail.compagnie,
+            produit: selectedDevisDetail.produit,
+            cout_mensuel: selectedDevisDetail.cout_mensuel,
+            cout_total: selectedDevisDetail.cout_total,
+            cout_total_tarif: selectedDevisDetail.cout_total,
+            economie_estimee: selectedDevisDetail.economie_estimee || 0,
+            frais_adhesion: selectedDevisDetail.frais_adhesion || 0,
+            frais_frac: selectedDevisDetail.frais_frac || 0,
+            id_simulation: '',
+            id_tarif: selectedDevisDetail.id,
+            detail_pret: {
+              capital: 0,
+              duree: 0,
+              taux_assurance: selectedDevisDetail.taux_assurance || 0
+            },
+            formalites_medicales: selectedDevisDetail.formalites_medicales || [],
+            formalites_detaillees: selectedDevisDetail.formalites_medicales || [],
+            couverture: selectedDevisDetail.couverture || [],
+            exclusions: selectedDevisDetail.exclusions || [],
+            avantages: selectedDevisDetail.avantages || [],
+            erreurs: [],
+            taux_capital_assure: selectedDevisDetail.taux_assurance,
+            donnees_devis: {
+              garanties: selectedDevisDetail.couverture?.map((g: string) => ({ nom: g, inclus: true })) || [],
+              formalites_medicales: selectedDevisDetail.formalites_medicales || [],
+              exclusions: selectedDevisDetail.exclusions || [],
+              avantages: selectedDevisDetail.avantages || []
+            },
+            statut: 'en_attente',
+            selected: dossierData.devisSelectionne === selectedDevisDetail.id
+          }}
+          coutAssuranceBanque={0}
+          onRecalculateDevis={async () => {}}
+          onSelectDevis={async (devisId) => {
+            handleSelectDevis(devisId);
+            setShowDevisModal(false);
+          }}
+          dossierStatut="nouveau"
+          brokerId={currentBrokerId || undefined}
+          clientInfo={dossierData.clientInfo}
+        />
       )}
 
       {/* MODAL ASSIGNATION APPORTEUR */}

@@ -11,11 +11,11 @@
 <licence>GMB#7ùuQefujig8fu1+rulyXa)it</licence>
 <code_courtier>815178</code_courtier>
 <type_operation>2</type_operation>
-
+<id_tarif>2</id_tarif>
 <retournerLesErreurs />
 
 <simulation>
-  <date_effet>20251222</date_effet>
+  <date_effet>20260106</date_effet>
   <frac_assurance>12</frac_assurance>
   <type_credit>0</type_credit>
   <id_objetdufinancement>1</id_objetdufinancement>
@@ -26,18 +26,18 @@
     <statut>1</statut>
     <type_adhesion>0</type_adhesion>
     <sexe>H</sexe>
-    <nom>MARTIN</nom>
-    <nom_naissance>MARTIN</nom_naissance>
-    <prenom>Pierre</prenom>
-    <adresse>42 avenue des Champs</adresse>
-    <ville>Lyon</ville>
-    <code_postal>69003</code_postal>
-    <lieu_naissance>Lyon</lieu_naissance>
+    <nom>ROBIN</nom>
+    <nom_naissance>Michelet</nom_naissance>
+    <prenom>Michelet</prenom>
+    <adresse>13 Rue de la Providence</adresse>
+    <ville>Cergy</ville>
+    <code_postal>95800</code_postal>
+    <lieu_naissance>Cergy</lieu_naissance>
     <velIdPaysNaissance>118</velIdPaysNaissance>
     <idnationalite>84</idnationalite>
     <idPaysResidenceFiscale>84</idPaysResidenceFiscale>
     <codepostalvillenaissance></codepostalvillenaissance>
-    <date_naissance>19850820</date_naissance>
+    <date_naissance>19780523</date_naissance>
     <franchise>90</franchise>
     <fumeur>N</fumeur>
     <deplacement_pro>1</deplacement_pro>
@@ -45,47 +45,14 @@
     <travaux_hauteur>1</travaux_hauteur>
     <manip_produit_dangereux>1</manip_produit_dangereux>
     <telephone></telephone>
-    <portable>0698765432</portable>
-    <email>pierre.martin@test.com</email>
-    <politique_expose>N</politique_expose>
-    <proche_politique_expose>N</proche_politique_expose>
-    <encours_lemoine>0</encours_lemoine>
-    <categ_pro>2</categ_pro>
-    <detail_profession></detail_profession>
-  </assure>
-  
-
-  <assure>
-    <numero>2</numero>
-    <statut>1</statut>
-    <type_adhesion>0</type_adhesion>
-    <sexe>F</sexe>
-    <nom>MARTIN</nom>
-    <nom_naissance>DUBOIS</nom_naissance>
-    <prenom>Marie</prenom>
-    <adresse></adresse>
-    <ville>PARIS</ville>
-    <code_postal>75001</code_postal>
-    <lieu_naissance>Marseille</lieu_naissance>
-    <velIdPaysNaissance>118</velIdPaysNaissance>
-    <idnationalite>84</idnationalite>
-    <idPaysResidenceFiscale>84</idPaysResidenceFiscale>
-    <codepostalvillenaissance></codepostalvillenaissance>
-    <date_naissance>19870312</date_naissance>
-    <franchise>90</franchise>
-    <fumeur>N</fumeur>
-    <deplacement_pro>1</deplacement_pro>
-    <travaux_manuels>0</travaux_manuels>
-    <travaux_hauteur>1</travaux_hauteur>
-    <manip_produit_dangereux>1</manip_produit_dangereux>
-    <telephone></telephone>
-    <portable>+33600000000</portable>
-    <email>client@example.com</email>
+    <portable>0789488272</portable>
+    <email>micheletrobin23@gmail.com</email>
     <politique_expose>N</politique_expose>
     <proche_politique_expose>N</proche_politique_expose>
     <encours_lemoine>0</encours_lemoine>
     <categ_pro>1</categ_pro>
     <detail_profession></detail_profession>
+    <commissionnement>2T6</commissionnement>
   </assure>
   
 
@@ -94,13 +61,13 @@
       <id_pret>1</id_pret>
       <numero>1</numero>
       <type_pret>1</type_pret>
-      <capital>40000000</capital>
-      <taux>325</taux>
+      <capital>19955324</capital>
+      <taux>90</taux>
       <type_taux>1</type_taux>
-      <duree>300</duree>
+      <duree>181</duree>
       <differe>0</differe>
       <amortissement>12</amortissement>
-      <date_deblocage>20251222</date_deblocage>
+      <date_deblocage>20260106</date_deblocage>
     </pret>
   
 
@@ -109,16 +76,9 @@
       <id_assure>1</id_assure>
       <id_pret>1</id_pret>
       <garantie>2</garantie>
-      <quotite>50</quotite> 
+      <quotite>100</quotite> 
     </garantie_pret>
   
-    <garantie_pret>
-      <id_assure>2</id_assure>
-      <id_pret>1</id_pret>
-      <garantie>2</garantie>
-      <quotite>50</quotite>
-    </garantie_pret>
-    
 </simulation>
         ]]>
       </webservice_tarificateurRequest>
