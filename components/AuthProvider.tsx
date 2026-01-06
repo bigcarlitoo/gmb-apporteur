@@ -150,7 +150,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: string, session: any) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
