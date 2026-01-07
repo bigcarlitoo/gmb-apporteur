@@ -365,7 +365,7 @@ export class AnalyticsService {
 
     // Compter par type d'événement
     const eventCounts: Record<string, number> = {};
-    data?.forEach(event => {
+    data?.forEach((event: { event_type: string; event_category: string; event_data: Record<string, unknown> | null; created_at: string }) => {
       eventCounts[event.event_type] = (eventCounts[event.event_type] || 0) + 1;
     });
 
