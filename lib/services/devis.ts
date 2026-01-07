@@ -279,7 +279,7 @@ export class DevisService {
       montantMoyen: 0
     }
 
-    data.forEach(devis => {
+    data.forEach((devis: { statut: string; date_generation: string | null; donnees_devis: Record<string, unknown> | null }) => {
       // Compter par statut
       stats.parStatut[devis.statut] = (stats.parStatut[devis.statut] || 0) + 1
       

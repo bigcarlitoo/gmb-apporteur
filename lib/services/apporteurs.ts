@@ -49,7 +49,7 @@ export class ApporteursService {
       throw baError
     }
     
-    const apporteurIds = brokerApporteurs?.map(ba => ba.apporteur_profile_id) || []
+    const apporteurIds = brokerApporteurs?.map((ba: { apporteur_profile_id: string }) => ba.apporteur_profile_id) || []
     
     if (apporteurIds.length === 0) {
       return []

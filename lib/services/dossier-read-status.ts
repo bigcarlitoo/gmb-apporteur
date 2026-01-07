@@ -71,7 +71,7 @@ export class DossierReadStatusService {
 
     // Compter par apporteur
     const stats: Record<string, number> = {}
-    data?.forEach(dossier => {
+    data?.forEach((dossier: { apporteur_id: string | null }) => {
       const apporteurId = dossier.apporteur_id
       if (apporteurId) {
         stats[apporteurId] = (stats[apporteurId] || 0) + 1

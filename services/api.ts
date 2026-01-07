@@ -330,7 +330,7 @@ export const api = {
             .eq('type', 'credit')
             .eq('status', 'available');
 
-        const totalEarnings = earningsData?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0;
+        const totalEarnings = earningsData?.reduce((sum: number, t: { amount: number | null }) => sum + Number(t.amount || 0), 0) || 0;
 
         // Map transactions to WalletTransaction type
         const recentHistory = (transactionsData || []).map((t: any) => ({
